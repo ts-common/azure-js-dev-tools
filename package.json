@@ -4,8 +4,9 @@
   "description": "Developer dependencies for TypeScript related projects",
   "main": "index.js",
   "scripts": {
-    "test": "run-p test:tslint",
-    "test:tslint": "tslint -p . -c tslint.json --exclude \"./test/**/*.ts\""
+    "build": "run-p tslint",
+    "test": "run-p tslint",
+    "tslint": "tslint -p . -c tslint.json --exclude \"./test/**/*.ts\""
   },
   "repository": {
     "type": "git",
