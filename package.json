@@ -12,6 +12,13 @@
     "type": "git",
     "url": "git+https://github.com/ts-common/repo-link.git"
   },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "lib/**/*.ts",
+    "LICENSE",
+    "README.md"
+  ],
   "keywords": [
     "azure",
     "javascript",
