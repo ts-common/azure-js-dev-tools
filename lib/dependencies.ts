@@ -99,7 +99,16 @@ function execute(command: string, workingDirectory: string): void {
  * @returns {string} The absolute path to this repository's folder path.
  */
 export function getThisRepositoryFolderPath(): string {
-  return resolvePath(__dirname, "..");
+  const searchForRepositoryRootRecursively = (parentPath: string): string => {
+    const packageJsonPath = getPackageJsonFilePath(parentPath);
+    if (fs.existsSync(packageJsonPath)) {
+      return parentPath;
+    } else {
+      return searchForRepositoryRootRecursively(resolvePath(parentPath, ".."));
+    }
+  };
+
+  return searchForRepositoryRootRecursively(resolvePath(__dirname, "../.."));
 }
 
 /**
