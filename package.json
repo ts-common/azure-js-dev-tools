@@ -1,6 +1,6 @@
 {
   "name": "@ts-common/repo-link",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "index.js",
   "scripts": {
@@ -14,6 +14,13 @@
     "type": "git",
     "url": "git+https://github.com/ts-common/repo-link.git"
   },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "lib/**/*.ts",
+    "LICENSE",
+    "README.md"
+  ],
   "keywords": [
     "azure",
     "javascript",
