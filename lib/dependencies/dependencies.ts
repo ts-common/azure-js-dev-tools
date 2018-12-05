@@ -103,7 +103,10 @@ function execute(command: string, workingDirectory: string): void {
  * @returns {string} The absolute path to this repository's folder path.
  */
 export function getThisRepositoryFolderPath(): string {
-  return resolvePath(__dirname, "..");
+  const scriptPath: string = __dirname;
+  const nodeModulesId = scriptPath.indexOf("node_modules");
+  const parentProjectPath = scriptPath.substring(0, nodeModulesId);
+  return parentProjectPath;
 }
 
 /**
@@ -270,9 +273,7 @@ export function updateLocalDependencies(packageFolders: PackageFolder[], localDe
 
   for (const packageFolder of packageFolders) {
     const packageFolderPath: string = packageFolder.folderPath;
-
     let refreshPackageFolder: boolean = forceRefresh;
-
     const packageJson: any = getPackageJson(resolvePath(packageFolderPath, "package.json"));
 
     const localDependencies: string[] = getClonedRepositories(packageJson.dependencies);
