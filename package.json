@@ -1,11 +1,13 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "index.js",
   "scripts": {
     "build": "run-p tslint build:tsc",
     "build:tsc": "tsc -p tsconfig.json",
+    "local": "node ./dist/local.js",
+    "latest": "node ./dist/latest.js",
     "prepack": "npm install && npm run build",
     "test": "run-p tslint",
     "tslint": "tslint -p . -c tslint.json --exclude \"./test/**/*.ts\""
