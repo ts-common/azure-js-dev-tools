@@ -1,19 +1,26 @@
+/**
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ */
+
 import path from "path";
 import { PackageFolder, getPackageJsonFilePath, getThisRepositoryFolderPath } from "./dependencies";
-import { getChildDirectories, pathExists } from "../common";
+import * as fssync from "fs";
+import { getChildDirectoriesSync } from "../filesystem";
 
 const repositoryRoot: string = getThisRepositoryFolderPath();
 
-async function findAllSubprojects(repositoryRoot: string): Promise<PackageFolder[]> {
+function findAllSubprojects(repositoryRoot: string): PackageFolder[] {
   const result: PackageFolder[] = [];
-  const childDirectories: string[] = await getChildDirectories(repositoryRoot);
+  const childDirectories: string[] = getChildDirectoriesSync(repositoryRoot);
   for (const dir of childDirectories) {
     if (dir.includes("node_modules")) {
       continue;
     }
 
-    if (await pathExists(getPackageJsonFilePath(dir))) {
-      const isLernaPackage = await pathExists(path.resolve(dir, "lerna.json"));
+    if (fssync.existsSync(getPackageJsonFilePath(dir))) {
+      const isLernaPackage = fssync.existsSync(path.resolve(dir, "lerna.json"));
       const packageFolder: PackageFolder = {
         folderPath: dir,
         isLernaPackage: isLernaPackage
@@ -25,8 +32,4 @@ async function findAllSubprojects(repositoryRoot: string): Promise<PackageFolder
   return result;
 }
 
-export const packageFolders: PackageFolder[] = [
-  {
-    folderPath: repositoryRoot
-  }
-];
+export const packageFolders: PackageFolder[] = findAllSubprojects(repositoryRoot);
