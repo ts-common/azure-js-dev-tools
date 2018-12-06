@@ -109,7 +109,8 @@ function execute(command: string, workingDirectory: string): void {
  * @returns {string} The absolute path to this repository's folder path.
  */
 export function getThisRepositoryFolderPath(): string {
-  const scriptPath: string = __dirname;
+  const scriptPath = "D:/autorest.typescript/node_modules/something"; // __dirname;
+  console.log(`Script path: ${scriptPath}`);
   const nodeModulesId = scriptPath.indexOf("node_modules");
   const parentProjectPath = scriptPath.substring(0, nodeModulesId);
   return parentProjectPath;
