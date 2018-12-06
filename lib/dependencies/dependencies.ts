@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ */
+
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
@@ -113,7 +119,7 @@ export function getThisRepositoryFolderPath(): string {
  * Get the absolute path to the package.json in this repository.
  * @returns {string} The absolute path to the package.json.
  */
-function getPackageJsonFilePath(packageFolder: string): string {
+export function getPackageJsonFilePath(packageFolder: string): string {
   return resolvePath(packageFolder, "package.json");
 }
 
