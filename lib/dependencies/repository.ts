@@ -13,9 +13,9 @@ const repositoryRoot: string = getThisRepositoryFolderPath();
 
 export function findAllSubprojects(rootDirectory: string): PackageFolder[] {
   function traverse(parentDir: string, result: PackageFolder[], isParentLernaPackage: boolean) {
-    const packageFolder = getPackageFolder(parentDir, isParentLernaPackage);
-    if (packageFolder) {
-      result.push(packageFolder);
+    const packageFolderData = getPackageFolder(parentDir, isParentLernaPackage);
+    if (packageFolderData) {
+      result.push(packageFolderData.packageFolder);
     }
 
     const childDirectories: string[] = getChildDirectoriesSync(parentDir);
@@ -24,29 +24,28 @@ export function findAllSubprojects(rootDirectory: string): PackageFolder[] {
         continue;
       }
 
-      const isLernaPackage = isParentLernaPackage || (packageFolder && packageFolder.isLernaPackage) || false;
+      const isLernaPackage = isParentLernaPackage || (packageFolderData && packageFolderData.lernaRootPackage) || false;
       traverse(path.resolve(parentDir, childDir), result, isLernaPackage);
     }
   }
-
 
   const result: PackageFolder[] = [];
   traverse(rootDirectory, result, false);
   return result;
 }
 
-function getPackageFolder(directory: string, isParentLernaPackage: boolean): PackageFolder | undefined {
+function getPackageFolder(directory: string, isParentLernaPackage: boolean): { packageFolder: PackageFolder, lernaRootPackage: boolean } | undefined {
   if (!fssync.existsSync(getPackageJsonFilePath(directory))) {
     return undefined;
   }
 
-  const isLernaPackage = fssync.existsSync(path.resolve(directory, "lerna.json"));
+  const lernaRootPackage = fssync.existsSync(path.resolve(directory, "lerna.json"));
   const packageFolder: PackageFolder = {
     folderPath: directory,
-    isLernaPackage: isParentLernaPackage || isLernaPackage
+    isLernaPackage: isParentLernaPackage
   };
 
-  return packageFolder;
+  return { packageFolder, lernaRootPackage };
 }
 
 export const packageFolders: PackageFolder[] = findAllSubprojects(repositoryRoot);
