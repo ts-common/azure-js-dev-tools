@@ -1,6 +1,6 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "index.js",
   "scripts": {

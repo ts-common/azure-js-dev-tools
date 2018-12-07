@@ -9,7 +9,10 @@ import { PackageFolder, getPackageJsonFilePath, getThisRepositoryFolderPath } fr
 import * as fssync from "fs";
 import { getChildDirectoriesSync } from "../filesystem";
 
+const directoriesToIgnore = [ ".git", "bin", "node_modules", "obj", "tmp" ];
+
 const repositoryRoot: string = getThisRepositoryFolderPath();
+console.log(`Project path: ${repositoryRoot}`);
 
 export function findAllSubprojects(rootDirectory: string): PackageFolder[] {
   function traverse(parentDir: string, result: PackageFolder[], isParentLernaPackage: boolean) {
@@ -20,12 +23,13 @@ export function findAllSubprojects(rootDirectory: string): PackageFolder[] {
 
     const childDirectories: string[] = getChildDirectoriesSync(parentDir);
     for (const childDir of childDirectories) {
-      if (childDir.includes("node_modules")) {
+      if (directoriesToIgnore.includes(childDir)) {
         continue;
       }
 
       const isLernaPackage = isParentLernaPackage || (packageFolderData && packageFolderData.lernaRootPackage) || false;
-      traverse(path.resolve(parentDir, childDir), result, isLernaPackage);
+      const childPath = path.resolve(parentDir, childDir);
+      traverse(childPath, result, isLernaPackage);
     }
   }
 

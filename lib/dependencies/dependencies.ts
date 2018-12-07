@@ -111,6 +111,9 @@ function execute(command: string, workingDirectory: string): void {
 export function getThisRepositoryFolderPath(): string {
   const scriptPath: string = __dirname;
   const nodeModulesId = scriptPath.indexOf("node_modules");
+  if (nodeModulesId === -1) {
+    throw new Error("The script was started outside of node_modules directory");
+  }
   const parentProjectPath = scriptPath.substring(0, nodeModulesId);
   return parentProjectPath;
 }
