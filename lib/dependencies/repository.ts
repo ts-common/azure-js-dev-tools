@@ -11,25 +11,41 @@ import { getChildDirectoriesSync } from "../filesystem";
 
 const repositoryRoot: string = getThisRepositoryFolderPath();
 
-function findAllSubprojects(repositoryRoot: string): PackageFolder[] {
-  const result: PackageFolder[] = [];
-  const childDirectories: string[] = getChildDirectoriesSync(repositoryRoot);
-  for (const dir of childDirectories) {
-    if (dir.includes("node_modules")) {
-      continue;
+export function findAllSubprojects(rootDirectory: string): PackageFolder[] {
+  function traverse(parentDir: string, result: PackageFolder[], isParentLernaPackage: boolean) {
+    const packageFolderData = getPackageFolder(parentDir, isParentLernaPackage);
+    if (packageFolderData) {
+      result.push(packageFolderData.packageFolder);
     }
 
-    if (fssync.existsSync(getPackageJsonFilePath(dir))) {
-      const isLernaPackage = fssync.existsSync(path.resolve(dir, "lerna.json"));
-      const packageFolder: PackageFolder = {
-        folderPath: dir,
-        isLernaPackage: isLernaPackage
-      };
-      result.push(packageFolder);
+    const childDirectories: string[] = getChildDirectoriesSync(parentDir);
+    for (const childDir of childDirectories) {
+      if (childDir.includes("node_modules")) {
+        continue;
+      }
+
+      const isLernaPackage = isParentLernaPackage || (packageFolderData && packageFolderData.lernaRootPackage) || false;
+      traverse(path.resolve(parentDir, childDir), result, isLernaPackage);
     }
   }
 
+  const result: PackageFolder[] = [];
+  traverse(rootDirectory, result, false);
   return result;
+}
+
+function getPackageFolder(directory: string, isParentLernaPackage: boolean): { packageFolder: PackageFolder, lernaRootPackage: boolean } | undefined {
+  if (!fssync.existsSync(getPackageJsonFilePath(directory))) {
+    return undefined;
+  }
+
+  const lernaRootPackage = fssync.existsSync(path.resolve(directory, "lerna.json"));
+  const packageFolder: PackageFolder = {
+    folderPath: directory,
+    isLernaPackage: isParentLernaPackage
+  };
+
+  return { packageFolder, lernaRootPackage };
 }
 
 export const packageFolders: PackageFolder[] = findAllSubprojects(repositoryRoot);
