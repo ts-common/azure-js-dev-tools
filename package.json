@@ -1,8 +1,9 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Developer dependencies for TypeScript related projects",
-  "main": "dist/index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "build": "run-p tslint build:tsc",
     "build:tsc": "tsc -p tsconfig.json",
