@@ -9,8 +9,6 @@ import { promises as fs } from "fs";
 import * as path from "path";
 
 export async function getChildDirectories(parent: string): Promise<string[]> {
-    console.log(`Reading child directories from ${parent}`);
-
     if (!(await pathExists(parent))) {
         throw new Error(`"${parent}" directory does not exist`);
     }
@@ -28,8 +26,6 @@ export async function getChildDirectories(parent: string): Promise<string[]> {
 }
 
 export function getChildDirectoriesSync(parent: string): string[] {
-    console.log(`Reading child directories from ${parent}`);
-
     if (!fssync.existsSync(parent)) {
         throw new Error(`"${parent}" directory does not exist`);
     }
