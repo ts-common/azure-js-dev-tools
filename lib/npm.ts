@@ -10,11 +10,11 @@ export function runNPM(args: string | string[], options?: RunOptions): RunResult
  * Run "npm install" from the optional packageFolderPath, or if packageFolderPath isn't specified,
  * then run "npm install" from the current directory.
  */
-function install(options?: RunOptions): RunResult {
+export function npmInstall(options?: RunOptions): RunResult {
   return runNPM("install", options);
 }
 
-export interface ViewResult extends RunResult {
+export interface NPMViewResult extends RunResult {
   _id?: string;
   _rev?: string;
   name?: string;
@@ -60,7 +60,7 @@ export interface ViewResult extends RunResult {
   };
 }
 
-function view(options?: RunOptions): ViewResult {
+export function npmView(options?: RunOptions): NPMViewResult {
   const commandResult: RunResult = runNPM(["view", "--json"], options);
   const npmViewResponse: any = JSON.parse(commandResult.stdout.trim());
   return {
@@ -74,7 +74,7 @@ export class NPMScope {
   }
 
   /**
-   * Run the provided NPM command within the context of this NPMFolder's folder path.
+   * Run the provided NPM command within the context of this NPMScope's options.
    */
   public run(args: string | string[], options?: RunOptions): RunResult {
     return runNPM(args, {
@@ -84,14 +84,14 @@ export class NPMScope {
   }
 
   public install(options?: RunOptions): RunResult {
-    return install({
+    return npmInstall({
       ...this.defaultOptions,
       ...options,
     });
   }
 
-  public view(options?: RunOptions): ViewResult {
-    return view({
+  public view(options?: RunOptions): NPMViewResult {
+    return npmView({
       ...this.defaultOptions,
       ...options,
     });
