@@ -20,19 +20,19 @@ export interface GitRunResult extends RunResult {
   error?: Error;
 }
 
-export function runGit(args: string | string[], options?: RunOptions): RunResult {
+export function gitRun(args: string | string[], options?: RunOptions): RunResult {
   return runSync("git", args, options);
 }
 
-export function fetch(options?: RunOptions): RunResult {
-  return runGit("fetch -p", options);
+export function gitFetch(options?: RunOptions): RunResult {
+  return gitRun("fetch -p", options);
 }
 
-export function mergeOriginMaster(options?: RunOptions): RunResult {
-  return runGit("merge origin master", options);
+export function gitMergeOriginMaster(options?: RunOptions): RunResult {
+  return gitRun("merge origin master", options);
 }
 
-export interface CheckoutResult extends GitRunResult {
+export interface GitCheckoutResult extends GitRunResult {
   /**
    * Get the files that would've been overwritten if this checkout operation had taken place. This
    * property will only be populated in an error scenario.
@@ -40,8 +40,8 @@ export interface CheckoutResult extends GitRunResult {
   filesThatWouldBeOverwritten?: string[];
 }
 
-export function checkout(refId: string, options?: RunOptions): CheckoutResult {
-  const runResult: RunResult = runGit(`checkout ${refId}`, options);
+export function gitCheckout(refId: string, options?: RunOptions): GitCheckoutResult {
+  const runResult: RunResult = gitRun(`checkout ${refId}`, options);
   let filesThatWouldBeOverwritten: string[] | undefined;
   if (runResult.stderr) {
     const stderrLines: string[] = runResult.stderr.split(/\r?\n/);
@@ -65,38 +65,38 @@ export function checkout(refId: string, options?: RunOptions): CheckoutResult {
   };
 }
 
-export function pull(options?: RunOptions): RunResult {
-  return runGit(`pull`, options);
+export function gitPull(options?: RunOptions): RunResult {
+  return gitRun(`pull`, options);
 }
 
-export function push(options?: RunOptions): RunResult {
-  return runGit(`push`, options);
+export function gitPush(options?: RunOptions): RunResult {
+  return gitRun(`push`, options);
 }
 
-export function addAll(options?: RunOptions): RunResult {
-  return runGit("add *", options);
+export function gitAddAll(options?: RunOptions): RunResult {
+  return gitRun("add *", options);
 }
 
-export function commit(commitMessage: string, options?: RunOptions): RunResult {
-  return runGit(["commit", "-m", commitMessage], options);
+export function gitCommit(commitMessage: string, options?: RunOptions): RunResult {
+  return gitRun(["commit", "-m", commitMessage], options);
 }
 
-export function deleteLocalBranch(branchName: string, options?: RunOptions): RunResult {
-  return runGit(`branch -D ${branchName}`, options);
+export function gitDeleteLocalBranch(branchName: string, options?: RunOptions): RunResult {
+  return gitRun(`branch -D ${branchName}`, options);
 }
 
 /**
  * The result of a "git diff" command.
  */
-export interface DiffResult extends GitRunResult {
+export interface GitDiffResult extends GitRunResult {
   /**
    * The files that are reported as being changed by the diff command.
    */
   filesChanged: string[];
 }
 
-export function diff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): DiffResult {
-  const commandResult: RunResult = runGit(`diff --name-only ${baseCommitSha} ${headCommitSha}`, options);
+export function gitDiff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): GitDiffResult {
+  const commandResult: RunResult = gitRun(`diff --name-only ${baseCommitSha} ${headCommitSha}`, options);
   const filesChanged: string[] = [];
   const repositoryFolderPath: string | undefined = (options && options.executionFolderPath) || process.cwd();
   for (const fileChanged of getLines(commandResult.stdout)) {
@@ -110,13 +110,13 @@ export function diff(baseCommitSha: string, headCommitSha: string, options?: Run
   };
 }
 
-export interface BranchResult extends GitRunResult {
+export interface GitBranchResult extends GitRunResult {
   localBranches: string[];
   currentBranch: string;
 }
 
-export function branch(options?: RunOptions): BranchResult {
-  const commandResult: RunResult = runGit("branch", options);
+export function gitBranch(options?: RunOptions): GitBranchResult {
+  const commandResult: RunResult = gitRun("branch", options);
   let currentBranch = "";
   const localBranches: string[] = [];
   for (let branch of commandResult.stdout.split(/\r?\n/)) {
@@ -138,7 +138,7 @@ export function branch(options?: RunOptions): BranchResult {
   };
 }
 
-export interface StatusResult extends RunResult {
+export interface GitStatusResult extends GitRunResult {
   /**
    * The current local branch.
    */
@@ -186,7 +186,7 @@ function isUntrackedFilesHeader(text: string): boolean {
 /**
  * Run "git status".
  */
-export function status(options?: RunOptions): StatusResult {
+export function gitStatus(options?: RunOptions): GitStatusResult {
   const folderPath: string = (options && options.executionFolderPath) || process.cwd();
 
   let parseState: StatusParseState = "CurrentBranch";
@@ -199,7 +199,7 @@ export function status(options?: RunOptions): StatusResult {
   let notStagedDeletedFiles: string[] | undefined;
   let untrackedFiles: string[] | undefined;
 
-  const runResult: RunResult = runGit("status", options);
+  const runResult: RunResult = gitRun("status", options);
   const lines: string[] = getLines(runResult.stdout);
   let lineIndex = 0;
   while (lineIndex < lines.length) {
@@ -320,84 +320,84 @@ export class GitScope {
   }
 
   public run(args: string | string[], options?: RunOptions): RunResult {
-    return runGit(args, {
+    return gitRun(args, {
       ...this.options,
       ...options,
     });
   }
 
   public fetch(options?: RunOptions): RunResult {
-    return fetch({
+    return gitFetch({
       ...this.options,
       ...options,
     });
   }
 
   public mergeOriginMaster(options?: RunOptions): RunResult {
-    return mergeOriginMaster({
+    return gitMergeOriginMaster({
       ...this.options,
       ...options
     });
   }
 
-  public checkout(refId: string, options?: RunOptions): CheckoutResult {
-    return checkout(refId, {
+  public checkout(refId: string, options?: RunOptions): GitCheckoutResult {
+    return gitCheckout(refId, {
       ...this.options,
       ...options
     });
   }
 
   public pull(options?: RunOptions): RunResult {
-    return pull({
+    return gitPull({
       ...this.options,
       ...options
     });
   }
 
   public push(options?: RunOptions): RunResult {
-    return push({
+    return gitPush({
       ...this.options,
       ...options
     });
   }
 
   public addAll(options?: RunOptions): RunResult {
-    return addAll({
+    return gitAddAll({
       ...this.options,
       ...options
     });
   }
 
   public commit(commitMessage: string, options?: RunOptions): RunResult {
-    return commit(commitMessage, {
+    return gitCommit(commitMessage, {
       ...this.options,
       ...options
     });
   }
 
   public deleteLocalBranch(branchName: string, options?: RunOptions): RunResult {
-    return deleteLocalBranch(branchName, {
+    return gitDeleteLocalBranch(branchName, {
       ...this.options,
       ...options
     });
   }
 
-  public diff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): DiffResult {
-    return diff(baseCommitSha, headCommitSha, {
+  public diff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): GitDiffResult {
+    return gitDiff(baseCommitSha, headCommitSha, {
       ...this.options,
       ...options,
     });
   }
 
-  public branch(options?: RunOptions): BranchResult {
-    return branch({
+  public branch(options?: RunOptions): GitBranchResult {
+    return gitBranch({
       ...this.options,
       ...options,
     });
   }
 
-  public status(options?: RunOptions): StatusResult {
-    return status({
+  public status(options?: RunOptions): GitStatusResult {
+    return gitStatus({
       ...this.options,
       ...options,
     });

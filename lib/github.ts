@@ -20,14 +20,14 @@ export interface GitHubMilestone {
   state: "open" | "closed";
 }
 
-export interface SprintLabel {
+export interface GitHubSprintLabel {
   sprint: number;
   unplannedColor?: string;
   plannedColor?: string;
   startedColor?: string;
 }
 
-export interface SprintMilestone {
+export interface GitHubSprintMilestone {
   milestoneNumber?: number;
   sprint: number;
   endDate: string;
@@ -67,16 +67,16 @@ export interface GitHubCommit {
  * @param githubPullRequest The pull request to look for the label in.
  * @param labelName The name of the label to look for.
  */
-export function GitHubPullRequestGetLabel(githubPullRequest: GitHubPullRequest, labelName: string): GitHubLabel | undefined {
+export function gitHubPullRequestGetLabel(githubPullRequest: GitHubPullRequest, labelName: string): GitHubLabel | undefined {
   return arrays.first(githubPullRequest.labels, (label: GitHubLabel) => label.name === labelName);
 }
 
-export function GitHubPullRequestGetLabels(githubPullRequest: GitHubPullRequest, labelNames: string | string[]): GitHubLabel[] {
+export function gitHubPullRequestGetLabels(githubPullRequest: GitHubPullRequest, labelNames: string | string[]): GitHubLabel[] {
   const labelNamesArray: string[] = (typeof labelNames === "string" ? [labelNames] : labelNames);
   return arrays.where(githubPullRequest.labels, (label: GitHubLabel) => arrays.contains(labelNamesArray, label.name));
 }
 
-export function GitHubPullRequestGetAssignee(githubPullRequest: GitHubPullRequest, assignee: GitHubUser | string | number): GitHubUser | undefined {
+export function gitHubPullRequestGetAssignee(githubPullRequest: GitHubPullRequest, assignee: GitHubUser | string | number): GitHubUser | undefined {
   return arrays.first(githubPullRequest.assignees, (existingAssignee: GitHubUser) => {
     let isMatch = false;
     if (typeof assignee === "number") {
@@ -94,7 +94,7 @@ export function GitHubPullRequestGetAssignee(githubPullRequest: GitHubPullReques
  * Optional parameters that can be provided to the GitHub.getMilestones() function to restrict the
  * returned milestones.
  */
-export interface GetMilestonesOptions {
+export interface GitHubGetMilestonesOptions {
   /**
    * Filter the results to the milestones that are either open (true) or closed (false). If this
    * value is undefined, then all milestones will be returned.
@@ -106,7 +106,7 @@ export interface GetMilestonesOptions {
  * Optional parameters that can be provided to the GitHub.getPullRequests() function to restrict the
  * returned pull requests.
  */
-export interface GetPullRequestsOptions {
+export interface GitHubGetPullRequestsOptions {
   /**
    * Filter the results to the pull requests that are either open (true) or closed (false). If this
    * value is undefined, then all pull requests will be returned.
@@ -187,10 +187,10 @@ export class GitHub {
    * Get all of the labels that contain "-Sprint-" in the repository with the provided name.
    * @param repositoryName The name of the repository to look in.
    */
-  public getSprintLabels(repositoryName: string): Promise<SprintLabel[]> {
+  public getSprintLabels(repositoryName: string): Promise<GitHubSprintLabel[]> {
     return this.getLabels(repositoryName)
       .then((githubLabels: GitHubLabel[]) => {
-        const repositorySprintLabels: SprintLabel[] = [];
+        const repositorySprintLabels: GitHubSprintLabel[] = [];
         for (const repositoryLabel of githubLabels) {
           if (repositoryLabel && repositoryLabel.name && repositoryLabel.name.includes("-Sprint-")) {
             const repositoryLabelName: string = repositoryLabel.name;
@@ -201,7 +201,7 @@ export class GitHub {
             const lastDashIndex: number = repositoryLabelName.lastIndexOf("-");
             const sprintNumber: number = parseInt(repositoryLabelName.substring(lastDashIndex + 1));
 
-            let sprintLabel: SprintLabel | undefined = arrays.first(repositorySprintLabels, (resultLabel: SprintLabel) => resultLabel.sprint === sprintNumber);
+            let sprintLabel: GitHubSprintLabel | undefined = arrays.first(repositorySprintLabels, (resultLabel: GitHubSprintLabel) => resultLabel.sprint === sprintNumber);
             if (sprintLabel == undefined) {
               sprintLabel = {
                 sprint: sprintNumber
@@ -298,7 +298,7 @@ export class GitHub {
    * @param repositoryName The name of the repository to get all of the milestones of.
    * @returns All of the milestones that exist in the provided repository.
    */
-  public getMilestones(repositoryName: string, options?: GetMilestonesOptions): Promise<GitHubMilestone[]> {
+  public getMilestones(repositoryName: string, options?: GitHubGetMilestonesOptions): Promise<GitHubMilestone[]> {
     let milestoneState: "open" | "closed" | "all" = "all";
     if (options) {
       if (options.open === true) {
@@ -329,12 +329,12 @@ export class GitHub {
    * @param repositoryName The name of the repository.
    * @returns All of the sprint milestones in the provided repository.
    */
-  public getSprintMilestones(repositoryName: string, options?: GetMilestonesOptions): Promise<SprintMilestone[]> {
+  public getSprintMilestones(repositoryName: string, options?: GitHubGetMilestonesOptions): Promise<GitHubSprintMilestone[]> {
     return this.getMilestones(repositoryName, options)
       .then((githubMilestones: GitHubMilestone[]) => {
-        const repositorySprintMilestones: SprintMilestone[] = [];
+        const repositorySprintMilestones: GitHubSprintMilestone[] = [];
         for (const githubMilestone of githubMilestones) {
-          const sprintMilestone: SprintMilestone | undefined = githubMilestoneToSprintMilestone(githubMilestone);
+          const sprintMilestone: GitHubSprintMilestone | undefined = githubMilestoneToSprintMilestone(githubMilestone);
           if (sprintMilestone) {
             repositorySprintMilestones.push(sprintMilestone);
           }
@@ -377,7 +377,7 @@ export class GitHub {
    * @param sprintNumber The number of the sprint that the milestone will be associated with.
    * @param sprintEndDate The last day of the sprint.
    */
-  public createSprintMilestone(repositoryName: string, sprintNumber: number, sprintEndDate: string): Promise<SprintMilestone | undefined> {
+  public createSprintMilestone(repositoryName: string, sprintNumber: number, sprintEndDate: string): Promise<GitHubSprintMilestone | undefined> {
     const milestoneName = getSprintMilestoneName(sprintNumber);
     return this.createMilestone(repositoryName, milestoneName, { endDate: sprintEndDate })
       .then((githubMilestone: GitHubMilestone) => {
@@ -409,7 +409,7 @@ export class GitHub {
     });
   }
 
-  public updateSprintMilestoneEndDate(repositoryName: string, sprintMilestone: SprintMilestone, newSprintEndDate: string): Promise<SprintMilestone> {
+  public updateSprintMilestoneEndDate(repositoryName: string, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string): Promise<GitHubSprintMilestone> {
     return this.updateMilestoneEndDate(repositoryName, sprintMilestone.milestoneNumber!, newSprintEndDate)
       .then((githubMilestone: GitHubMilestone) => {
         return githubMilestoneToSprintMilestone(githubMilestone)!;
@@ -433,7 +433,7 @@ export class GitHub {
     });
   }
 
-  public closeSprintMilestone(repositoryName: string, sprintMilestone: SprintMilestone): Promise<void> {
+  public closeSprintMilestone(repositoryName: string, sprintMilestone: GitHubSprintMilestone): Promise<void> {
     return this.closeMilestone(repositoryName, sprintMilestone.milestoneNumber!);
   }
 
@@ -441,7 +441,7 @@ export class GitHub {
    * Get the pull requests in the respository with the provided name.
    * @param repositoryName The name of the repository.
    */
-  public getPullRequests(repositoryName: string, options?: GetPullRequestsOptions): Promise<GitHubPullRequest[]> {
+  public getPullRequests(repositoryName: string, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]> {
     let pullRequestState: "open" | "closed" | "all" = "all";
     if (options) {
       if (options.open === true) {
@@ -589,8 +589,8 @@ export class GitHub {
   }
 }
 
-function githubMilestoneToSprintMilestone(githubMilestone: GitHubMilestone): SprintMilestone | undefined {
-  let result: SprintMilestone | undefined;
+function githubMilestoneToSprintMilestone(githubMilestone: GitHubMilestone): GitHubSprintMilestone | undefined {
+  let result: GitHubSprintMilestone | undefined;
 
   if (githubMilestone && githubMilestone.title && githubMilestone.title.startsWith("Sprint-")) {
     const sprintNumber: number = parseInt(githubMilestone.title.substring(githubMilestone.title.indexOf("-") + 1));
