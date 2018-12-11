@@ -119,7 +119,7 @@ export interface GitBranchResult extends GitRunResult {
   currentBranch: string;
 }
 
-const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.)*\)/;
+const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.*)\)/;
 export function gitBranch(options?: RunOptions): GitBranchResult {
   const commandResult: RunResult = gitRun("branch", options);
   let currentBranch = "";
@@ -196,7 +196,7 @@ function isUntrackedFilesHeader(text: string): boolean {
   return !!text.match(/Untracked files:/i);
 }
 
-const statusDetachedHeadRegExp: RegExp = /HEAD detached at (.)*/i;
+const statusDetachedHeadRegExp: RegExp = /HEAD detached at (.*)/i;
 const onBranchRegExp: RegExp = /On branch (.*)/i;
 
 /**
