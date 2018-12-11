@@ -1,7 +1,7 @@
 import * as os from "os";
 import { RunOptions, RunResult, runSync } from "./run";
 
-export function runNPM(args: string | string[], options?: RunOptions): RunResult {
+export function npmRun(args: string | string[], options?: RunOptions): RunResult {
   const npmExecutable: string = (os.platform() === "win32" ? "npm.cmd" : "npm");
   return runSync(npmExecutable, args, options);
 }
@@ -11,7 +11,7 @@ export function runNPM(args: string | string[], options?: RunOptions): RunResult
  * then run "npm install" from the current directory.
  */
 export function npmInstall(options?: RunOptions): RunResult {
-  return runNPM("install", options);
+  return npmRun("install", options);
 }
 
 export interface NPMViewResult extends RunResult {
@@ -61,7 +61,7 @@ export interface NPMViewResult extends RunResult {
 }
 
 export function npmView(options?: RunOptions): NPMViewResult {
-  const commandResult: RunResult = runNPM(["view", "--json"], options);
+  const commandResult: RunResult = npmRun(["view", "--json"], options);
   const npmViewResponse: any = JSON.parse(commandResult.stdout.trim());
   return {
     commandResult,
@@ -77,7 +77,7 @@ export class NPMScope {
    * Run the provided NPM command within the context of this NPMScope's options.
    */
   public run(args: string | string[], options?: RunOptions): RunResult {
-    return runNPM(args, {
+    return npmRun(args, {
       ...this.defaultOptions,
       ...options,
     });
