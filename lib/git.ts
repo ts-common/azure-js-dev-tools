@@ -152,7 +152,7 @@ export interface GitStatusResult extends GitRunResult {
    */
   hasUncommittedChanges?: boolean;
   /**
-   * Staged and not staged files that have either been modified or added.
+   * Staged, not staged, and untracked files that have either been modified, added, or deleted.
    */
   modifiedFiles?: string[];
   /**
