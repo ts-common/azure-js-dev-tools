@@ -225,7 +225,7 @@ export function gitStatus(options?: RunOptions): GitStatusResult {
           if (onBranchMatch) {
             localBranch = onBranchMatch[1];
           } else {
-            const detachedHeadMatch: RegExpMatchArray | null = line.match(branchDetachedHeadRegExp);
+            const detachedHeadMatch: RegExpMatchArray | null = line.match(statusDetachedHeadRegExp);
             if (detachedHeadMatch) {
               localBranch = detachedHeadMatch[1];
             }
