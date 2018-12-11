@@ -152,6 +152,10 @@ export interface GitStatusResult extends GitRunResult {
    */
   hasUncommittedChanges?: boolean;
   /**
+   * Staged, not staged, and untracked files that have either been modified, added, or deleted.
+   */
+  modifiedFiles?: string[];
+  /**
    * Files that have been modified and staged.
    */
   stagedModifiedFiles?: string[];
@@ -302,11 +306,33 @@ export function gitStatus(options?: RunOptions): GitStatusResult {
       }
     }
   }
+
+  let modifiedFiles: string[] | undefined;
+  if (hasUncommittedChanges) {
+    modifiedFiles = [];
+    if (stagedModifiedFiles) {
+      modifiedFiles.push(...stagedModifiedFiles);
+    }
+    if (stagedDeletedFiles) {
+      modifiedFiles.push(...stagedDeletedFiles);
+    }
+    if (notStagedModifiedFiles) {
+      modifiedFiles.push(...notStagedModifiedFiles);
+    }
+    if (notStagedDeletedFiles) {
+      modifiedFiles.push(...notStagedDeletedFiles);
+    }
+    if (untrackedFiles) {
+      modifiedFiles.push(...untrackedFiles);
+    }
+  }
+
   return {
     ...runResult,
     localBranch,
     remoteBranch,
     hasUncommittedChanges,
+    modifiedFiles,
     stagedModifiedFiles,
     stagedDeletedFiles,
     notStagedModifiedFiles,
