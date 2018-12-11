@@ -27,10 +27,20 @@ export function npmRun(args: string | string[], options?: RunOptions): RunResult
   return npm(args, options);
 }
 
+/**
+ * Run "npm pack" from the optional packageFolderPath.
+ * @param options The optional arguments that can be added to the NPM command.
+ * @returns The result of running the NPM command.
+ */
+export function npmPack(options?: RunOptions): RunResult {
+  return npm("pack", options);
+}
 
 /**
  * Run "npm install" from the optional packageFolderPath, or if packageFolderPath isn't specified,
  * then run "npm install" from the current directory.
+ * @param options The optional arguments that can be added to the NPM command.
+ * @returns The result of running the NPM command.
  */
 export function npmInstall(options?: RunOptions): RunResult {
   return npm("install", options);
@@ -96,6 +106,12 @@ export interface NPMViewResult extends RunResult {
   };
 }
 
+/**
+ * Run "npm view". If a packageName is provided in the options, then it will be used, otherwise the
+ * package in the folder specified in the executionFolderPath will be used.
+ * @param options The optional arguments that can be added to the NPM command.
+ * @returns The result of running the NPM command.
+ */
 export function npmView(options?: NPMViewOptions): NPMViewResult {
   const args: string[] = ["view"];
   if (options && options.packageName) {
@@ -110,12 +126,32 @@ export function npmView(options?: NPMViewOptions): NPMViewResult {
   };
 }
 
+/**
+ * A scope object that specifies a set of default options that will be used with any NPM command run
+ * by this scope.
+ */
 export class NPMScope {
   constructor(private defaultOptions: RunOptions) {
   }
 
   /**
-   * Run the provided NPM command within the context of this NPMScope's options.
+   * Run a NPM command.
+   * @param args The arguments to the NPM command.
+   * @param options The optional arguments that can be added to the NPM command.
+   * @returns The result of running the NPM command.
+   */
+  public npm(args: string | string[], options?: RunOptions): RunResult {
+    return npm(args, {
+      ...this.defaultOptions,
+      ...options
+    });
+  }
+
+  /**
+   * Run a script specified in the package.json file.
+   * @param args The arguments for the NPM run command.
+   * @param options The optional arguments that can be added to the NPM command.
+   * @returns The result of running the NPM command.
    */
   public run(args: string | string[], options?: RunOptions): RunResult {
     return npmRun(args, {
@@ -124,6 +160,12 @@ export class NPMScope {
     });
   }
 
+  /**
+   * Run "npm install" from the optional packageFolderPath, or if packageFolderPath isn't specified,
+   * then run "npm install" from the current directory.
+   * @param options The optional arguments that can be added to the NPM command.
+   * @returns The result of running the NPM command.
+   */
   public install(options?: RunOptions): RunResult {
     return npmInstall({
       ...this.defaultOptions,
@@ -131,10 +173,28 @@ export class NPMScope {
     });
   }
 
-  public view(options?: RunOptions): NPMViewResult {
+  /**
+   * Run "npm view". If a packageName is provided in the options, then it will be used, otherwise the
+   * package in the folder specified in the executionFolderPath will be used.
+   * @param options The optional arguments that can be added to the NPM command.
+   * @returns The result of running the NPM command.
+   */
+  public view(options?: NPMViewOptions): NPMViewResult {
     return npmView({
       ...this.defaultOptions,
       ...options,
+    });
+  }
+
+  /**
+   * Run "npm pack" from the optional packageFolderPath.
+   * @param options The optional arguments that can be added to the NPM command.
+   * @returns The result of running the NPM command.
+   */
+  public pack(options?: RunOptions): RunResult {
+    return npmPack({
+      ...this.defaultOptions,
+      ...options
     });
   }
 }
