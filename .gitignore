@@ -85,6 +85,8 @@ output/*
 package-lock.json
 
 # Typescript output
+.nyc_output/
+coverage/
 dist/
 *.d.ts
 *.d.ts.map

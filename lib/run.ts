@@ -39,6 +39,11 @@ export interface RunOptions {
    * if the exitCode is non-zero.
    */
   showOutput?: boolean | ((result: RunResult) => boolean);
+  /**
+   * If this property is specified, then the command will never be run and this result will be
+   * returned instead. This is used for unit testing commands.
+   */
+  mockResult?: RunResult;
 }
 
 /**
@@ -72,16 +77,20 @@ export function runSync(command: string, args: string | string[], options?: RunO
     log(commandString);
   }
 
-  const spawnSyncResult: SpawnSyncReturns<string> = spawnSync(command, argsArray, {
-    cwd,
-    encoding: "utf8",
-  });
-
-  const result: RunResult = {
-    exitCode: spawnSyncResult.status,
-    stdout: spawnSyncResult.stdout,
-    stderr: spawnSyncResult.stderr,
-  };
+  let result: RunResult;
+  if (options && options.mockResult) {
+    result = options.mockResult;
+  } else {
+    const spawnSyncResult: SpawnSyncReturns<string> = spawnSync(command, argsArray, {
+      cwd,
+      encoding: "utf8",
+    });
+    result = {
+      exitCode: spawnSyncResult.status,
+      stdout: spawnSyncResult.stdout,
+      stderr: spawnSyncResult.stderr,
+    };
+  }
 
   if (log && showOutput(result)) {
     log(`Exit Code: ${result.exitCode}`);

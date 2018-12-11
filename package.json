@@ -2,16 +2,17 @@
   "name": "@ts-common/azure-js-dev-tools",
   "version": "0.4.3",
   "description": "Developer dependencies for TypeScript related projects",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/lib/index.js",
+  "types": "./dist/lib/index.d.ts",
   "scripts": {
     "build": "run-p tslint build:tsc",
     "build:tsc": "tsc -p tsconfig.json",
     "local": "node ./dist/dependencies/local.js",
     "latest": "node ./dist/dependencies/latest.js",
     "prepack": "npm install && npm run build",
-    "test": "run-p tslint",
-    "tslint": "tslint -p . -c tslint.json --exclude \"./test/**/*.ts\""
+    "test": "nyc mocha",
+    "test:coverage": "npm run test && opn coverage/index.html",
+    "tslint": "tslint -p . -c tslint.json"
   },
   "repository": {
     "type": "git",
@@ -41,9 +42,30 @@
   "homepage": "https://github.com/ts-common/azure-js-dev-tools#readme",
   "devDependencies": {
     "@octokit/rest": "15.9.4",
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.5",
     "@types/node": "^10.12.9",
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0",
     "npm-run-all": "^4.1.3",
+    "nyc": "^13.1.0",
+    "opn-cli": "^4.0.0",
+    "ts-node": "^7.0.1",
     "tslint": "^5.11.0",
     "typescript": "^3.1.6"
+  },
+  "nyc": {
+    "extension": [
+      ".ts"
+    ],
+    "exclude": [
+      "coverage/**/*",
+      "**/*.d.ts"
+    ],
+    "reporter": [
+      "text",
+      "html"
+    ],
+    "all": true
   }
 }
