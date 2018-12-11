@@ -115,6 +115,7 @@ export interface GitBranchResult extends GitRunResult {
   currentBranch: string;
 }
 
+const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.)*\)/;
 export function gitBranch(options?: RunOptions): GitBranchResult {
   const commandResult: RunResult = gitRun("branch", options);
   let currentBranch = "";
@@ -125,6 +126,10 @@ export function gitBranch(options?: RunOptions): GitBranchResult {
       if (branch) {
         if (branch.startsWith("*")) {
           branch = branch.substring(1).trimLeft();
+          const detachedHeadMatch: RegExpMatchArray | null = branch.match(branchDetachedHeadRegExp);
+          if (detachedHeadMatch) {
+            branch = detachedHeadMatch[1];
+          }
           currentBranch = branch;
         }
         localBranches.push(branch);
@@ -187,6 +192,9 @@ function isUntrackedFilesHeader(text: string): boolean {
   return !!text.match(/Untracked files:/i);
 }
 
+const statusDetachedHeadRegExp: RegExp = /HEAD detached at (.)*/i;
+const onBranchRegExp: RegExp = /On branch (.*)/i;
+
 /**
  * Run "git status".
  */
@@ -213,7 +221,15 @@ export function gitStatus(options?: RunOptions): GitStatusResult {
     } else {
       switch (parseState) {
         case "CurrentBranch":
-          localBranch = line.match(/On branch (.*)/i)![1];
+          const onBranchMatch: RegExpMatchArray | null = line.match(onBranchRegExp);
+          if (onBranchMatch) {
+            localBranch = onBranchMatch[1];
+          } else {
+            const detachedHeadMatch: RegExpMatchArray | null = line.match(statusDetachedHeadRegExp);
+            if (detachedHeadMatch) {
+              localBranch = detachedHeadMatch[1];
+            }
+          }
           parseState = "RemoteBranch";
           ++lineIndex;
           break;
