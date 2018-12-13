@@ -33,5 +33,5 @@ export function normalize(pathString: string): string {
  * @returns Whether or not the provided pathString is rooted (absolute).
  */
 export function isRooted(pathString: string): boolean {
-  return path.isAbsolute(pathString);
+  return path.win32.isAbsolute(pathString) || path.posix.isAbsolute(pathString);
 }
