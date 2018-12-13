@@ -1,9 +1,5 @@
-import * as path from "path";
 import { RunOptions, RunResult, runSync } from "./run";
-
-function resolve(...pathSegments: string[]): string {
-  return path.posix.resolve(...pathSegments);
-}
+import { joinPath } from "./path";
 
 /**
  * Get the lines that exist in the provided text.
@@ -57,7 +53,7 @@ export function gitCheckout(refId: string, options?: RunOptions): GitCheckoutRes
         if (line.trim() === "Please move or remove them before you switch branches.") {
           break;
         } else {
-          filesThatWouldBeOverwritten.push(resolve((options && options.executionFolderPath) || "", line.trim()));
+          filesThatWouldBeOverwritten.push(joinPath((options && options.executionFolderPath) || "", line.trim()));
           ++lineIndex;
         }
       }
@@ -105,7 +101,7 @@ export function gitDiff(baseCommitSha: string, headCommitSha: string, options?: 
   const repositoryFolderPath: string | undefined = (options && options.executionFolderPath) || process.cwd();
   for (const fileChanged of getLines(commandResult.stdout)) {
     if (fileChanged) {
-      filesChanged.push(resolve(repositoryFolderPath, fileChanged));
+      filesChanged.push(joinPath(repositoryFolderPath, fileChanged));
     }
   }
   return {
@@ -265,12 +261,12 @@ export function gitStatus(options?: RunOptions): GitStatusResult {
           if (!line.match(/\(use "git reset HEAD <file>..." to unstage\)/i)) {
             const modifiedMatch: RegExpMatchArray | null = line.match(/modified:(.*)/i);
             if (modifiedMatch) {
-              const modifiedFilePath: string = resolve(folderPath, modifiedMatch[1].trim());
+              const modifiedFilePath: string = joinPath(folderPath, modifiedMatch[1].trim());
               stagedModifiedFiles.push(modifiedFilePath);
             } else {
               const deletedMatch: RegExpMatchArray | null = line.match(/deleted:(.*)/i);
               if (deletedMatch) {
-                const deletedFilePath: string = resolve(folderPath, deletedMatch[1].trim());
+                const deletedFilePath: string = joinPath(folderPath, deletedMatch[1].trim());
                 stagedDeletedFiles.push(deletedFilePath);
               } else if (isChangesNotStagedForCommitHeader(line)) {
                 parseState = "ChangesNotStagedForCommit";
@@ -286,12 +282,12 @@ export function gitStatus(options?: RunOptions): GitStatusResult {
           if (!line.match(/\(use "git add <file>..." to update what will be committed\)/i) && !line.match(/\(use "git checkout -- <file>..." to discard changes in working directory\)/i)) {
             const modifiedMatch: RegExpMatchArray | null = line.match(/modified:(.*)/i);
             if (modifiedMatch) {
-              const modifiedFilePath: string = resolve(folderPath, modifiedMatch[1].trim());
+              const modifiedFilePath: string = joinPath(folderPath, modifiedMatch[1].trim());
               notStagedModifiedFiles.push(modifiedFilePath);
             } else {
               const deletedMatch: RegExpMatchArray | null = line.match(/deleted:(.*)/i);
               if (deletedMatch) {
-                const deletedFilePath: string = resolve(folderPath, deletedMatch[1].trim());
+                const deletedFilePath: string = joinPath(folderPath, deletedMatch[1].trim());
                 notStagedDeletedFiles.push(deletedFilePath);
               } else if (isUntrackedFilesHeader(line)) {
                 parseState = "UntrackedFiles";
@@ -303,7 +299,7 @@ export function gitStatus(options?: RunOptions): GitStatusResult {
 
         case "UntrackedFiles":
           if (!line.match(/\(use "git add <file>..." to include in what will be committed\)/i) && !line.match(/nothing added to commit but untracked files present \(use "git add" to track\)/i)) {
-            const resolveUntrackedFilePath: string = resolve(folderPath, line);
+            const resolveUntrackedFilePath: string = joinPath(folderPath, line);
             untrackedFiles.push(resolveUntrackedFilePath);
           }
           ++lineIndex;
