@@ -1,3 +1,4 @@
 --require ts-node/register
+--reporter mocha-junit-reporter
 --colors
 test/**/*.ts

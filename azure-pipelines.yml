@@ -28,11 +28,11 @@ jobs:
       verbose: false
       customCommand: run build
   - task: Npm@1
-    displayName: 'npm test'
+    displayName: 'npm run test'
     inputs:
       command: custom
       verbose: false
-      customCommand: test
+      customCommand: run test
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: '**/test-results.xml'
