@@ -35,8 +35,8 @@ jobs:
       customCommand: run test
   - task: PublishTestResults@2
     inputs:
-      testResultsFiles: 'test-results.xml'
-      testRunTitle: 'Test results for JavaScript'
+      testResultsFiles: "$(System.DefaultWorkingDirectory)/test-results.xml"
+      testRunTitle: "Test results for JavaScript"
   - task: PublishCodeCoverageResults@1
     inputs:
       codeCoverageTool: Cobertura
