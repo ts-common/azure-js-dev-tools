@@ -35,13 +35,13 @@ jobs:
       customCommand: run test
   - task: PublishTestResults@2
     inputs:
-      testResultsFiles: '**/test-results.xml'
+      testResultsFiles: 'test-results.xml'
       testRunTitle: 'Test results for JavaScript'
   - task: PublishCodeCoverageResults@1
     inputs:
       codeCoverageTool: Cobertura
-      summaryFileLocation: '**/*-coverage.xml'
-      reportDirectory: 'coverage'
+      summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/*-coverage.xml"
+      reportDirectory: "$(System.DefaultWorkingDirectory)/coverage/"
       failIfCoverageEmpty: true
 - job: Build
   pool:
