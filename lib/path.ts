@@ -35,3 +35,21 @@ export function normalize(pathString: string): string {
 export function isRooted(pathString: string): boolean {
   return path.win32.isAbsolute(pathString) || path.posix.isAbsolute(pathString);
 }
+
+/**
+ * Get the name/last segment of the provided path string.
+ * @param pathString The path to get the name/last segment of.
+ * @returns The name/last segment of the provided path string.
+ */
+export function getName(pathString: string): string {
+  return path.basename(pathString);
+}
+
+/**
+ * Get the path to the parent folder of the provided path string.
+ * @param pathString The path to the get the parent folder path of.
+ * @returns The path to the parent folder of the provided path string.
+ */
+export function getParentFolderPath(pathString: string): string {
+  return path.dirname(pathString);
+}

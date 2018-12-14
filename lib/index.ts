@@ -1,4 +1,5 @@
 export * from "./arrays";
+export * from "./checkPackageJsonVersion";
 export * from "./git";
 export * from "./github";
 export * from "./npm";

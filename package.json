@@ -1,18 +1,19 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
   "scripts": {
     "build": "run-p tslint build:tsc",
     "build:tsc": "tsc -p tsconfig.json",
-    "local": "node ./dist/dependencies/local.js",
-    "latest": "node ./dist/dependencies/latest.js",
+    "local": "node ./dist/lib/dependencies/local.js",
+    "latest": "node ./dist/lib/dependencies/latest.js",
     "prepack": "npm install && npm run build",
     "test": "nyc mocha",
     "test:coverage": "npm run test && opn coverage/index.html",
-    "tslint": "tslint -p . -c tslint.json"
+    "tslint": "tslint -p . -c tslint.json",
+    "check:packagejsonversion": "ts-node ./lib/checkPackageJsonVersion.ts"
   },
   "repository": {
     "type": "git",
