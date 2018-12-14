@@ -42,6 +42,7 @@ jobs:
       codeCoverageTool: Cobertura
       summaryFileLocation: '**/*-coverage.xml'
       reportDirectory: 'coverage'
+      failIfCoverageEmpty: true
 - job: Build
   pool:
     vmImage: 'Ubuntu 16.04'
