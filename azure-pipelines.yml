@@ -45,7 +45,6 @@ jobs:
 - job: Check_PackageJson_Version_Number
   pool:
     vmImage: 'Ubuntu 16.04'
-  continueOnError: true
   steps:
   - task: Npm@1
     displayName: 'npm install'
