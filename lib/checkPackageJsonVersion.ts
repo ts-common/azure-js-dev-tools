@@ -21,4 +21,4 @@ function checkPackageJsonVersion(startPath: string): number {
   return exitCode;
 }
 
-process.exit(checkPackageJsonVersion(__dirname));
+process.exitCode = checkPackageJsonVersion(__dirname);
