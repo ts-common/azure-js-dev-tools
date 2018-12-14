@@ -42,7 +42,7 @@ jobs:
       summaryFileLocation: "$(System.DefaultWorkingDirectory)/coverage/cobertura-coverage.xml"
       reportDirectory: "$(System.DefaultWorkingDirectory)/coverage/"
       failIfCoverageEmpty: true
-- job: Check Package.json Version Number
+- job: Check_PackageJson_Version_Number
   pool:
     vmImage: 'Ubuntu 16.04'
   continueOnError: true
