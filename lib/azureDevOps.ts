@@ -9,6 +9,11 @@ export interface AzureDevOpsLogger extends Logger {
    * @param text The text to log.
    */
   logSection(text: string): void;
+  /**
+   * Log the provided text as a warning.
+   * @param text The text to log.
+   */
+  logWarning(text: string): void;
 }
 
 /**
@@ -19,6 +24,7 @@ export function getAzureDevOpsLogger(toWrap?: Logger): AzureDevOpsLogger {
   return {
     logInfo: innerLogger.logInfo,
     logError: (text: string) => innerLogger.logError(`##[error]${text}`),
-    logSection: (text: string) => innerLogger.logInfo(`##[section]${text}`)
+    logSection: (text: string) => innerLogger.logInfo(`##[section]${text}`),
+    logWarning: (text: string) => innerLogger.logInfo(`##[warning]${text}`)
   };
 }
