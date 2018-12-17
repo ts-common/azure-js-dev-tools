@@ -1,3 +1,5 @@
+import * as yargs from "yargs";
+import { getAzureDevOpsLogger } from "./azureDevOps";
 import { getConsoleLogger, Logger } from "./logger";
 import { findPackageJsonFileSync, isPackageJsonPublished, PackageJson, readPackageJsonFileSync } from "./packageJson";
 
@@ -11,7 +13,7 @@ import { findPackageJsonFileSync, isPackageJsonPublished, PackageJson, readPacka
  * exist in NPM.
  */
 export function checkPackageJsonVersion(startPath: string, logger?: Logger): number {
-  logger = logger || getConsoleLogger();
+  logger = logger || (yargs.argv["azure-devops"] ? getAzureDevOpsLogger() : getConsoleLogger());
 
   let exitCode: number;
   logger.logInfo(`Looking for package.json file starting at "${startPath}"...`);
