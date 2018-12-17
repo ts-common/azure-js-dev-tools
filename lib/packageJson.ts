@@ -79,7 +79,7 @@ export function isPackageJsonPublished(packageJson: PackageJson): boolean {
   const packageVersion: string | undefined = packageJson.version;
   if (packageName && packageVersion) {
     const publishedVersions: string[] | undefined = npmView({ packageName }).versions;
-    result = !contains(publishedVersions, packageVersion);
+    result = contains(publishedVersions, packageVersion);
   }
 
   return result;
