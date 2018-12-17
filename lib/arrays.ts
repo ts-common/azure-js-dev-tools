@@ -28,17 +28,19 @@ export function first<T>(values: T[] | undefined, condition: T | ((value: T) => 
  * @returns Whether or not the provided array of values contains a value that matches the provided
  * condition.
  */
-export function contains<T>(values: T[], condition: T | ((value: T) => boolean)): boolean {
+export function contains<T>(values: T[] | undefined, condition: T | ((value: T) => boolean)): boolean {
   let result = false;
-  if (condition instanceof Function) {
-    for (const value of values) {
-      if (condition(value)) {
-        result = true;
-        break;
+  if (values) {
+    if (condition instanceof Function) {
+      for (const value of values) {
+        if (condition(value)) {
+          result = true;
+          break;
+        }
       }
+    } else {
+      result = contains(values, (value: T) => value === condition);
     }
-  } else {
-    result = contains(values, (value: T) => value === condition);
   }
   return result;
 }

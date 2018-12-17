@@ -20,19 +20,18 @@ jobs:
     displayName: 'Install Node'
     inputs:
       versionSpec: $(node.version)
-  - script: npm install
   - task: Npm@1
-    displayName: 'npm run build'
+    displayName: 'npm install'
     inputs:
       command: custom
       verbose: false
-      customCommand: run build
+      customCommand: install
   - task: Npm@1
-    displayName: 'npm run test'
+    displayName: 'npm test'
     inputs:
       command: custom
       verbose: false
-      customCommand: run test
+      customCommand: test
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: "$(System.DefaultWorkingDirectory)/test-results.xml"
@@ -43,7 +42,23 @@ jobs:
       summaryFileLocation: "$(System.DefaultWorkingDirectory)/coverage/cobertura-coverage.xml"
       reportDirectory: "$(System.DefaultWorkingDirectory)/coverage/"
       failIfCoverageEmpty: true
-- job: Build
+- job: Check_PackageJson_Version_Number
+  pool:
+    vmImage: 'Ubuntu 16.04'
+  steps:
+  - task: Npm@1
+    displayName: 'npm install'
+    inputs:
+      command: custom
+      verbose: false
+      customCommand: install
+  - task: Npm@1
+    displayName: 'npm run check:packagejsonversion -- --azure-devops'
+    inputs:
+      command: custom
+      verbose: false
+      customCommand: run check:packagejsonversion -- --azure-devops
+- job: Pack
   pool:
     vmImage: 'Ubuntu 16.04'
   steps:

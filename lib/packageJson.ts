@@ -1,5 +1,36 @@
 import * as fs from "fs";
+import { contains } from "./arrays";
+import { npmView } from "./npm";
+import { getName, getParentFolderPath, joinPath } from "./path";
 import { Version } from "./version";
+
+/**
+ * Find a package.json file at the provided path or in one of its ancestor folders.
+ * @param pathString The path where the search for the package.json file will begin.
+ * @returns The path to the found package.json file, or undefined if no file was found.
+ */
+export function findPackageJsonFileSync(pathString: string): string | undefined {
+  let result: string | undefined;
+
+  function fileExists(filePath: string): boolean {
+    return fs.existsSync(filePath) && fs.lstatSync(filePath).isFile();
+  }
+
+  while (pathString && !result) {
+    if (getName(pathString) === "package.json" && fileExists(pathString)) {
+      result = pathString;
+    } else {
+      const packageJsonFilePath: string = joinPath(pathString, "package.json");
+      if (fileExists(packageJsonFilePath)) {
+        result = packageJsonFilePath;
+      } else {
+        pathString = getParentFolderPath(pathString);
+      }
+    }
+  }
+
+  return result;
+}
 
 /**
  * Read and parse the PackageJson object found at the provided file path.
@@ -33,6 +64,24 @@ export function incrementPackageJsonMinorVersion(packageJson: PackageJson): bool
     packageJson.version = version.toString();
     result = true;
   }
+  return result;
+}
+
+/**
+ * Get whether or not the provided packageJson has been published to NPM.
+ * @param packageJson The packageJson to check.
+ * @returns Whether or not the provided packageJson has been published to NPM.
+ */
+export function isPackageJsonPublished(packageJson: PackageJson): boolean {
+  let result = false;
+
+  const packageName: string | undefined = packageJson.name;
+  const packageVersion: string | undefined = packageJson.version;
+  if (packageName && packageVersion) {
+    const publishedVersions: string[] | undefined = npmView({ packageName }).versions;
+    result = contains(publishedVersions, packageVersion);
+  }
+
   return result;
 }
 
