@@ -275,7 +275,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
             const match: RegExpMatchArray | null = updatedFileContents.match(regularExpression);
             if (match && match[1] !== clonedPackage.targetVersion) {
               logger.logInfo(`  Changing "${clonedPackageName}" version from "${match[1]}" to "${clonedPackage.targetVersion}"...`);
-              updatedFileContents = updatedFileContents.replace(regularExpression, `("${clonedPackageName}", "${clonedPackage.targetVersion}")`);
+              updatedFileContents = updatedFileContents.replace(regularExpression, `.StringProperty("${clonedPackageName}", "${clonedPackage.targetVersion}");`);
             }
           }
         }
