@@ -1,6 +1,6 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
@@ -20,9 +20,9 @@
     "url": "git+https://github.com/ts-common/azure-js-dev-tools.git"
   },
   "files": [
-    "dist/**/*.js",
-    "dist/**/*.js.map",
-    "dist/**/*.d.ts",
+    "dist/lib/**/*.js",
+    "dist/lib/**/*.js.map",
+    "dist/lib/**/*.d.ts",
     "lib/**/*.ts",
     "LICENSE",
     "README.md"
