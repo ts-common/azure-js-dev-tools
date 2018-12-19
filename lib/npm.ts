@@ -1,5 +1,6 @@
 import * as os from "os";
 import { RunOptions, RunResult, runSync } from "./run";
+import { StringMap } from "./common";
 
 /**
  * Run a NPM command.
@@ -65,10 +66,10 @@ export interface NPMViewResult extends RunResult {
   _rev?: string;
   name?: string;
   description?: string;
-  "dist-tags"?: { [tag: string]: string };
+  "dist-tags"?: StringMap<string>;
   versions?: string[];
   maintainers?: string[];
-  time?: { [version: string]: string };
+  time?: StringMap<string>;
   homepage?: string;
   keywords?: string[];
   repository?: {
@@ -84,7 +85,7 @@ export interface NPMViewResult extends RunResult {
   _etag?: string;
   _lastModified?: string;
   version?: string;
-  dependencies?: { [dependency: string]: string };
+  dependencies?: StringMap<string>;
   main?: string;
   types?: string;
   _npmVersion?: string;

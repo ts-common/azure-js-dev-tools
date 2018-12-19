@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import { PackageJson, isPackageJsonPublished } from "../lib";
+import { isPackageJsonPublished, PackageJson } from "../lib";
 
 describe("packageJson.ts", function () {
   describe("isPackageJsonPublished(PackageJson)", function () {
