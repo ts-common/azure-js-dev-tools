@@ -19,3 +19,8 @@ export function endsWith(value: string, suffix: string): boolean {
 export function contains(values: string[], searchString: string): boolean {
     return arrayContains(values, searchString);
 }
+
+/**
+ * A map/dictionary that maps strings to a generic type of value.
+ */
+export type StringMap<TValue> = { [key: string]: TValue };

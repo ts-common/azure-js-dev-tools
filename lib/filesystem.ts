@@ -82,6 +82,20 @@ export function isDirectorySync(directoryPath: string): boolean {
     }
 }
 
+/**
+ * Get whether or not a file exists at the provided path.
+ * @param filePath The path to check.
+ * @returns Whether or not a file exists at the provided path.
+ */
+export function isFileSync(filePath: string): boolean {
+    try {
+        const stats = fssync.lstatSync(filePath);
+        return stats.isFile();
+    } catch {
+        return false;
+    }
+}
+
 export async function pathExists(path: string): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
         fssync.exists(path, exists => {

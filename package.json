@@ -1,14 +1,14 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "0.4.10",
+  "version": "0.5.0",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
   "scripts": {
     "build": "run-p tslint build:tsc",
     "build:tsc": "tsc -p tsconfig.json",
-    "local": "node ./dist/lib/dependencies/local.js",
-    "latest": "node ./dist/lib/dependencies/latest.js",
+    "local": "ts-node ./.scripts/local.ts",
+    "latest": "ts-node ./.scripts/latest.ts",
     "prepack": "npm install && npm run build",
     "test": "nyc mocha",
     "test:coverage": "npm run test && opn coverage/index.html",

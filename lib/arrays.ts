@@ -1,4 +1,13 @@
 /**
+ * Get whether or not the provided array contains any values.
+ * @param values The array to check.
+ * @returns Whether or not the provided array contains any values.
+ */
+export function any<T>(values: T[] | undefined): boolean {
+  return !!(values && values.length > 0);
+}
+
+/**
  * Get the first value in the provided array of values that matches the provided condition.
  * @param values The array of values to search through.
  * @param condition The condition to use when looking through the array of values.

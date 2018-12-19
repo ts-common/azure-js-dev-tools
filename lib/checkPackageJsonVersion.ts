@@ -32,5 +32,8 @@ export function checkPackageJsonVersion(startPath: string, logger?: Logger): num
       exitCode = 0;
     }
   }
+
+  process.exitCode = exitCode;
+
   return exitCode;
 }
