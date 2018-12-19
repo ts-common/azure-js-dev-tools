@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import { any, contains, first } from "./arrays";
 import { StringMap } from "./common";
-import { getChildDirectoriesSync, isDirectorySync, isFileSync } from "./filesystem";
+import { deleteFolder, fileExistsSync, folderExistsSync, getChildFolderPaths } from "./fileSystem2";
 import { getConsoleLogger, Logger } from "./logger";
 import { npmInstall, npmView, NPMViewResult } from "./npm";
 import { findPackageJsonFileSync, PackageJson, PackageLockJson, readPackageJsonFileSync, readPackageLockJsonFileSync, removePackageLockJsonDependencies, writePackageJsonFileSync, writePackageLockJsonFileSync } from "./packageJson";
@@ -95,9 +95,9 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
     };
     const log = (text: string) => logger && logger.logInfo(text);
 
-    if (isFileSync(normalizedStartPath)) {
+    if (fileExistsSync(normalizedStartPath)) {
       foldersToVisit.push(getParentFolderPath(normalizedStartPath));
-    } else if (isDirectorySync(normalizedStartPath)) {
+    } else if (folderExistsSync(normalizedStartPath)) {
       foldersToVisit.push(normalizedStartPath);
     }
 
@@ -107,7 +107,7 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
 
       const packageJsonFilePath: string = joinPath(folderPath, "package.json");
       log(`Looking for package "${packageName}" at "${packageJsonFilePath}"...`);
-      if (isFileSync(packageJsonFilePath)) {
+      if (fileExistsSync(packageJsonFilePath)) {
         log(`"${packageJsonFilePath}" file exists. Comparing package names...`);
         const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
         if (packageJson.name) {
@@ -122,8 +122,7 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
         const parentFolderPath: string = getParentFolderPath(folderPath);
         if (parentFolderPath) {
           addFolderToVisit(parentFolderPath);
-          getChildDirectoriesSync(parentFolderPath)
-            .map((childFolderName: string) => joinPath(parentFolderPath, childFolderName))
+          getChildFolderPaths(parentFolderPath)!
             .forEach(addFolderToVisit);
         }
       }
@@ -238,10 +237,22 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
       writePackageJsonFileSync(packageJson, packageJsonFilePath);
 
       const packageLockJsonFilePath: string = joinPath(packageFolderPath, "package-lock.json");
-      if (isFileSync(packageLockJsonFilePath)) {
+      if (fileExistsSync(packageLockJsonFilePath)) {
         const packageLockJson: PackageLockJson = readPackageLockJsonFileSync(packageLockJsonFilePath);
         removePackageLockJsonDependencies(packageLockJson, ...dependenciesChanged, ...devDependenciesChanged);
         writePackageLockJsonFileSync(packageLockJson, packageLockJsonFilePath);
+      }
+
+      const nodeModulesFolderPath: string = joinPath(packageFolderPath, "node_modules");
+      logger.logInfo(`  Removing installed dependency folders...`);
+      for (const changedDependencyName of dependenciesChanged.concat(devDependenciesChanged)) {
+        const dependencyFolderPath: string = joinPath(nodeModulesFolderPath, changedDependencyName);
+        if (!folderExistsSync(dependencyFolderPath)) {
+          logger.logInfo(`    Could not find a dependency folder at "${dependencyFolderPath}".`);
+        } else {
+          logger.logInfo(`    Deleting dependency folder at "${dependencyFolderPath}"...`);
+          deleteFolder(dependencyFolderPath);
+        }
       }
 
       if (clonedPackage.runNPMInstall === false) {
@@ -259,7 +270,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
 
   if (exitCode === 0 && options.extraFilesToUpdate) {
     for (const extraFileToUpdate of options.extraFilesToUpdate) {
-      if (!isFileSync(extraFileToUpdate)) {
+      if (!fileExistsSync(extraFileToUpdate)) {
         logger.logError(`The extra file to update "${extraFileToUpdate}" doesn't exist.`);
         exitCode = 2;
         break;
