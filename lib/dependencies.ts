@@ -271,7 +271,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
         for (const clonedPackageName of Object.keys(clonedPackages)) {
           const clonedPackage: ClonedPackage | undefined = clonedPackages[clonedPackageName];
           if (clonedPackage && clonedPackage.targetVersion) {
-            const regularExpression = new RegExp(`\\("${clonedPackageName}", "(.*)"\\)`);
+            const regularExpression = new RegExp(`\\.StringProperty\\("${clonedPackageName}", "(.*)"\\);`);
             const match: RegExpMatchArray | null = updatedFileContents.match(regularExpression);
             if (match && match[1] !== clonedPackage.targetVersion) {
               logger.logInfo(`  Changing "${clonedPackageName}" version from "${match[1]}" to "${clonedPackage.targetVersion}"...`);
