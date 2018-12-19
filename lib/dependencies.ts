@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import { any, contains, first } from "./arrays";
 import { StringMap } from "./common";
-import { deleteFolder, fileExistsSync, folderExistsSync, getChildFolderPaths } from "./fileSystem2";
+import { fileExistsSync, folderExistsSync, getChildFolderPaths } from "./fileSystem2";
 import { getConsoleLogger, Logger } from "./logger";
 import { npmInstall, npmView, NPMViewResult } from "./npm";
 import { findPackageJsonFileSync, PackageJson, PackageLockJson, readPackageJsonFileSync, readPackageLockJsonFileSync, removePackageLockJsonDependencies, writePackageJsonFileSync, writePackageLockJsonFileSync } from "./packageJson";
@@ -37,6 +37,13 @@ export interface ChangeClonedDependenciesToOptions {
   recursive?: boolean;
 
   /**
+   * Whether or not packages will have "npm install" invoked, even if they don't have any dependency
+   * changes. Any packages that are marked as "runNPMInstall: false" will still not have
+   * "npm install" run.
+   */
+  forceInstall?: boolean;
+
+  /**
    * Whether or not the function will set process.exitCode in addition to returning the exit code.
    * If not defined, this will default to true.
    */
@@ -65,7 +72,7 @@ function updateDependencies(packageJsonFilePath: string, dependencies: StringMap
       const dependencyVersion: string = dependencies[dependencyName];
       const dependencyTargetVersion: string | undefined = getDependencyTargetVersion(packageJsonFilePath, dependencyName, dependencyType, clonedPackages);
       if (dependencyTargetVersion && dependencyVersion !== dependencyTargetVersion) {
-        logger.logInfo(`  Changing "${dependencyName}" from "${dependencyVersion}" to "${dependencyTargetVersion}".`);
+        logger.logInfo(`  Changing "${dependencyName}" from "${dependencyVersion}" to "${dependencyTargetVersion}"...`);
         dependencies[dependencyName] = dependencyTargetVersion;
         changed.push(dependencyName);
       }
@@ -165,8 +172,11 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
   options = options || {};
   const logger: Logger = options.logger || getConsoleLogger();
 
-  const recursiveArgument = yargs.argv["recursive"];
-  const recursive: boolean = options.recursive || (recursiveArgument !== "false" && recursiveArgument !== false);
+  const recursiveArgument: any = yargs.argv["recursive"];
+  const recursive: boolean = (options.recursive != undefined ? options.recursive : (recursiveArgument !== "false" && recursiveArgument !== false));
+
+  const forceInstallArgument: any = yargs.argv["force-install"];
+  const forceInstall: boolean = (options.forceInstall != undefined ? options.forceInstall : (forceInstallArgument === "true" || forceInstallArgument === true));
 
   let exitCode = 0;
 
@@ -223,6 +233,14 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
     const devDependenciesChanged: string[] = updateDependencies(packageJsonFilePath, packageJson.devDependencies, dependencyType, clonedPackages, logger);
     if (!any(dependenciesChanged) && !any(devDependenciesChanged)) {
       logger.logInfo(`  No changes made.`);
+      if (clonedPackage.runNPMInstall !== false && forceInstall) {
+        logger.logInfo(`  Runnning npm install...`);
+        exitCode = npmInstall({
+          executionFolderPath: packageFolderPath,
+          log: logger.logInfo,
+          showCommand: false
+        }).exitCode;
+      }
     } else {
       if (recursive) {
         for (const changedDependencyName of dependenciesChanged.concat(devDependenciesChanged)) {
@@ -241,18 +259,6 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
         const packageLockJson: PackageLockJson = readPackageLockJsonFileSync(packageLockJsonFilePath);
         removePackageLockJsonDependencies(packageLockJson, ...dependenciesChanged, ...devDependenciesChanged);
         writePackageLockJsonFileSync(packageLockJson, packageLockJsonFilePath);
-      }
-
-      const nodeModulesFolderPath: string = joinPath(packageFolderPath, "node_modules");
-      logger.logInfo(`  Removing installed dependency folders...`);
-      for (const changedDependencyName of dependenciesChanged.concat(devDependenciesChanged)) {
-        const dependencyFolderPath: string = joinPath(nodeModulesFolderPath, changedDependencyName);
-        if (!folderExistsSync(dependencyFolderPath)) {
-          logger.logInfo(`    Could not find a dependency folder at "${dependencyFolderPath}".`);
-        } else {
-          logger.logInfo(`    Deleting dependency folder at "${dependencyFolderPath}"...`);
-          deleteFolder(dependencyFolderPath);
-        }
       }
 
       if (clonedPackage.runNPMInstall === false) {

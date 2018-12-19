@@ -1,6 +1,5 @@
-import * as path from "path";
 import * as fs from "fs";
-import { joinPath } from "./path";
+import { joinPath, getParentFolderPath } from "./path";
 
 /**
  * Get whether or not a file entry (file or folder) exists at the provided entryPath.
@@ -12,12 +11,22 @@ export function entryExistsSync(entryPath: string): boolean {
 }
 
 /**
+ * Check whether or not a symbolic link exists at the provided path.
+ * @param path The path to check.
+ * @returns Whether or not a symbolic link exists at the provided path.
+ */
+export function symbolicLinkExistsSync(path: string): boolean {
+  return entryExistsSync(path) && fs.lstatSync(path).isSymbolicLink();
+}
+
+
+/**
  * Check whether or not a file exists at the provided filePath.
  * @param filePath The path to check.
  * @returns Whether or not a file exists at the provided filePath.
  */
 export function fileExistsSync(filePath: string): boolean {
-  return !!(entryExistsSync(filePath) && fs.lstatSync(filePath).isFile());
+  return entryExistsSync(filePath) && fs.lstatSync(filePath).isFile();
 }
 
 /**
@@ -26,19 +35,19 @@ export function fileExistsSync(filePath: string): boolean {
  * @returns Whether or not a folder exists at the provided folderPath.
  */
 export function folderExistsSync(folderPath: string): boolean {
-  return !!(entryExistsSync(folderPath) && fs.lstatSync(folderPath).isDirectory());
+  return entryExistsSync(folderPath) && fs.lstatSync(folderPath).isDirectory();
 }
 
 function findEntryInPathSync(entryName: string, startFolderPath: string | undefined, condition: (entryPath: string) => boolean): string | undefined {
   let result: string | undefined;
   let folderPath: string = startFolderPath || process.cwd();
   while (folderPath) {
-    const possibleResult: string = path.join(folderPath, entryName);
+    const possibleResult: string = joinPath(folderPath, entryName);
     if (condition(possibleResult)) {
       result = possibleResult;
       break;
     } else {
-      folderPath = path.dirname(folderPath);
+      folderPath = getParentFolderPath(folderPath);
     }
   }
   return result;
@@ -120,7 +129,7 @@ export function getChildEntryPaths(folderPath: string, options?: GetChildEntries
     const fileCondition = options && options.fileCondition;
     const folderCondition = options && options.folderCondition;
     for (const entryName of entryNames) {
-      const entryPath: string = path.join(folderPath, entryName);
+      const entryPath: string = joinPath(folderPath, entryName);
       if ((!condition || condition(entryPath)) &&
         (!fileCondition || !fileExistsSync(entryPath) || fileCondition(entryPath)) &&
         (!folderCondition || !folderExistsSync(entryPath) || folderCondition(entryPath))) {
@@ -146,7 +155,15 @@ export function getChildEntryPaths(folderPath: string, options?: GetChildEntries
 export function getChildFolderPaths(folderPath: string, options?: GetChildEntriesOptions): string[] | undefined {
   return getChildEntryPaths(folderPath, {
     ...options,
-    condition: (entryPath: string) => folderExistsSync(entryPath) && (!options || !options.condition || options.condition(entryPath))
+    condition: (entryPath: string) => {
+      let result: boolean;
+      try {
+        result = folderExistsSync(entryPath) && (!options || !options.condition || options.condition(entryPath));
+      } catch (error) {
+        result = false;
+      }
+      return result;
+    }
   });
 }
 
@@ -172,12 +189,20 @@ export function readFileContents(filePath: string): string | undefined {
   return fs.readFileSync(filePath, { encoding: "utf8" });
 }
 
+export function deleteEntry(path: string): void {
+  if (folderExistsSync(path)) {
+    deleteFolder(path);
+  } else {
+    deleteFile(path);
+  }
+}
+
 /**
  * Delete the file at the provided file path.
  * @param {string} filePath The path to the file to delete.
  */
-function deleteFile(filePath: string): void {
-  deleteFiles(filePath);
+export function deleteFile(filePath: string): void {
+  fs.unlinkSync(filePath);
 }
 
 /**
@@ -187,7 +212,7 @@ function deleteFile(filePath: string): void {
 export function deleteFiles(...filePaths: string[]): void {
   if (filePaths && filePaths.length > 0) {
     for (const filePath of filePaths) {
-      fs.unlinkSync(filePath);
+      deleteFile(filePath);
     }
   }
 }
@@ -197,23 +222,22 @@ export function deleteFiles(...filePaths: string[]): void {
  * @param {string} folderPath The path to the folder to delete.
  */
 export function deleteFolder(folderPath: string): void {
-  try {
-    fs.rmdirSync(folderPath);
-  } catch (error) {
-    if (error.code === "ENOTEMPTY") {
-      const folderEntryPaths: string[] = fs.readdirSync(folderPath);
-      for (const entryName of folderEntryPaths) {
-        const entryPath: string = joinPath(folderPath, entryName);
-        const entryStats: fs.Stats = fs.lstatSync(entryPath);
-        if (entryStats.isDirectory()) {
-          deleteFolder(entryPath);
-        } else {
-          deleteFile(entryPath);
+  const childEntryPaths: string[] | undefined = getChildEntryPaths(folderPath);
+  if (childEntryPaths) {
+    let attempt = 1;
+    const maxAttempts = 3;
+    let success: boolean | undefined;
+    while (attempt <= maxAttempts && success === undefined) {
+      try {
+        childEntryPaths.forEach(deleteEntry);
+        fs.rmdirSync(folderPath);
+        success = true;
+      } catch (error) {
+        if (attempt === maxAttempts) {
+          throw error;
         }
       }
-      fs.rmdirSync(folderPath);
-    } else {
-      throw error;
+      ++attempt;
     }
   }
 }
