@@ -13,6 +13,11 @@ export type DepedencyType = "local" | "latest";
 export interface PackageFolder {
   path: string;
   runNPMInstall?: boolean;
+  /**
+   * If the package is not found (such as when updating to the latest version of an unpublished
+   * package), then set the target package version to this default version.
+   */
+  defaultVersion?: string;
 }
 
 export interface ClonedPackage extends PackageFolder {
@@ -156,6 +161,8 @@ function getDependencyTargetVersion(packageJsonFilePath: string, dependencyName:
         clonedPackage.targetVersion = distTags && distTags["latest"];
         if (clonedPackage.targetVersion) {
           clonedPackage.targetVersion = "^" + clonedPackage.targetVersion;
+        } else {
+          clonedPackage.targetVersion = clonedPackage.defaultVersion;
         }
       }
     }
