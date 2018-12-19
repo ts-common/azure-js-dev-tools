@@ -1,4 +1,5 @@
-import { any, contains } from "./arrays";
+import { readFileSync, writeFileSync } from "fs";
+import { any, contains, first } from "./arrays";
 import { StringMap } from "./common";
 import { getChildDirectoriesSync, isDirectorySync, isFileSync } from "./filesystem";
 import { getConsoleLogger, Logger } from "./logger";
@@ -9,9 +10,14 @@ import yargs = require("yargs");
 
 export type DepedencyType = "local" | "latest";
 
-export interface ClonedPackage {
-  folderPath: string;
+export interface PackageFolder {
+  path: string;
+  runNPMInstall?: boolean;
+}
+
+export interface ClonedPackage extends PackageFolder {
   updated?: boolean;
+  targetVersion?: string;
 }
 
 /**
@@ -35,6 +41,16 @@ export interface ChangeClonedDependenciesToOptions {
    * If not defined, this will default to true.
    */
   setProcessExitCode?: boolean;
+
+  /**
+   * The package folders that will be processed by changeClonedDependenciesTo().
+   */
+  packageFolders?: PackageFolder[];
+
+  /**
+   * An extra set of files that will have dependency references updated.
+   */
+  extraFilesToUpdate?: string[];
 }
 
 /**
@@ -47,9 +63,9 @@ function updateDependencies(packageJsonFilePath: string, dependencies: StringMap
   if (dependencies) {
     for (const dependencyName of Object.keys(dependencies)) {
       const dependencyVersion: string = dependencies[dependencyName];
-      const dependencyTargetVersion: string | undefined = getDependencyTargetVersion(packageJsonFilePath, dependencyName, dependencyType, clonedPackages, logger);
+      const dependencyTargetVersion: string | undefined = getDependencyTargetVersion(packageJsonFilePath, dependencyName, dependencyType, clonedPackages);
       if (dependencyTargetVersion && dependencyVersion !== dependencyTargetVersion) {
-        logger.logInfo(`    Changing "${dependencyName}" from "${dependencyVersion}" to "${dependencyTargetVersion}".`);
+        logger.logInfo(`  Changing "${dependencyName}" from "${dependencyVersion}" to "${dependencyTargetVersion}".`);
         dependencies[dependencyName] = dependencyTargetVersion;
         changed.push(dependencyName);
       }
@@ -96,7 +112,7 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
         const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
         if (packageJson.name) {
           if (packageJson.name === packageName) {
-            result = { folderPath };
+            result = { path: folderPath };
             break;
           }
         }
@@ -121,21 +137,23 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
   return result;
 }
 
-function getDependencyTargetVersion(packageJsonFilePath: string, dependencyName: string, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>, logger: Logger): string | undefined {
+function getDependencyTargetVersion(packageJsonFilePath: string, dependencyName: string, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>): string | undefined {
   let result: string | undefined;
   const clonedPackage: ClonedPackage | undefined = findPackage(dependencyName, packageJsonFilePath, clonedPackages);
   if (clonedPackage) {
-    logger.logInfo(`  Found dependency "${dependencyName}" at "${clonedPackage.folderPath}".`);
-    if (dependencyType === "local") {
-      result = `file:${clonedPackage.folderPath}`;
-    } else if (dependencyType === "latest") {
-      const dependencyViewResult: NPMViewResult = npmView({ packageName: dependencyName });
-      const distTags: StringMap<string> | undefined = dependencyViewResult["dist-tags"];
-      result = distTags && distTags["latest"];
-      if (result) {
-        result = "^" + result;
+    if (!clonedPackage.targetVersion) {
+      if (dependencyType === "local") {
+        clonedPackage.targetVersion = `file:${clonedPackage.path}`;
+      } else if (dependencyType === "latest") {
+        const dependencyViewResult: NPMViewResult = npmView({ packageName: dependencyName });
+        const distTags: StringMap<string> | undefined = dependencyViewResult["dist-tags"];
+        clonedPackage.targetVersion = distTags && distTags["latest"];
+        if (clonedPackage.targetVersion) {
+          clonedPackage.targetVersion = "^" + clonedPackage.targetVersion;
+        }
       }
     }
+    result = clonedPackage.targetVersion;
   }
   return result;
 }
@@ -157,18 +175,37 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
   const packageFolderPathsToVisit: string[] = [];
   const packageFolderPathsVisited: string[] = [];
 
-  logger.logInfo(`Looking for package.json file at or above "${packagePath}"...`);
-  const packageJsonFilePath: string | undefined = findPackageJsonFileSync(packagePath);
-  if (!packageJsonFilePath) {
-    logger.logError(`Could not find a package.json at or above the provided package path (${packagePath}).`);
-    exitCode = 1;
-  } else {
-    logger.logInfo(`Found package.json file at "${packageJsonFilePath}".`);
-    const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
-    const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
-    const packageName: string = packageJson.name!;
-    packageFolderPathsToVisit.push(packageFolderPath);
-    clonedPackages[packageName] = { folderPath: packageFolderPath };
+  const packagePathsToAdd: string[] = [packagePath];
+  if (options.packageFolders) {
+    const packageFolderPaths: string[] = options.packageFolders.map((packageFolder: PackageFolder) => packageFolder.path);
+    packagePathsToAdd.push(...packageFolderPaths);
+  }
+
+  for (const packagePathToAdd of packagePathsToAdd) {
+    // logger.logInfo(`Looking for package.json file at or above "${packagePathToAdd}"...`);
+    const packageJsonFilePath: string | undefined = findPackageJsonFileSync(packagePathToAdd);
+    if (!packageJsonFilePath) {
+      logger.logError(`Could not find a package.json at or above the provided package path (${packagePathToAdd}).`);
+      exitCode = 1;
+      break;
+    } else {
+      // logger.logInfo(`Found package.json file at "${packageJsonFilePath}".`);
+      const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+      const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
+      const packageName: string = packageJson.name!;
+      packageFolderPathsToVisit.push(packageFolderPath);
+
+      const clonedPackage: ClonedPackage = {
+        path: packageFolderPath
+      };
+
+      const packageFolder: PackageFolder | undefined = first(options.packageFolders, (packageFolder: PackageFolder) => packageFolder.path === packagePathToAdd);
+      if (packageFolder) {
+        clonedPackage.runNPMInstall = packageFolder.runNPMInstall;
+      }
+
+      clonedPackages[packageName] = clonedPackage;
+    }
   }
 
   while (packageFolderPathsToVisit.length > 0 && exitCode === 0) {
@@ -180,7 +217,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
     const packageJsonFilePath: string = joinPath(packageFolderPath, "package.json");
     const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
     const packageName: string = packageJson.name!;
-    const clonedPackage: ClonedPackage = clonedPackages[packageName]!;
+    const clonedPackage: ClonedPackage | undefined = clonedPackages[packageName]!;
     clonedPackage.updated = true;
 
     const dependenciesChanged: string[] = updateDependencies(packageJsonFilePath, packageJson.dependencies, dependencyType, clonedPackages, logger);
@@ -191,7 +228,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
       if (recursive) {
         for (const changedDependencyName of dependenciesChanged.concat(devDependenciesChanged)) {
           const clonedDependency: ClonedPackage = clonedPackages[changedDependencyName]!;
-          const clonedDependencyFolderPath: string = clonedDependency.folderPath;
+          const clonedDependencyFolderPath: string = clonedDependency.path;
           if (!clonedDependency.updated && !contains(packageFolderPathsVisited, clonedDependencyFolderPath) && !contains(packageFolderPathsToVisit, clonedDependencyFolderPath)) {
             packageFolderPathsToVisit.push(clonedDependencyFolderPath);
           }
@@ -207,14 +244,55 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
         writePackageLockJsonFileSync(packageLockJson, packageLockJsonFilePath);
       }
 
-      exitCode = npmInstall({
-        executionFolderPath: packageFolderPath,
-        log: logger.logInfo
-      }).exitCode;
+      if (clonedPackage.runNPMInstall === false) {
+        logger.logInfo(`  Not running npm install.`);
+      } else {
+        logger.logInfo(`  Runnning npm install...`);
+        exitCode = npmInstall({
+          executionFolderPath: packageFolderPath,
+          log: logger.logInfo,
+          showCommand: false
+        }).exitCode;
+      }
     }
   }
 
-  if (!options || options.setProcessExitCode == undefined || options.setProcessExitCode) {
+  if (exitCode === 0 && options.extraFilesToUpdate) {
+    for (const extraFileToUpdate of options.extraFilesToUpdate) {
+      if (!isFileSync(extraFileToUpdate)) {
+        logger.logError(`The extra file to update "${extraFileToUpdate}" doesn't exist.`);
+        exitCode = 2;
+        break;
+      } else {
+        logger.logInfo(`Updating extra file "${extraFileToUpdate}"...`);
+        const originalFileContents: string = readFileSync(extraFileToUpdate, { encoding: "utf8" });
+        let updatedFileContents: string = originalFileContents;
+
+        for (const clonedPackageName of Object.keys(clonedPackages)) {
+          const clonedPackage: ClonedPackage | undefined = clonedPackages[clonedPackageName];
+          if (clonedPackage && clonedPackage.targetVersion) {
+            const regularExpression = new RegExp(`\\("${clonedPackageName}", "(.*)"\\)`);
+            const match: RegExpMatchArray | null = updatedFileContents.match(regularExpression);
+            if (match) {
+              if (match[1] === clonedPackage.targetVersion) {
+                logger.logInfo(`  Changing "${clonedPackageName}" version from "${match[1]}" to "${clonedPackage.targetVersion}"...`);
+                updatedFileContents = updatedFileContents.replace(regularExpression, `("${clonedPackageName}", "${clonedPackage.targetVersion}")`);
+              }
+            }
+          }
+        }
+
+        if (originalFileContents === updatedFileContents) {
+          logger.logInfo(`  No changes made.`);
+        } else {
+          logger.logInfo(`  Writing changes back to file...`);
+          writeFileSync(extraFileToUpdate, updatedFileContents);
+        }
+      }
+    }
+  }
+
+  if (options.setProcessExitCode !== false) {
     process.exitCode = exitCode;
   }
 
