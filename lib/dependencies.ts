@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import { any, contains, first } from "./arrays";
 import { StringMap } from "./common";
-import { getChildDirectoriesSync, isDirectorySync, isFileSync } from "./filesystem";
+import { fileExistsSync, folderExistsSync, getChildFolderPaths } from "./fileSystem2";
 import { getConsoleLogger, Logger } from "./logger";
 import { npmInstall, npmView, NPMViewResult } from "./npm";
 import { findPackageJsonFileSync, PackageJson, PackageLockJson, readPackageJsonFileSync, readPackageLockJsonFileSync, removePackageLockJsonDependencies, writePackageJsonFileSync, writePackageLockJsonFileSync } from "./packageJson";
@@ -13,6 +13,11 @@ export type DepedencyType = "local" | "latest";
 export interface PackageFolder {
   path: string;
   runNPMInstall?: boolean;
+  /**
+   * If the package is not found (such as when updating to the latest version of an unpublished
+   * package), then set the target package version to this default version.
+   */
+  defaultVersion?: string;
 }
 
 export interface ClonedPackage extends PackageFolder {
@@ -35,6 +40,13 @@ export interface ChangeClonedDependenciesToOptions {
    * dependencies as well. If not defined, this will default to true.
    */
   recursive?: boolean;
+
+  /**
+   * Whether or not packages will have "npm install" invoked, even if they don't have any dependency
+   * changes. Any packages that are marked as "runNPMInstall: false" will still not have
+   * "npm install" run.
+   */
+  forceInstall?: boolean;
 
   /**
    * Whether or not the function will set process.exitCode in addition to returning the exit code.
@@ -65,7 +77,7 @@ function updateDependencies(packageJsonFilePath: string, dependencies: StringMap
       const dependencyVersion: string = dependencies[dependencyName];
       const dependencyTargetVersion: string | undefined = getDependencyTargetVersion(packageJsonFilePath, dependencyName, dependencyType, clonedPackages);
       if (dependencyTargetVersion && dependencyVersion !== dependencyTargetVersion) {
-        logger.logInfo(`  Changing "${dependencyName}" from "${dependencyVersion}" to "${dependencyTargetVersion}".`);
+        logger.logInfo(`  Changing "${dependencyName}" from "${dependencyVersion}" to "${dependencyTargetVersion}"...`);
         dependencies[dependencyName] = dependencyTargetVersion;
         changed.push(dependencyName);
       }
@@ -95,9 +107,9 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
     };
     const log = (text: string) => logger && logger.logInfo(text);
 
-    if (isFileSync(normalizedStartPath)) {
+    if (fileExistsSync(normalizedStartPath)) {
       foldersToVisit.push(getParentFolderPath(normalizedStartPath));
-    } else if (isDirectorySync(normalizedStartPath)) {
+    } else if (folderExistsSync(normalizedStartPath)) {
       foldersToVisit.push(normalizedStartPath);
     }
 
@@ -107,7 +119,7 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
 
       const packageJsonFilePath: string = joinPath(folderPath, "package.json");
       log(`Looking for package "${packageName}" at "${packageJsonFilePath}"...`);
-      if (isFileSync(packageJsonFilePath)) {
+      if (fileExistsSync(packageJsonFilePath)) {
         log(`"${packageJsonFilePath}" file exists. Comparing package names...`);
         const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
         if (packageJson.name) {
@@ -122,8 +134,7 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
         const parentFolderPath: string = getParentFolderPath(folderPath);
         if (parentFolderPath) {
           addFolderToVisit(parentFolderPath);
-          getChildDirectoriesSync(parentFolderPath)
-            .map((childFolderName: string) => joinPath(parentFolderPath, childFolderName))
+          getChildFolderPaths(parentFolderPath)!
             .forEach(addFolderToVisit);
         }
       }
@@ -150,6 +161,8 @@ function getDependencyTargetVersion(packageJsonFilePath: string, dependencyName:
         clonedPackage.targetVersion = distTags && distTags["latest"];
         if (clonedPackage.targetVersion) {
           clonedPackage.targetVersion = "^" + clonedPackage.targetVersion;
+        } else {
+          clonedPackage.targetVersion = clonedPackage.defaultVersion;
         }
       }
     }
@@ -166,8 +179,11 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
   options = options || {};
   const logger: Logger = options.logger || getConsoleLogger();
 
-  const recursiveArgument = yargs.argv["recursive"];
-  const recursive: boolean = options.recursive || (recursiveArgument !== "false" && recursiveArgument !== false);
+  const recursiveArgument: any = yargs.argv["recursive"];
+  const recursive: boolean = (options.recursive != undefined ? options.recursive : (recursiveArgument !== "false" && recursiveArgument !== false));
+
+  const forceInstallArgument: any = yargs.argv["force-install"];
+  const forceInstall: boolean = (options.forceInstall != undefined ? options.forceInstall : (forceInstallArgument === "true" || forceInstallArgument === true));
 
   let exitCode = 0;
 
@@ -224,6 +240,14 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
     const devDependenciesChanged: string[] = updateDependencies(packageJsonFilePath, packageJson.devDependencies, dependencyType, clonedPackages, logger);
     if (!any(dependenciesChanged) && !any(devDependenciesChanged)) {
       logger.logInfo(`  No changes made.`);
+      if (clonedPackage.runNPMInstall !== false && forceInstall) {
+        logger.logInfo(`  Runnning npm install...`);
+        exitCode = npmInstall({
+          executionFolderPath: packageFolderPath,
+          log: logger.logInfo,
+          showCommand: false
+        }).exitCode;
+      }
     } else {
       if (recursive) {
         for (const changedDependencyName of dependenciesChanged.concat(devDependenciesChanged)) {
@@ -238,7 +262,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
       writePackageJsonFileSync(packageJson, packageJsonFilePath);
 
       const packageLockJsonFilePath: string = joinPath(packageFolderPath, "package-lock.json");
-      if (isFileSync(packageLockJsonFilePath)) {
+      if (fileExistsSync(packageLockJsonFilePath)) {
         const packageLockJson: PackageLockJson = readPackageLockJsonFileSync(packageLockJsonFilePath);
         removePackageLockJsonDependencies(packageLockJson, ...dependenciesChanged, ...devDependenciesChanged);
         writePackageLockJsonFileSync(packageLockJson, packageLockJsonFilePath);
@@ -259,7 +283,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
 
   if (exitCode === 0 && options.extraFilesToUpdate) {
     for (const extraFileToUpdate of options.extraFilesToUpdate) {
-      if (!isFileSync(extraFileToUpdate)) {
+      if (!fileExistsSync(extraFileToUpdate)) {
         logger.logError(`The extra file to update "${extraFileToUpdate}" doesn't exist.`);
         exitCode = 2;
         break;
