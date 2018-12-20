@@ -1,6 +1,6 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
@@ -14,7 +14,8 @@
     "test:coverage": "npm run test && opn coverage/index.html",
     "tslint": "tslint -p . -c tslint.json",
     "check:packagejsonversion": "ts-node ./.scripts/checkPackageJsonVersion.ts",
-    "check:testsforonly": "ts-node ./.scripts/checkTestsForOnly.ts"
+    "check:foronlycalls": "ts-node ./.scripts/checkForOnlyCalls.ts",
+    "check:everything": "ts-node ./.scripts/checkEverything.ts"
   },
   "repository": {
     "type": "git",

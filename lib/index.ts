@@ -1,7 +1,7 @@
 export * from "./arrays";
-export * from "./azureDevOps";
+export * from "./checkEverything";
 export * from "./checkPackageJsonVersion";
-export * from "./checkTestsForOnly";
+export * from "./checkForOnlyCalls";
 export { StringMap } from "./common";
 export * from "./dependencies";
 export * from "./fileSystem2";
