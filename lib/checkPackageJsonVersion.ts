@@ -1,7 +1,16 @@
-import * as yargs from "yargs";
-import { getAzureDevOpsLogger } from "./azureDevOps";
-import { getConsoleLogger, Logger } from "./logger";
+import { getDefaultLogger, Logger } from "./logger";
 import { findPackageJsonFileSync, isPackageJsonPublished, PackageJson, readPackageJsonFileSync } from "./packageJson";
+
+export interface CheckPackageJsonVersionOptions {
+  /**
+   * The path to start looking for the package.json file at.
+   */
+  startPath?: string;
+  /**
+   * The Logger to use. If no Logger is specified, then a default Logger will be used instead.
+   */
+  logger?: Logger;
+}
 
 /**
  * Check the package.json file found at the provided startPath (or in one of the parent folders) to
@@ -12,8 +21,10 @@ import { findPackageJsonFileSync, isPackageJsonPublished, PackageJson, readPacka
  * @returns The exit code for this function. Zero will be returned if the package version doesn't
  * exist in NPM.
  */
-export function checkPackageJsonVersion(startPath: string, logger?: Logger): number {
-  logger = logger || (yargs.argv["azure-devops"] ? getAzureDevOpsLogger() : getConsoleLogger());
+export function checkPackageJsonVersion(options?: CheckPackageJsonVersionOptions): number {
+  options = options || {};
+  const startPath: string = options.startPath || process.cwd();
+  const logger: Logger = options.logger || getDefaultLogger();
 
   let exitCode: number;
   logger.logInfo(`Looking for package.json file starting at "${startPath}"...`);

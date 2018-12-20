@@ -1,20 +1,29 @@
-import * as yargs from "yargs";
-import { getAzureDevOpsLogger } from "./azureDevOps";
 import { getChildFilePaths, readFileContents } from "./fileSystem2";
-import { getConsoleLogger, Logger } from "./logger";
+import { getDefaultLogger, Logger } from "./logger";
+import { getName } from "./path";
+
+export interface CheckForOnlyCallsOptions {
+  /**
+   * The paths to start looking for source files in.
+   */
+  startPaths?: string | string[];
+  /**
+   * The Logger to use. If no Logger is specified, then a default Logger will be used instead.
+   */
+  logger?: Logger;
+}
 
 /**
- * Check the package.json file found at the provided startPath (or in one of the parent folders) to
- * see if the version number has already been published. If the version number has been published,
- * then a non-zero error code will be returned.
- * @param startPath The path to start looking for the package.json file in.
+ * Check the source files found under the provided startPaths for only() function calls. Returns the
+ * number of source files found that reference the only() function.
+ * @param startPaths The paths to start looking for source files in.
  * @param logger The logger to use. If no logger is specified, then a console logger will be used.
- * @returns The exit code for this function. Zero will be returned if the package version doesn't
- * exist in NPM.
+ * @returns The number of source files found that contain only() function calls.
  */
-export function checkTestsForOnly(startPaths: string | string[], logger?: Logger): number {
-  const startPathArray: string[] = typeof startPaths === "string" ? [startPaths] : startPaths;
-  logger = logger || (yargs.argv["azure-devops"] ? getAzureDevOpsLogger() : getConsoleLogger());
+export function checkForOnlyCalls(options?: CheckForOnlyCallsOptions): number {
+  options = options || {};
+  const startPathArray: string[] = !options.startPaths ? [process.cwd()] : typeof options.startPaths === "string" ? [options.startPaths] : options.startPaths;
+  const logger: Logger = options.logger || getDefaultLogger();
 
   let exitCode = 0;
 
@@ -22,6 +31,7 @@ export function checkTestsForOnly(startPaths: string | string[], logger?: Logger
     logger.logInfo(`Looking for *.only(...) function calls in files starting at "${startPath}"...`);
     const sourceFilePaths: string[] | undefined = getChildFilePaths(startPath, {
       recursive: true,
+      folderCondition: (folderPath: string) => getName(folderPath) !== "node_modules",
       fileCondition: (filePath: string) => filePath.endsWith(".ts") || filePath.endsWith(".js")
     });
 
