@@ -224,6 +224,8 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
     }
   }
 
+  const folderPathsToRunNPMInstallIn: string[] = [];
+
   while (packageFolderPathsToVisit.length > 0 && exitCode === 0) {
     const packageFolderPath: string = packageFolderPathsToVisit.shift()!;
     packageFolderPathsVisited.push(packageFolderPath);
@@ -241,24 +243,9 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
     if (!any(dependenciesChanged) && !any(devDependenciesChanged)) {
       logger.logInfo(`  No changes made.`);
       if (clonedPackage.runNPMInstall !== false && forceInstall) {
-        logger.logInfo(`  Runnning npm install...`);
-        exitCode = npmInstall({
-          executionFolderPath: packageFolderPath,
-          log: logger.logInfo,
-          showCommand: false
-        }).exitCode;
+        folderPathsToRunNPMInstallIn.push(packageFolderPath);
       }
     } else {
-      if (recursive) {
-        for (const changedDependencyName of dependenciesChanged.concat(devDependenciesChanged)) {
-          const clonedDependency: ClonedPackage = clonedPackages[changedDependencyName]!;
-          const clonedDependencyFolderPath: string = clonedDependency.path;
-          if (!clonedDependency.updated && !contains(packageFolderPathsVisited, clonedDependencyFolderPath) && !contains(packageFolderPathsToVisit, clonedDependencyFolderPath)) {
-            packageFolderPathsToVisit.push(clonedDependencyFolderPath);
-          }
-        }
-      }
-
       writePackageJsonFileSync(packageJson, packageJsonFilePath);
 
       const packageLockJsonFilePath: string = joinPath(packageFolderPath, "package-lock.json");
@@ -268,16 +255,41 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
         writePackageLockJsonFileSync(packageLockJson, packageLockJsonFilePath);
       }
 
-      if (clonedPackage.runNPMInstall === false) {
-        logger.logInfo(`  Not running npm install.`);
-      } else {
-        logger.logInfo(`  Runnning npm install...`);
-        exitCode = npmInstall({
-          executionFolderPath: packageFolderPath,
-          log: logger.logInfo,
-          showCommand: false
-        }).exitCode;
+      if (clonedPackage.runNPMInstall !== false) {
+        folderPathsToRunNPMInstallIn.push(packageFolderPath);
       }
+    }
+
+    if (recursive) {
+      const allDependencyNames: string[] = [];
+      if (packageJson.dependencies) {
+        allDependencyNames.push(...Object.keys(packageJson.dependencies));
+      }
+      if (packageJson.devDependencies) {
+        allDependencyNames.push(...Object.keys(packageJson.devDependencies));
+      }
+
+      for (const dependencyName of allDependencyNames) {
+        const clonedDependency: ClonedPackage | undefined = clonedPackages[dependencyName];
+        if (clonedDependency) {
+          const clonedDependencyFolderPath: string = clonedDependency.path;
+          if (!clonedDependency.updated && !contains(packageFolderPathsVisited, clonedDependencyFolderPath) && !contains(packageFolderPathsToVisit, clonedDependencyFolderPath)) {
+            packageFolderPathsToVisit.push(clonedDependencyFolderPath);
+          }
+        }
+      }
+    }
+  }
+
+  for (const folderPath of folderPathsToRunNPMInstallIn) {
+    exitCode = npmInstall({
+      executionFolderPath: folderPath,
+      log: logger.logInfo,
+      showCommand: true
+    }).exitCode;
+
+    if (exitCode !== 0) {
+      break;
     }
   }
 
