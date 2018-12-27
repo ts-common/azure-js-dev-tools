@@ -3,6 +3,8 @@ import { isPackageJsonPublished, PackageJson } from "../lib";
 
 describe("packageJson.ts", function () {
   describe("isPackageJsonPublished(PackageJson)", function () {
+    this.timeout(5000);
+
     it("with no package name", function () {
       const packageJson: PackageJson = {
         version: "1.2.3"
