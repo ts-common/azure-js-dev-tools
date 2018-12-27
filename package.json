@@ -15,7 +15,8 @@
     "tslint": "tslint -p . -c tslint.json",
     "check:packagejsonversion": "ts-node ./.scripts/checkPackageJsonVersion.ts",
     "check:foronlycalls": "ts-node ./.scripts/checkForOnlyCalls.ts",
-    "check:everything": "ts-node ./.scripts/checkEverything.ts"
+    "check:everything": "ts-node ./.scripts/checkEverything.ts",
+    "planning": "ts-node ./.scripts/planning.ts"
   },
   "repository": {
     "type": "git",

@@ -100,6 +100,14 @@ export interface GitHubGetMilestonesOptions {
    * value is undefined, then all milestones will be returned.
    */
   open?: boolean;
+
+  repositoryOwner?: string;
+}
+
+export interface GitHubCreateMilestoneOptions {
+  endDate?: string;
+
+  repositoryOwner?: string;
 }
 
 /**
@@ -112,6 +120,8 @@ export interface GitHubGetPullRequestsOptions {
    * value is undefined, then all pull requests will be returned.
    */
   open?: boolean;
+
+  repositoryOwner?: string;
 }
 
 const defaultRepositoryOwner = "Azure";
@@ -168,10 +178,10 @@ export class GitHub {
   /**
    * Get all of the labels in the repository with the provided name.
    */
-  public getLabels(repositoryName: string): Promise<GitHubLabel[]> {
+  public getLabels(repositoryName: string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubLabel[]> {
     return new Promise((resolve, reject) => {
       this.github.issues.getLabels({
-        owner: "Azure",
+        owner: repositoryOwner,
         repo: repositoryName
       }, (error: Error | null, response: Octokit.AnyResponse) => {
         if (error) {
@@ -187,8 +197,8 @@ export class GitHub {
    * Get all of the labels that contain "-Sprint-" in the repository with the provided name.
    * @param repositoryName The name of the repository to look in.
    */
-  public getSprintLabels(repositoryName: string): Promise<GitHubSprintLabel[]> {
-    return this.getLabels(repositoryName)
+  public getSprintLabels(repositoryName: string, repositoryOwner?: string): Promise<GitHubSprintLabel[]> {
+    return this.getLabels(repositoryName, repositoryOwner)
       .then((githubLabels: GitHubLabel[]) => {
         const repositorySprintLabels: GitHubSprintLabel[] = [];
         for (const repositoryLabel of githubLabels) {
@@ -221,10 +231,10 @@ export class GitHub {
    * @param labelName The name of the created label.
    * @param color The color of the created label.
    */
-  public createLabel(repositoryName: string, labelName: string, color: string): Promise<void> {
+  public createLabel(repositoryName: string, labelName: string, color: string, repositoryOwner = defaultRepositoryOwner): Promise<void> {
     return new Promise((resolve, reject) => {
       this.github.issues.createLabel({
-        owner: defaultRepositoryOwner,
+        owner: repositoryOwner,
         repo: repositoryName,
         name: labelName,
         color: color
@@ -244,10 +254,10 @@ export class GitHub {
    * @param labelName The name of the label to update.
    * @param newColor The color to update the label to.
    */
-  public updateLabelColor(repositoryName: string, labelName: string, newColor: string): Promise<void> {
+  public updateLabelColor(repositoryName: string, labelName: string, newColor: string, repositoryOwner = defaultRepositoryOwner): Promise<void> {
     return new Promise((resolve, reject) => {
       this.github.issues.updateLabel({
-        owner: defaultRepositoryOwner,
+        owner: repositoryOwner,
         repo: repositoryName,
         current_name: labelName,
         color: newColor
@@ -266,11 +276,11 @@ export class GitHub {
    * Get the milestone in the provided repository with either the provided milestone number or the
    * provided milestone name.
    */
-  public getMilestone(repositoryName: string, milestone: number | string): Promise<GitHubMilestone> {
+  public getMilestone(repositoryName: string, milestone: number | string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubMilestone> {
     return new Promise((resolve, reject) => {
       if (typeof milestone === "number") {
         this.github.issues.getMilestone({
-          owner: defaultRepositoryOwner,
+          owner: repositoryOwner,
           repo: repositoryName,
           number: milestone
         }, (error: Error | null, response: Octokit.AnyResponse) => {
@@ -310,7 +320,7 @@ export class GitHub {
 
     return new Promise((resolve, reject) => {
       const getMilestonesArguments: Octokit.IssuesGetMilestonesParams = {
-        owner: defaultRepositoryOwner,
+        owner: (options && options.repositoryOwner) || defaultRepositoryOwner,
         repo: repositoryName,
         state: milestoneState
       };
@@ -349,9 +359,9 @@ export class GitHub {
    * @param milestoneName The name of the new milestone.
    * @param options The optional properties to set on the created milestone.
    */
-  public createMilestone(repositoryName: string, milestoneName: string, options?: { endDate: string | undefined }): Promise<GitHubMilestone> {
+  public createMilestone(repositoryName: string, milestoneName: string, options?: GitHubCreateMilestoneOptions): Promise<GitHubMilestone> {
     const createMilestoneArguments: Octokit.IssuesCreateMilestoneParams = {
-      owner: defaultRepositoryOwner,
+      owner: (options && options.repositoryOwner) || defaultRepositoryOwner,
       repo: repositoryName,
       title: milestoneName
     };
@@ -377,9 +387,9 @@ export class GitHub {
    * @param sprintNumber The number of the sprint that the milestone will be associated with.
    * @param sprintEndDate The last day of the sprint.
    */
-  public createSprintMilestone(repositoryName: string, sprintNumber: number, sprintEndDate: string): Promise<GitHubSprintMilestone | undefined> {
+  public createSprintMilestone(repositoryName: string, sprintNumber: number, sprintEndDate: string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubSprintMilestone | undefined> {
     const milestoneName = getSprintMilestoneName(sprintNumber);
-    return this.createMilestone(repositoryName, milestoneName, { endDate: sprintEndDate })
+    return this.createMilestone(repositoryName, milestoneName, { endDate: sprintEndDate, repositoryOwner: repositoryOwner })
       .then((githubMilestone: GitHubMilestone) => {
         return githubMilestoneToSprintMilestone(githubMilestone);
       });
@@ -391,11 +401,11 @@ export class GitHub {
    * @param milestoneNumber The number id of the milestone to update.
    * @param newSprintEndDate The new end date to update the existing milestone to.
    */
-  public updateMilestoneEndDate(repositoryName: string, milestoneNumber: number, newSprintEndDate: string): Promise<GitHubMilestone> {
+  public updateMilestoneEndDate(repositoryName: string, milestoneNumber: number, newSprintEndDate: string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubMilestone> {
     newSprintEndDate = addOffset(newSprintEndDate);
     return new Promise((resolve, reject) => {
       this.github.issues.updateMilestone({
-        owner: defaultRepositoryOwner,
+        owner: repositoryOwner,
         repo: repositoryName,
         number: milestoneNumber,
         due_on: newSprintEndDate
@@ -409,17 +419,17 @@ export class GitHub {
     });
   }
 
-  public updateSprintMilestoneEndDate(repositoryName: string, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string): Promise<GitHubSprintMilestone> {
-    return this.updateMilestoneEndDate(repositoryName, sprintMilestone.milestoneNumber!, newSprintEndDate)
+  public updateSprintMilestoneEndDate(repositoryName: string, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubSprintMilestone> {
+    return this.updateMilestoneEndDate(repositoryName, sprintMilestone.milestoneNumber!, newSprintEndDate, repositoryOwner)
       .then((githubMilestone: GitHubMilestone) => {
         return githubMilestoneToSprintMilestone(githubMilestone)!;
       });
   }
 
-  public closeMilestone(repositoryName: string, milestoneNumber: number): Promise<void> {
+  public closeMilestone(repositoryName: string, milestoneNumber: number, repositoryOwner = defaultRepositoryOwner): Promise<void> {
     return new Promise((resolve, reject) => {
       this.github.issues.updateMilestone({
-        owner: defaultRepositoryOwner,
+        owner: repositoryOwner,
         repo: repositoryName,
         number: milestoneNumber,
         state: "closed"
@@ -433,8 +443,8 @@ export class GitHub {
     });
   }
 
-  public closeSprintMilestone(repositoryName: string, sprintMilestone: GitHubSprintMilestone): Promise<void> {
-    return this.closeMilestone(repositoryName, sprintMilestone.milestoneNumber!);
+  public closeSprintMilestone(repositoryName: string, sprintMilestone: GitHubSprintMilestone, repositoryOwner = defaultRepositoryOwner): Promise<void> {
+    return this.closeMilestone(repositoryName, sprintMilestone.milestoneNumber!, repositoryOwner);
   }
 
   /**
@@ -452,7 +462,7 @@ export class GitHub {
     }
 
     const githubArguments: Octokit.PullRequestsGetAllParams = {
-      owner: defaultRepositoryOwner,
+      owner: (options && options.repositoryOwner) || defaultRepositoryOwner,
       repo: repositoryName,
       state: pullRequestState
     };
@@ -460,7 +470,7 @@ export class GitHub {
       .then((response: Octokit.AnyResponse) => this.getAllPageData<GitHubPullRequest>(response));
   }
 
-  public addPullRequestAssignees(repositoryName: string, githubPullRequest: GitHubPullRequest, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<void> {
+  public addPullRequestAssignees(repositoryName: string, githubPullRequest: GitHubPullRequest, assignees: string | GitHubUser | (string | GitHubUser)[], repositoryOwner = defaultRepositoryOwner): Promise<void> {
     return new Promise((resolve, reject) => {
       let assigneeLogins: string[];
       if (typeof assignees === "string") {
@@ -481,7 +491,7 @@ export class GitHub {
       } else {
         const updatedAssigneeLogins: string[] = [...currentAssigneeLogins, ...assigneeLoginsToAdd];
         this.github.issues.edit({
-          owner: defaultRepositoryOwner,
+          owner: repositoryOwner,
           repo: repositoryName,
           number: githubPullRequest.number,
           assignees: updatedAssigneeLogins
@@ -502,7 +512,7 @@ export class GitHub {
    * @param githubPullRequest The GitHubPullRequest that the labels will be added to.
    * @param labelNamesToAdd The name of the label or labels to add to the pull request.
    */
-  public addPullRequestLabels(repositoryName: string, githubPullRequest: GitHubPullRequest, labelNames: string | string[]): Promise<void> {
+  public addPullRequestLabels(repositoryName: string, githubPullRequest: GitHubPullRequest, labelNames: string | string[], repositoryOwner = defaultRepositoryOwner): Promise<void> {
     return new Promise((resolve, reject) => {
       const labelNamesArray: string[] = (typeof labelNames === "string" ? [labelNames] : labelNames);
 
@@ -514,7 +524,7 @@ export class GitHub {
       } else {
         const updatedLabelNamesArray: string[] = [...currentLabelNames, ...labelNamesToAdd];
         this.github.issues.edit({
-          owner: defaultRepositoryOwner,
+          owner: repositoryOwner,
           repo: repositoryName,
           number: githubPullRequest.number,
           labels: updatedLabelNamesArray
@@ -529,7 +539,7 @@ export class GitHub {
     });
   }
 
-  public setPullRequestMilestone(repositoryName: string, githubPullRequest: GitHubPullRequest, milestone: number | string | GitHubMilestone): Promise<void> {
+  public setPullRequestMilestone(repositoryName: string, githubPullRequest: GitHubPullRequest, milestone: number | string | GitHubMilestone, repositoryOwner = defaultRepositoryOwner): Promise<void> {
     let milestoneNumberPromise: Promise<number>;
     if (typeof milestone === "number") {
       milestoneNumberPromise = Promise.resolve(milestone);
@@ -543,7 +553,7 @@ export class GitHub {
       .then((milestoneNumber: number) => {
         return new Promise<void>((resolve, reject) => {
           this.github.issues.edit({
-            owner: defaultRepositoryOwner,
+            owner: repositoryOwner,
             repo: repositoryName,
             number: githubPullRequest.number,
             milestone: milestoneNumber

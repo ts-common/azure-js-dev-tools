@@ -99,3 +99,4 @@ test-results.xml
 *stats.html
 
 *.log
+*.auth
