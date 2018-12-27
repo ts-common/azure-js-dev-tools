@@ -246,26 +246,6 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
         folderPathsToRunNPMInstallIn.push(packageFolderPath);
       }
     } else {
-      if (recursive) {
-        const allDependencyNames: string[] = [];
-        if (packageJson.dependencies) {
-          allDependencyNames.push(...Object.keys(packageJson.dependencies));
-        }
-        if (packageJson.devDependencies) {
-          allDependencyNames.push(...Object.keys(packageJson.devDependencies));
-        }
-
-        for (const dependencyName of allDependencyNames) {
-          const clonedDependency: ClonedPackage | undefined = clonedPackages[dependencyName];
-          if (clonedDependency) {
-            const clonedDependencyFolderPath: string = clonedDependency.path;
-            if (!clonedDependency.updated && !contains(packageFolderPathsVisited, clonedDependencyFolderPath) && !contains(packageFolderPathsToVisit, clonedDependencyFolderPath)) {
-              packageFolderPathsToVisit.push(clonedDependencyFolderPath);
-            }
-          }
-        }
-      }
-
       writePackageJsonFileSync(packageJson, packageJsonFilePath);
 
       const packageLockJsonFilePath: string = joinPath(packageFolderPath, "package-lock.json");
@@ -279,6 +259,26 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
         folderPathsToRunNPMInstallIn.push(packageFolderPath);
       }
     }
+
+    if (recursive) {
+      const allDependencyNames: string[] = [];
+      if (packageJson.dependencies) {
+        allDependencyNames.push(...Object.keys(packageJson.dependencies));
+      }
+      if (packageJson.devDependencies) {
+        allDependencyNames.push(...Object.keys(packageJson.devDependencies));
+      }
+
+      for (const dependencyName of allDependencyNames) {
+        const clonedDependency: ClonedPackage | undefined = clonedPackages[dependencyName];
+        if (clonedDependency) {
+          const clonedDependencyFolderPath: string = clonedDependency.path;
+          if (!clonedDependency.updated && !contains(packageFolderPathsVisited, clonedDependencyFolderPath) && !contains(packageFolderPathsToVisit, clonedDependencyFolderPath)) {
+            packageFolderPathsToVisit.push(clonedDependencyFolderPath);
+          }
+        }
+      }
+    }
   }
 
   for (const folderPath of folderPathsToRunNPMInstallIn) {
@@ -287,6 +287,10 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
       log: logger.logInfo,
       showCommand: true
     }).exitCode;
+
+    if (exitCode !== 0) {
+      break;
+    }
   }
 
   if (exitCode === 0 && options.extraFilesToUpdate) {
