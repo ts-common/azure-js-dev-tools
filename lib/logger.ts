@@ -27,35 +27,59 @@ export interface Logger {
    * @param text The text to log.
    */
   logSection(text: string): void;
+
+  /**
+   * Log the provided text as a verbose log.
+   * @param text The text to log.
+   */
+  logVerbose(text: string): void;
 }
 
 /**
- * An interface for wrapping an existing Logger.
+ * The options that can be provided when creating a Logger.
  */
-export interface WrappedLoggerOptions {
+export interface LoggerOptions {
   /**
    * Log the provided text as informational.
    * @param text The text to log.
    */
-  logInfo?(text: string): void;
+  logInfo?: boolean | ((text: string) => void);
 
   /**
    * Log the provided text as an error.
    * @param text The text to log.
    */
-  logError?(text: string): void;
+  logError?: boolean | ((text: string) => void);
 
   /**
    * Log the provided text as a warning.
    * @param text The text to log.
    */
-  logWarning?(text: string): void;
+  logWarning?: boolean | ((text: string) => void);
 
   /**
    * Log the provided text as a section header.
    * @param text The text to log.
    */
-  logSection?(text: string): void;
+  logSection?: boolean | ((text: string) => void);
+
+  /**
+   * Log the provided text as a verbose log.
+   * @param text The text to log.
+   */
+  logVerbose?: boolean | ((text: string) => void);
+}
+
+function getLogFunction(optionsFunction: undefined | boolean | ((text: string) => void), normalFunction: (text: string) => void, undefinedUsesNormalFunction = true): (text: string) => void {
+  let result: (text: string) => void = () => { };
+  if (optionsFunction !== false) {
+    if (typeof optionsFunction === "function") {
+      result = optionsFunction;
+    } else if (optionsFunction !== undefined || undefinedUsesNormalFunction) {
+      result = normalFunction;
+    }
+  }
+  return result;
 }
 
 /**
@@ -64,26 +88,29 @@ export interface WrappedLoggerOptions {
  * @param options The options that should be applied to the wrapped Logger.
  * @returns The newly created Logger that wraps the provided Logger using the provided options.
  */
-export function wrapLogger(toWrap: Logger, options: WrappedLoggerOptions): Logger {
+export function wrapLogger(toWrap: Logger, options: LoggerOptions): Logger {
   options = options || {};
   return {
-    logInfo: options.logInfo || toWrap.logInfo,
-    logError: options.logError || toWrap.logError,
-    logWarning: options.logWarning || toWrap.logWarning,
-    logSection: options.logSection || toWrap.logSection
+    logInfo: getLogFunction(options.logInfo, toWrap.logInfo),
+    logError: getLogFunction(options.logError, toWrap.logError),
+    logWarning: getLogFunction(options.logWarning, toWrap.logWarning),
+    logSection: getLogFunction(options.logSection, toWrap.logSection),
+    logVerbose: getLogFunction(options.logVerbose, toWrap.logVerbose, false)
   };
 }
 
 /**
  * Get a Logger that will send its logs to the console.
  */
-export function getConsoleLogger(): Logger {
-  return {
+export function getConsoleLogger(options?: LoggerOptions): Logger {
+  return wrapLogger({
     logInfo: (text: string) => console.log(text),
     logError: (text: string) => console.error(text),
     logWarning: (text: string) => console.log(text),
-    logSection: (text: string) => console.log(text)
-  };
+    logSection: (text: string) => console.log(text),
+    logVerbose: (text: string) => console.log(text)
+  },
+    options || {});
 }
 
 /**
@@ -110,6 +137,10 @@ export interface InMemoryLogger extends Logger {
    * The section header logs that have been written to this Logger.
    */
   sectionLogs: string[];
+  /**
+   * The verbose logs that have been written to this Logger.
+   */
+  verboseLogs: string[];
 }
 
 /**
@@ -121,12 +152,14 @@ export function getInMemoryLogger(): InMemoryLogger {
   const errorLogs: string[] = [];
   const warningLogs: string[] = [];
   const sectionLogs: string[] = [];
+  const verboseLogs: string[] = [];
   return {
     allLogs,
     infoLogs,
     errorLogs,
     warningLogs,
     sectionLogs,
+    verboseLogs,
     logInfo: (text: string) => {
       allLogs.push(text);
       infoLogs.push(text);
@@ -142,27 +175,35 @@ export function getInMemoryLogger(): InMemoryLogger {
     logSection: (text: string) => {
       allLogs.push(text);
       sectionLogs.push(text);
+    },
+    logVerbose: (text: string) => {
+      allLogs.push(text);
+      verboseLogs.push(text);
     }
   };
+}
+
+export interface AzureDevOpsLoggerOptions extends LoggerOptions {
+  toWrap?: Logger;
 }
 
 /**
  * Get a Logger that will output prefixes for certain types of logs in the Azure DevOps environment.
  */
-export function getAzureDevOpsLogger(toWrap?: Logger): Logger {
-  const innerLogger: Logger = toWrap || getConsoleLogger();
-  return {
-    logInfo: innerLogger.logInfo,
+export function getAzureDevOpsLogger(options?: AzureDevOpsLoggerOptions): Logger {
+  options = options || {};
+  const innerLogger: Logger = options.toWrap || getConsoleLogger(options);
+  return wrapLogger(innerLogger, {
     logError: (text: string) => innerLogger.logError(`##[error]${text}`),
-    logSection: (text: string) => innerLogger.logInfo(`##[section]${text}`),
-    logWarning: (text: string) => innerLogger.logInfo(`##[warning]${text}`)
-  };
+    logSection: (text: string) => innerLogger.logSection(`##[section]${text}`),
+    logWarning: (text: string) => innerLogger.logWarning(`##[warning]${text}`)
+  });
 }
 
 /**
  * Get the default Logger based on the command line arguments.
  * @returns The default Logger based on the command line arguments.
  */
-export function getDefaultLogger(): Logger {
-  return yargs.argv["azure-devops"] ? getAzureDevOpsLogger() : getConsoleLogger();
+export function getDefaultLogger(options?: LoggerOptions): Logger {
+  return yargs.argv["azure-devops"] ? getAzureDevOpsLogger(options) : getConsoleLogger(options);
 }
