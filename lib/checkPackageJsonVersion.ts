@@ -27,7 +27,7 @@ export function checkPackageJsonVersion(options?: CheckPackageJsonVersionOptions
   const logger: Logger = options.logger || getDefaultLogger();
 
   let exitCode: number;
-  logger.logInfo(`Looking for package.json file starting at "${startPath}"...`);
+  logger.logSection(`Looking for package.json file starting at "${startPath}"...`);
   const packageJsonFilePath: string | undefined = findPackageJsonFileSync(startPath);
   if (!packageJsonFilePath) {
     logger.logError(`Could not find a package.json file at "${startPath}" or in any of its parent folders.`);
