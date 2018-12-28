@@ -4,9 +4,9 @@ import { getName } from "./path";
 
 export interface CheckForSkipCallsOptions {
   /**
-   * A *.skip(...) call by default is just a warning. Setting this to true will make it an error.
+   * A *.skip(...) call by default is an error. Setting this to true will make it a warning.
    */
-  skipIsError?: boolean;
+  skipIsWarning?: boolean;
   /**
    * The paths to start looking for source files in.
    */
@@ -43,13 +43,13 @@ export function checkForSkipCalls(options?: CheckForSkipCallsOptions): number {
     if (!sourceFilePaths) {
       logger.logError(`  No source files (*.ts, *.js) found.`);
     } else {
-      const logSkip = options.skipIsError ? logger.logError : logger.logWarning;
+      const logSkip = options.skipIsWarning ? logger.logWarning : logger.logError;
       for (const sourceFilePath of sourceFilePaths) {
         const sourceFileContents: string = readFileContents(sourceFilePath)!;
         if (sourceFileContents.indexOf(".skip(") !== -1) {
           logSkip(`  Found *.skip(...) call in "${sourceFilePath}".`);
           ++filesWithSkipCalls;
-          if (options.skipIsError) {
+          if (!options.skipIsWarning) {
             ++exitCode;
           }
         }
