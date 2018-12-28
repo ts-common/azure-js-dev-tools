@@ -85,10 +85,19 @@ function updateDependencies(clonedPackage: ClonedPackage, dependencies: StringMa
 
   if (dependencies) {
     for (const dependencyName of Object.keys(dependencies)) {
-      if (!contains(clonedPackage.dependenciesToIgnore, dependencyName)) {
+      if (contains(clonedPackage.dependenciesToIgnore, dependencyName)) {
+        // logger.logInfo(`  Not updating ${dependencyName} because it has been marked as ignored.`);
+      } else {
+        // logger.logInfo(`  Attempting to update dependency version for ${dependencyName}...`);
         const dependencyVersion: string = dependencies[dependencyName];
+        // logger.logInfo(`    Current dependency version: ${dependencyVersion}`);
         const dependencyTargetVersion: string | undefined = getDependencyTargetVersion(clonedPackage, dependencyName, dependencyType, clonedPackages);
-        if (dependencyTargetVersion && dependencyVersion !== dependencyTargetVersion) {
+        // logger.logInfo(`    Target dependency version: ${dependencyTargetVersion}`);
+        if (!dependencyTargetVersion) {
+          // logger.logInfo(`    No target dependency version found.`);
+        } else if (dependencyVersion === dependencyTargetVersion) {
+          // logger.logInfo(`    The target dependency version is already the current dependency version.`);
+        } else {
           logger.logInfo(`  Changing "${dependencyName}" from "${dependencyVersion}" to "${dependencyTargetVersion}"...`);
           dependencies[dependencyName] = dependencyTargetVersion;
           changed.push(dependencyName);
@@ -118,8 +127,6 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
         foldersToVisit.push(folderPath);
       }
     };
-    const logInfo = (text: string) => logger && logger.logInfo(text);
-    const logSection = (text: string) => logger && logger.logSection(text);
 
     if (fileExistsSync(normalizedStartPath)) {
       foldersToVisit.push(getParentFolderPath(normalizedStartPath));
@@ -132,9 +139,9 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
       visitedFolders.push(folderPath);
 
       const packageJsonFilePath: string = joinPath(folderPath, "package.json");
-      logSection(`Looking for package "${packageName}" at "${packageJsonFilePath}"...`);
+      logger && logger.logSection(`Looking for package "${packageName}" at "${packageJsonFilePath}"...`);
       if (fileExistsSync(packageJsonFilePath)) {
-        logInfo(`"${packageJsonFilePath}" file exists. Comparing package names...`);
+        logger && logger.logInfo(`"${packageJsonFilePath}" file exists. Comparing package names...`);
         const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
         if (packageJson.name) {
           if (packageJson.name === packageName) {
@@ -162,10 +169,12 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
   return result;
 }
 
-function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependencyName: string, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>): string | undefined {
+function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependencyName: string, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>, logger?: Logger): string | undefined {
   let result: string | undefined;
   const dependencyClonedPackage: ClonedPackage | undefined = findPackage(dependencyName, clonedPackage.path, clonedPackages);
-  if (dependencyClonedPackage) {
+  if (!dependencyClonedPackage) {
+    logger && logger.logInfo(`    No cloned package found named ${dependencyName}.`);
+  } else {
     if (!dependencyClonedPackage.targetVersion) {
       if (dependencyType === "local") {
         dependencyClonedPackage.targetVersion = `file:${dependencyClonedPackage.path}`;
