@@ -29,7 +29,7 @@ export function checkEverything(checkEverythingOptions?: CheckEverythingOptions)
   let exitCode = 0;
 
   const runCheck = (checkName: string, check: () => number) => {
-    logger.logInfo(`Starting check "${checkName}"...`);
+    logger.logSection(`Starting check "${checkName}"...`);
     if (check() !== 0) {
       ++exitCode;
     }

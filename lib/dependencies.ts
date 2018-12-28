@@ -105,7 +105,8 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
         foldersToVisit.push(folderPath);
       }
     };
-    const log = (text: string) => logger && logger.logInfo(text);
+    const logInfo = (text: string) => logger && logger.logInfo(text);
+    const logSection = (text: string) => logger && logger.logSection(text);
 
     if (fileExistsSync(normalizedStartPath)) {
       foldersToVisit.push(getParentFolderPath(normalizedStartPath));
@@ -118,9 +119,9 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
       visitedFolders.push(folderPath);
 
       const packageJsonFilePath: string = joinPath(folderPath, "package.json");
-      log(`Looking for package "${packageName}" at "${packageJsonFilePath}"...`);
+      logSection(`Looking for package "${packageName}" at "${packageJsonFilePath}"...`);
       if (fileExistsSync(packageJsonFilePath)) {
-        log(`"${packageJsonFilePath}" file exists. Comparing package names...`);
+        logInfo(`"${packageJsonFilePath}" file exists. Comparing package names...`);
         const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
         if (packageJson.name) {
           if (packageJson.name === packageName) {
@@ -230,7 +231,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
     const packageFolderPath: string = packageFolderPathsToVisit.shift()!;
     packageFolderPathsVisited.push(packageFolderPath);
 
-    logger.logInfo(`Updating package folder "${packageFolderPath}"...`);
+    logger.logSection(`Updating package folder "${packageFolderPath}"...`);
 
     const packageJsonFilePath: string = joinPath(packageFolderPath, "package.json");
     const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
@@ -284,7 +285,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
   for (const folderPath of folderPathsToRunNPMInstallIn) {
     exitCode = npmInstall({
       executionFolderPath: folderPath,
-      log: logger.logInfo,
+      log: logger.logSection,
       showCommand: true
     }).exitCode;
 
@@ -300,7 +301,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
         exitCode = 2;
         break;
       } else {
-        logger.logInfo(`Updating extra file "${extraFileToUpdate}"...`);
+        logger.logSection(`Updating extra file "${extraFileToUpdate}"...`);
         const originalFileContents: string = readFileSync(extraFileToUpdate, { encoding: "utf8" });
         let updatedFileContents: string = originalFileContents;
 

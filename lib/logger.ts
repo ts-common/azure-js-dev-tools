@@ -15,6 +15,18 @@ export interface Logger {
    * @param text The text to log.
    */
   logError(text: string): void;
+
+  /**
+   * Log the provided text as a warning.
+   * @param text The text to log.
+   */
+  logWarning(text: string): void;
+
+  /**
+   * Log the provided text as a section header.
+   * @param text The text to log.
+   */
+  logSection(text: string): void;
 }
 
 /**
@@ -32,6 +44,18 @@ export interface WrappedLoggerOptions {
    * @param text The text to log.
    */
   logError?(text: string): void;
+
+  /**
+   * Log the provided text as a warning.
+   * @param text The text to log.
+   */
+  logWarning?(text: string): void;
+
+  /**
+   * Log the provided text as a section header.
+   * @param text The text to log.
+   */
+  logSection?(text: string): void;
 }
 
 /**
@@ -41,9 +65,12 @@ export interface WrappedLoggerOptions {
  * @returns The newly created Logger that wraps the provided Logger using the provided options.
  */
 export function wrapLogger(toWrap: Logger, options: WrappedLoggerOptions): Logger {
+  options = options || {};
   return {
-    logInfo: (options && options.logInfo) || toWrap.logInfo,
-    logError: (options && options.logError) || toWrap.logError
+    logInfo: options.logInfo || toWrap.logInfo,
+    logError: options.logError || toWrap.logError,
+    logWarning: options.logWarning || toWrap.logWarning,
+    logSection: options.logSection || toWrap.logSection
   };
 }
 
@@ -53,7 +80,9 @@ export function wrapLogger(toWrap: Logger, options: WrappedLoggerOptions): Logge
 export function getConsoleLogger(): Logger {
   return {
     logInfo: (text: string) => console.log(text),
-    logError: (text: string) => console.error(text)
+    logError: (text: string) => console.error(text),
+    logWarning: (text: string) => console.log(text),
+    logSection: (text: string) => console.log(text)
   };
 }
 
@@ -73,6 +102,14 @@ export interface InMemoryLogger extends Logger {
    * The error logs that have been written to this Logger.
    */
   errorLogs: string[];
+  /**
+   * The warning logs that have been written to this Logger.
+   */
+  warningLogs: string[];
+  /**
+   * The section header logs that have been written to this Logger.
+   */
+  sectionLogs: string[];
 }
 
 /**
@@ -82,10 +119,14 @@ export function getInMemoryLogger(): InMemoryLogger {
   const allLogs: string[] = [];
   const infoLogs: string[] = [];
   const errorLogs: string[] = [];
+  const warningLogs: string[] = [];
+  const sectionLogs: string[] = [];
   return {
     allLogs,
     infoLogs,
     errorLogs,
+    warningLogs,
+    sectionLogs,
     logInfo: (text: string) => {
       allLogs.push(text);
       infoLogs.push(text);
@@ -93,30 +134,22 @@ export function getInMemoryLogger(): InMemoryLogger {
     logError: (text: string) => {
       allLogs.push(text);
       errorLogs.push(text);
+    },
+    logWarning: (text: string) => {
+      allLogs.push(text);
+      warningLogs.push(text);
+    },
+    logSection: (text: string) => {
+      allLogs.push(text);
+      sectionLogs.push(text);
     }
   };
 }
 
 /**
- * A Logger that will output prefixes for certain types of logs in the Azure DevOps environment.
- */
-export interface AzureDevOpsLogger extends Logger {
-  /**
-   * Log a message that indicates a new section has been entered.
-   * @param text The text to log.
-   */
-  logSection(text: string): void;
-  /**
-   * Log the provided text as a warning.
-   * @param text The text to log.
-   */
-  logWarning(text: string): void;
-}
-
-/**
  * Get a Logger that will output prefixes for certain types of logs in the Azure DevOps environment.
  */
-export function getAzureDevOpsLogger(toWrap?: Logger): AzureDevOpsLogger {
+export function getAzureDevOpsLogger(toWrap?: Logger): Logger {
   const innerLogger: Logger = toWrap || getConsoleLogger();
   return {
     logInfo: innerLogger.logInfo,

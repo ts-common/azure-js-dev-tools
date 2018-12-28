@@ -28,7 +28,7 @@ export function checkForOnlyCalls(options?: CheckForOnlyCallsOptions): number {
   let exitCode = 0;
 
   for (const startPath of startPathArray) {
-    logger.logInfo(`Looking for *.only(...) function calls in files starting at "${startPath}"...`);
+    logger.logSection(`Looking for *.only(...) function calls in files starting at "${startPath}"...`);
     const sourceFilePaths: string[] | undefined = getChildFilePaths(startPath, {
       recursive: true,
       folderCondition: (folderPath: string) => getName(folderPath) !== "node_modules",
