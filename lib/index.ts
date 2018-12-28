@@ -1,4 +1,5 @@
 export * from "./arrays";
+export * from "./assertEx";
 export * from "./checkEverything";
 export * from "./checkPackageJsonVersion";
 export * from "./checkForOnlyCalls";
