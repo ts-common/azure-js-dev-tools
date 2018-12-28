@@ -1,4 +1,5 @@
 import { checkForOnlyCalls, CheckForOnlyCallsOptions } from "./checkForOnlyCalls";
+import { checkForSkipCalls, CheckForSkipCallsOptions } from "./checkForSkipCalls";
 import { checkPackageJsonVersion, CheckPackageJsonVersionOptions } from "./checkPackageJsonVersion";
 import { getDefaultLogger, Logger } from "./logger";
 
@@ -13,9 +14,13 @@ export interface CheckEverythingOptions {
    */
   checkPackageJsonVersionOptions?: CheckPackageJsonVersionOptions;
   /**
-   * The options to provide to the only() in test source files check.
+   * The options to provide to the check for only() calls check.
    */
   checkForOnlyCallsOptions?: CheckForOnlyCallsOptions;
+  /**
+   * The options to provide to the check for skip() calls check.
+   */
+  checkForSkipCallsOptions?: CheckForSkipCallsOptions;
 }
 
 /**
@@ -38,6 +43,7 @@ export function checkEverything(checkEverythingOptions?: CheckEverythingOptions)
 
   runCheck("Package.json Version", () => checkPackageJsonVersion(options.checkPackageJsonVersionOptions));
   runCheck("No only() calls", () => checkForOnlyCalls(options.checkForOnlyCallsOptions));
+  runCheck("No skip() calls", () => checkForSkipCalls(options.checkForSkipCallsOptions));
 
   if (exitCode === 0) {
     logger.logInfo(`${exitCode} checks failed.`);
