@@ -1,8 +1,9 @@
 export * from "./arrays";
 export * from "./assertEx";
 export * from "./checkEverything";
-export * from "./checkPackageJsonVersion";
 export * from "./checkForOnlyCalls";
+export * from "./checkForSkipCalls";
+export * from "./checkPackageJsonVersion";
 export { StringMap } from "./common";
 export * from "./dependencies";
 export * from "./fileSystem2";

@@ -1,7 +1,11 @@
 import { checkEverything, resolvePath } from "../lib";
 
+const testFolderPath: string = resolvePath(__dirname, "..", "test");
 checkEverything({
   checkForOnlyCallsOptions: {
-    startPaths: resolvePath(__dirname, "..", "test")
+    startPaths: testFolderPath
+  },
+  checkForSkipCallsOptions: {
+    startPaths: testFolderPath
   }
 });
