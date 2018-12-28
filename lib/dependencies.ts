@@ -11,13 +11,24 @@ import yargs = require("yargs");
 export type DepedencyType = "local" | "latest";
 
 export interface PackageFolder {
+  /**
+   * The path to the package folder.
+   */
   path: string;
+  /**
+   * Whether or not NPM install will be run when this PackageFolder changes its dependencies.
+   * Undefined will be treated the same as true.
+   */
   runNPMInstall?: boolean;
   /**
    * If the package is not found (such as when updating to the latest version of an unpublished
    * package), then set the target package version to this default version.
    */
   defaultVersion?: string;
+  /**
+   * A list of dependencies to not update, even if they are found locally.
+   */
+  dependenciesToIgnore?: string[];
 }
 
 export interface ClonedPackage extends PackageFolder {
@@ -57,7 +68,7 @@ export interface ChangeClonedDependenciesToOptions {
   /**
    * The package folders that will be processed by changeClonedDependenciesTo().
    */
-  packageFolders?: PackageFolder[];
+  packageFolders?: (string | PackageFolder)[];
 
   /**
    * An extra set of files that will have dependency references updated.
@@ -69,17 +80,19 @@ export interface ChangeClonedDependenciesToOptions {
  * Update the provided dependencies using the provided dependencyType then return the dependencies
  * that were changed.
  */
-function updateDependencies(packageJsonFilePath: string, dependencies: StringMap<string> | undefined, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>, logger: Logger): string[] {
+function updateDependencies(clonedPackage: ClonedPackage, dependencies: StringMap<string> | undefined, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>, logger: Logger): string[] {
   const changed: string[] = [];
 
   if (dependencies) {
     for (const dependencyName of Object.keys(dependencies)) {
-      const dependencyVersion: string = dependencies[dependencyName];
-      const dependencyTargetVersion: string | undefined = getDependencyTargetVersion(packageJsonFilePath, dependencyName, dependencyType, clonedPackages);
-      if (dependencyTargetVersion && dependencyVersion !== dependencyTargetVersion) {
-        logger.logInfo(`  Changing "${dependencyName}" from "${dependencyVersion}" to "${dependencyTargetVersion}"...`);
-        dependencies[dependencyName] = dependencyTargetVersion;
-        changed.push(dependencyName);
+      if (!contains(clonedPackage.dependenciesToIgnore, dependencyName)) {
+        const dependencyVersion: string = dependencies[dependencyName];
+        const dependencyTargetVersion: string | undefined = getDependencyTargetVersion(clonedPackage, dependencyName, dependencyType, clonedPackages);
+        if (dependencyTargetVersion && dependencyVersion !== dependencyTargetVersion) {
+          logger.logInfo(`  Changing "${dependencyName}" from "${dependencyVersion}" to "${dependencyTargetVersion}"...`);
+          dependencies[dependencyName] = dependencyTargetVersion;
+          changed.push(dependencyName);
+        }
       }
     }
   }
@@ -149,25 +162,25 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
   return result;
 }
 
-function getDependencyTargetVersion(packageJsonFilePath: string, dependencyName: string, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>): string | undefined {
+function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependencyName: string, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>): string | undefined {
   let result: string | undefined;
-  const clonedPackage: ClonedPackage | undefined = findPackage(dependencyName, packageJsonFilePath, clonedPackages);
-  if (clonedPackage) {
-    if (!clonedPackage.targetVersion) {
+  const dependencyClonedPackage: ClonedPackage | undefined = findPackage(dependencyName, clonedPackage.path, clonedPackages);
+  if (dependencyClonedPackage) {
+    if (!dependencyClonedPackage.targetVersion) {
       if (dependencyType === "local") {
-        clonedPackage.targetVersion = `file:${clonedPackage.path}`;
+        dependencyClonedPackage.targetVersion = `file:${dependencyClonedPackage.path}`;
       } else if (dependencyType === "latest") {
         const dependencyViewResult: NPMViewResult = npmView({ packageName: dependencyName });
         const distTags: StringMap<string> | undefined = dependencyViewResult["dist-tags"];
-        clonedPackage.targetVersion = distTags && distTags["latest"];
-        if (clonedPackage.targetVersion) {
-          clonedPackage.targetVersion = "^" + clonedPackage.targetVersion;
+        dependencyClonedPackage.targetVersion = distTags && distTags["latest"];
+        if (dependencyClonedPackage.targetVersion) {
+          dependencyClonedPackage.targetVersion = "^" + dependencyClonedPackage.targetVersion;
         } else {
-          clonedPackage.targetVersion = clonedPackage.defaultVersion;
+          dependencyClonedPackage.targetVersion = dependencyClonedPackage.defaultVersion;
         }
       }
     }
-    result = clonedPackage.targetVersion;
+    result = dependencyClonedPackage.targetVersion;
   }
   return result;
 }
@@ -194,7 +207,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
 
   const packagePathsToAdd: string[] = [packagePath];
   if (options.packageFolders) {
-    const packageFolderPaths: string[] = options.packageFolders.map((packageFolder: PackageFolder) => packageFolder.path);
+    const packageFolderPaths: string[] = options.packageFolders.map((packageFolder: string | PackageFolder) => typeof packageFolder === "string" ? packageFolder : packageFolder.path);
     packagePathsToAdd.push(...packageFolderPaths);
   }
 
@@ -216,8 +229,10 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
         path: packageFolderPath
       };
 
-      const packageFolder: PackageFolder | undefined = first(options.packageFolders, (packageFolder: PackageFolder) => packageFolder.path === packagePathToAdd);
-      if (packageFolder) {
+      const packageFolder: string | PackageFolder | undefined = first(options.packageFolders, (packageFolder: string | PackageFolder) => (typeof packageFolder === "string" ? packageFolder : packageFolder.path) === packagePathToAdd);
+      if (packageFolder && typeof packageFolder !== "string") {
+        clonedPackage.defaultVersion = packageFolder.defaultVersion;
+        clonedPackage.dependenciesToIgnore = packageFolder.dependenciesToIgnore;
         clonedPackage.runNPMInstall = packageFolder.runNPMInstall;
       }
 
@@ -239,8 +254,8 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
     const clonedPackage: ClonedPackage | undefined = clonedPackages[packageName]!;
     clonedPackage.updated = true;
 
-    const dependenciesChanged: string[] = updateDependencies(packageJsonFilePath, packageJson.dependencies, dependencyType, clonedPackages, logger);
-    const devDependenciesChanged: string[] = updateDependencies(packageJsonFilePath, packageJson.devDependencies, dependencyType, clonedPackages, logger);
+    const dependenciesChanged: string[] = updateDependencies(clonedPackage, packageJson.dependencies, dependencyType, clonedPackages, logger);
+    const devDependenciesChanged: string[] = updateDependencies(clonedPackage, packageJson.devDependencies, dependencyType, clonedPackages, logger);
     if (!any(dependenciesChanged) && !any(devDependenciesChanged)) {
       logger.logInfo(`  No changes made.`);
       if (clonedPackage.runNPMInstall !== false && forceInstall) {
