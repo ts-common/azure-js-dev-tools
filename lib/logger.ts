@@ -1,4 +1,4 @@
-import yargs = require("yargs");
+import { getBooleanArgument } from "./commandLine";
 
 /**
  * An interface for an object that writes logs.
@@ -103,14 +103,16 @@ export function wrapLogger(toWrap: Logger, options: LoggerOptions): Logger {
  * Get a Logger that will send its logs to the console.
  */
 export function getConsoleLogger(options?: LoggerOptions): Logger {
-  return wrapLogger({
-    logInfo: (text: string) => console.log(text),
-    logError: (text: string) => console.error(text),
-    logWarning: (text: string) => console.log(text),
-    logSection: (text: string) => console.log(text),
-    logVerbose: (text: string) => console.log(text)
-  },
-    options || {});
+  options = options || {};
+  return wrapLogger(
+    {
+      logInfo: (text: string) => console.log(text),
+      logError: (text: string) => console.error(text),
+      logWarning: (text: string) => console.log(text),
+      logSection: (text: string) => console.log(text),
+      logVerbose: (text: string) => console.log(text)
+    },
+    options);
 }
 
 /**
@@ -195,8 +197,10 @@ export function getAzureDevOpsLogger(options?: AzureDevOpsLoggerOptions): Logger
   const innerLogger: Logger = options.toWrap || getConsoleLogger(options);
   return wrapLogger(innerLogger, {
     logError: (text: string) => innerLogger.logError(`##[error]${text}`),
+    logInfo: true,
     logSection: (text: string) => innerLogger.logSection(`##[section]${text}`),
-    logWarning: (text: string) => innerLogger.logWarning(`##[warning]${text}`)
+    logWarning: (text: string) => innerLogger.logWarning(`##[warning]${text}`),
+    logVerbose: true
   });
 }
 
@@ -205,5 +209,9 @@ export function getAzureDevOpsLogger(options?: AzureDevOpsLoggerOptions): Logger
  * @returns The default Logger based on the command line arguments.
  */
 export function getDefaultLogger(options?: LoggerOptions): Logger {
-  return yargs.argv["azure-devops"] ? getAzureDevOpsLogger(options) : getConsoleLogger(options);
+  options = options || {};
+  if (options.logVerbose == undefined) {
+    options.logVerbose = getBooleanArgument("verbose");
+  }
+  return getBooleanArgument("azure-devops") ? getAzureDevOpsLogger(options) : getConsoleLogger(options);
 }

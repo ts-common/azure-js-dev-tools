@@ -1,12 +1,12 @@
 import { readFileSync, writeFileSync } from "fs";
 import { any, contains, first } from "./arrays";
+import { getBooleanArgument } from "./commandLine";
 import { StringMap } from "./common";
 import { fileExistsSync, folderExistsSync, getChildFolderPaths } from "./fileSystem2";
 import { getConsoleLogger, Logger } from "./logger";
 import { npmInstall, npmView, NPMViewResult } from "./npm";
 import { findPackageJsonFileSync, PackageJson, PackageLockJson, readPackageJsonFileSync, readPackageLockJsonFileSync, removePackageLockJsonDependencies, writePackageJsonFileSync, writePackageLockJsonFileSync } from "./packageJson";
 import { getParentFolderPath, joinPath, normalize } from "./path";
-import yargs = require("yargs");
 
 export type DepedencyType = "local" | "latest";
 
@@ -202,11 +202,11 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
   options = options || {};
   const logger: Logger = options.logger || getConsoleLogger();
 
-  const recursiveArgument: any = yargs.argv["recursive"];
-  const recursive: boolean = (options.recursive != undefined ? options.recursive : (recursiveArgument !== "false" && recursiveArgument !== false));
+  const recursiveArgument: any = getBooleanArgument("recursive");
+  const recursive: boolean = (options.recursive != undefined ? options.recursive : recursiveArgument !== false);
 
-  const forceInstallArgument: any = yargs.argv["force-install"];
-  const forceInstall: boolean = (options.forceInstall != undefined ? options.forceInstall : (forceInstallArgument === "true" || forceInstallArgument === true));
+  const forceInstallArgument: any = getBooleanArgument("force-install");
+  const forceInstall: boolean = (options.forceInstall != undefined ? options.forceInstall : forceInstallArgument === true);
 
   let exitCode = 0;
 
