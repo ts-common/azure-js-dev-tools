@@ -144,9 +144,40 @@ export interface InMemoryLogger extends Logger {
 }
 
 /**
+ * The options that can be provided when creating an InMemoryLogger.
+ */
+export interface InMemoryLoggerOptions {
+  /**
+   * Log the provided text as informational.
+   */
+  logInfo?: boolean;
+
+  /**
+   * Log the provided text as an error.
+   */
+  logError?: boolean;
+
+  /**
+   * Log the provided text as a warning.
+   */
+  logWarning?: boolean;
+
+  /**
+   * Log the provided text as a section header.
+   */
+  logSection?: boolean;
+
+  /**
+   * Log the provided text as a verbose log.
+   */
+  logVerbose?: boolean;
+}
+
+/**
  * Get a Logger that will store its logs in memory.
  */
-export function getInMemoryLogger(): InMemoryLogger {
+export function getInMemoryLogger(options?: InMemoryLoggerOptions): InMemoryLogger {
+  options = options || {};
   const allLogs: string[] = [];
   const infoLogs: string[] = [];
   const errorLogs: string[] = [];
@@ -160,26 +191,26 @@ export function getInMemoryLogger(): InMemoryLogger {
     warningLogs,
     sectionLogs,
     verboseLogs,
-    logInfo: (text: string) => {
+    logInfo: getLogFunction(options.logInfo, (text: string) => {
       allLogs.push(text);
       infoLogs.push(text);
-    },
-    logError: (text: string) => {
+    }),
+    logError: getLogFunction(options.logError, (text: string) => {
       allLogs.push(text);
       errorLogs.push(text);
-    },
-    logWarning: (text: string) => {
+    }),
+    logWarning: getLogFunction(options.logWarning, (text: string) => {
       allLogs.push(text);
       warningLogs.push(text);
-    },
-    logSection: (text: string) => {
+    }),
+    logSection: getLogFunction(options.logSection, (text: string) => {
       allLogs.push(text);
       sectionLogs.push(text);
-    },
-    logVerbose: (text: string) => {
+    }),
+    logVerbose: getLogFunction(options.logVerbose, (text: string) => {
       allLogs.push(text);
       verboseLogs.push(text);
-    }
+    }, false)
   };
 }
 
@@ -192,11 +223,16 @@ export interface AzureDevOpsLoggerOptions extends LoggerOptions {
  */
 export function getAzureDevOpsLogger(options?: AzureDevOpsLoggerOptions): Logger {
   options = options || {};
-  const innerLogger: Logger = options.toWrap || getConsoleLogger(options);
+  const innerLogger: Logger = options.toWrap || getConsoleLogger({
+    ...options,
+    logError: ("logError" in options ? options.logError : (text: string) => console.log(text)),
+  });
   return wrapLogger(innerLogger, {
     logError: (text: string) => innerLogger.logError(`##[error]${text}`),
     logSection: (text: string) => innerLogger.logSection(`##[section]${text}`),
-    logWarning: (text: string) => innerLogger.logWarning(`##[warning]${text}`)
+    logWarning: (text: string) => innerLogger.logWarning(`##[warning]${text}`),
+    logInfo: true,
+    logVerbose: true
   });
 }
 
