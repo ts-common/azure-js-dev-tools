@@ -34,18 +34,48 @@ describe("logger.ts", function () {
     });
 
     it("with toWrap logger", function () {
-      const inMemoryLogger: InMemoryLogger = getInMemoryLogger();
+      const inMemoryLogger: InMemoryLogger = getInMemoryLogger({ logVerbose: true });
       const logger: Logger = getAzureDevOpsLogger({ toWrap: inMemoryLogger });
 
       logger.logError("a");
-      assert.deepEqual(inMemoryLogger.allLogs, ["a"]);
-      assert.deepEqual(inMemoryLogger.errorLogs, ["a"]);
+      assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a"]);
+      assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
       assert.deepEqual(inMemoryLogger.infoLogs, []);
+      assert.deepEqual(inMemoryLogger.sectionLogs, []);
+      assert.deepEqual(inMemoryLogger.warningLogs, []);
+      assert.deepEqual(inMemoryLogger.verboseLogs, []);
 
       logger.logInfo("b");
-      assert.deepEqual(inMemoryLogger.allLogs, ["a", "b"]);
-      assert.deepEqual(inMemoryLogger.errorLogs, ["a"]);
+      assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a", "b"]);
+      assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
       assert.deepEqual(inMemoryLogger.infoLogs, ["b"]);
+      assert.deepEqual(inMemoryLogger.sectionLogs, []);
+      assert.deepEqual(inMemoryLogger.warningLogs, []);
+      assert.deepEqual(inMemoryLogger.verboseLogs, []);
+
+      logger.logSection("c");
+      assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a", "b", "##[section]c"]);
+      assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
+      assert.deepEqual(inMemoryLogger.infoLogs, ["b"]);
+      assert.deepEqual(inMemoryLogger.sectionLogs, ["##[section]c"]);
+      assert.deepEqual(inMemoryLogger.warningLogs, []);
+      assert.deepEqual(inMemoryLogger.verboseLogs, []);
+
+      logger.logWarning("d");
+      assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a", "b", "##[section]c", "##[warning]d"]);
+      assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
+      assert.deepEqual(inMemoryLogger.infoLogs, ["b"]);
+      assert.deepEqual(inMemoryLogger.sectionLogs, ["##[section]c"]);
+      assert.deepEqual(inMemoryLogger.warningLogs, ["##[warning]d"]);
+      assert.deepEqual(inMemoryLogger.verboseLogs, []);
+
+      logger.logVerbose("e");
+      assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a", "b", "##[section]c", "##[warning]d", "e"]);
+      assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
+      assert.deepEqual(inMemoryLogger.infoLogs, ["b"]);
+      assert.deepEqual(inMemoryLogger.sectionLogs, ["##[section]c"]);
+      assert.deepEqual(inMemoryLogger.warningLogs, ["##[warning]d"]);
+      assert.deepEqual(inMemoryLogger.verboseLogs, ["e"]);
     });
   });
 
