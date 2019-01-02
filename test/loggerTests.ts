@@ -1,12 +1,52 @@
 import { assert } from "chai";
-import { InMemoryLogger, getInMemoryLogger, wrapLogger, Logger, getConsoleLogger } from "../lib";
+import { InMemoryLogger, getInMemoryLogger, wrapLogger, Logger, getConsoleLogger, getAzureDevOpsLogger } from "../lib";
 
 describe("logger.ts", function () {
   it("getConsoleLogger()", function () {
     const logger: Logger = getConsoleLogger();
     assert(logger);
-    assert(logger.logInfo);
     assert(logger.logError);
+    assert(logger.logInfo);
+    assert(logger.logSection);
+    assert(logger.logVerbose);
+    assert(logger.logWarning);
+  });
+
+  describe("getAzureDevopsLogger()", function () {
+    it("with no options", function () {
+      const logger: Logger = getAzureDevOpsLogger();
+      assert(logger);
+      assert(logger.logError);
+      assert(logger.logInfo);
+      assert(logger.logSection);
+      assert(logger.logVerbose);
+      assert(logger.logWarning);
+    });
+
+    it("with empty options", function () {
+      const logger: Logger = getAzureDevOpsLogger({});
+      assert(logger);
+      assert(logger.logError);
+      assert(logger.logInfo);
+      assert(logger.logSection);
+      assert(logger.logVerbose);
+      assert(logger.logWarning);
+    });
+
+    it("with toWrap logger", function () {
+      const inMemoryLogger: InMemoryLogger = getInMemoryLogger();
+      const logger: Logger = getAzureDevOpsLogger({ toWrap: inMemoryLogger });
+
+      logger.logError("a");
+      assert.deepEqual(inMemoryLogger.allLogs, ["a"]);
+      assert.deepEqual(inMemoryLogger.errorLogs, ["a"]);
+      assert.deepEqual(inMemoryLogger.infoLogs, []);
+
+      logger.logInfo("b");
+      assert.deepEqual(inMemoryLogger.allLogs, ["a", "b"]);
+      assert.deepEqual(inMemoryLogger.errorLogs, ["a"]);
+      assert.deepEqual(inMemoryLogger.infoLogs, ["b"]);
+    });
   });
 
   describe("InMemoryLogger", function () {

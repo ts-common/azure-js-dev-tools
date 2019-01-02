@@ -192,7 +192,10 @@ export interface AzureDevOpsLoggerOptions extends LoggerOptions {
  */
 export function getAzureDevOpsLogger(options?: AzureDevOpsLoggerOptions): Logger {
   options = options || {};
-  const innerLogger: Logger = options.toWrap || getConsoleLogger(options);
+  const innerLogger: Logger = options.toWrap || getConsoleLogger({
+    ...options,
+    logError: ("logError" in options ? options.logError : (text: string) => console.log(text)),
+  });
   return wrapLogger(innerLogger, {
     logError: (text: string) => innerLogger.logError(`##[error]${text}`),
     logSection: (text: string) => innerLogger.logSection(`##[section]${text}`),
