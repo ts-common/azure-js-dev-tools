@@ -4,6 +4,7 @@ export * from "./checkEverything";
 export * from "./checkForOnlyCalls";
 export * from "./checkForSkipCalls";
 export * from "./checkPackageJsonVersion";
+export * from "./commandLine";
 export { StringMap } from "./common";
 export * from "./dependencies";
 export * from "./fileSystem2";
