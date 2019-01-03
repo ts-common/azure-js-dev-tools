@@ -3,7 +3,7 @@ import { any, contains, first } from "./arrays";
 import { getBooleanArgument } from "./commandLine";
 import { StringMap } from "./common";
 import { fileExistsSync, folderExistsSync, getChildFolderPaths } from "./fileSystem2";
-import { getConsoleLogger, Logger } from "./logger";
+import { getDefaultLogger, Logger } from "./logger";
 import { npmInstall, npmView, NPMViewResult } from "./npm";
 import { findPackageJsonFileSync, PackageJson, PackageLockJson, readPackageJsonFileSync, readPackageLockJsonFileSync, removePackageLockJsonDependencies, writePackageJsonFileSync, writePackageLockJsonFileSync } from "./packageJson";
 import { getParentFolderPath, joinPath, normalize } from "./path";
@@ -200,13 +200,12 @@ function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependencyName
  */
 export function changeClonedDependenciesTo(packagePath: string, dependencyType: DepedencyType, options?: ChangeClonedDependenciesToOptions): number {
   options = options || {};
-  const logger: Logger = options.logger || getConsoleLogger();
 
-  const recursiveArgument: any = getBooleanArgument("recursive");
-  const recursive: boolean = (options.recursive != undefined ? options.recursive : recursiveArgument !== false);
+  const logger: Logger = options.logger || getDefaultLogger();
 
-  const forceInstallArgument: any = getBooleanArgument("force-install");
-  const forceInstall: boolean = (options.forceInstall != undefined ? options.forceInstall : forceInstallArgument === true);
+  const recursive: boolean | undefined = getBooleanArgument("recursive", { defaultValue: true });
+  const forceInstall: boolean | undefined = getBooleanArgument("force-install", { defaultValue: false });
+  const includeAzureJsDevTools: boolean | undefined = getBooleanArgument("include-azure-js-dev-tools", { defaultValue: false });
 
   let exitCode = 0;
 
@@ -214,8 +213,10 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
   const packageFolderPathsToVisit: string[] = [];
   const packageFolderPathsVisited: string[] = [];
 
-  const packagePathsToAdd: string[] = [packagePath];
-  if (options.packageFolders) {
+  const packagePathsToAdd: string[] = [];
+  if (!options.packageFolders) {
+    packagePathsToAdd.push(packagePath);
+  } else {
     const packageFolderPaths: string[] = options.packageFolders.map((packageFolder: string | PackageFolder) => typeof packageFolder === "string" ? packageFolder : packageFolder.path);
     packagePathsToAdd.push(...packageFolderPaths);
   }
@@ -262,6 +263,13 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
     const packageName: string = packageJson.name!;
     const clonedPackage: ClonedPackage | undefined = clonedPackages[packageName]!;
     clonedPackage.updated = true;
+
+    if (!includeAzureJsDevTools) {
+      if (!clonedPackage.dependenciesToIgnore) {
+        clonedPackage.dependenciesToIgnore = [];
+      }
+      clonedPackage.dependenciesToIgnore.push("@ts-common/azure-js-dev-tools");
+    }
 
     const dependenciesChanged: string[] = updateDependencies(clonedPackage, packageJson.dependencies, dependencyType, clonedPackages, logger);
     const devDependenciesChanged: string[] = updateDependencies(clonedPackage, packageJson.devDependencies, dependencyType, clonedPackages, logger);
