@@ -32,6 +32,8 @@ export function checkForSkipCalls(options?: CheckForSkipCallsOptions): number {
   let filesWithSkipCalls = 0;
   let exitCode = 0;
 
+  const logSkip = options.skipIsWarning ? logger.logWarning : logger.logError;
+
   for (const startPath of startPathArray) {
     logger.logSection(`Looking for *.skip(...) function calls in files starting at "${startPath}"...`);
     const sourceFilePaths: string[] | undefined = getChildFilePaths(startPath, {
@@ -43,7 +45,6 @@ export function checkForSkipCalls(options?: CheckForSkipCallsOptions): number {
     if (!sourceFilePaths) {
       logger.logError(`  No source files (*.ts, *.js) found.`);
     } else {
-      const logSkip = options.skipIsWarning ? logger.logWarning : logger.logError;
       for (const sourceFilePath of sourceFilePaths) {
         const sourceFileContents: string = readFileContents(sourceFilePath)!;
         if (sourceFileContents.indexOf(".skip(") !== -1) {
@@ -60,7 +61,7 @@ export function checkForSkipCalls(options?: CheckForSkipCallsOptions): number {
   if (filesWithSkipCalls === 0) {
     logger.logInfo(`Found 0 source files that contain *.skip(...) calls.`);
   } else {
-    logger.logError(`Found ${filesWithSkipCalls} source file${filesWithSkipCalls === 1 ? "" : "s"} that contain${filesWithSkipCalls === 1 ? "s" : ""} *.skip(...) calls.`);
+    logSkip(`Found ${filesWithSkipCalls} source file${filesWithSkipCalls === 1 ? "" : "s"} that contain${filesWithSkipCalls === 1 ? "s" : ""} *.skip(...) calls.`);
   }
 
   process.exitCode = exitCode;
