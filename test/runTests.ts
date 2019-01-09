@@ -21,7 +21,7 @@ describe("run.ts", function () {
       assertEx.throws(() => runSync("fakeCommand", ["arg1", "arg2"], { mockError }), mockError);
     });
 
-    it("with ping www.bing.com and captureOutput: function", function () {
+    it.skip("with ping www.bing.com and captureOutput: function", function () {
       let capturedOutput = "";
       const result: RunResult = runSync("ping", "www.bing.com", { captureOutput: (text: string) => capturedOutput += text });
       assert(result);
@@ -101,7 +101,7 @@ describe("run.ts", function () {
       await assertEx.throwsAsync(runAsync("fakeCommand", ["arg1", "arg2"], { mockError }), mockError);
     });
 
-    it("with ping www.bing.com and captureOutput: function", async function () {
+    it.skip("with ping www.bing.com and captureOutput: function", async function () {
       const capturedOutput: string[] = [];
       const result: RunResult = await runAsync("ping", "www.bing.com", { captureOutput: (text: string) => capturedOutput.push(text) });
       assert(result);
