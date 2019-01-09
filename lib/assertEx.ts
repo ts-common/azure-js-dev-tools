@@ -8,14 +8,35 @@ import assert from "assert";
  */
 export namespace assertEx {
   /**
+   * Check that the provided text contains the provided substring.
+   * @param text The text to look in.
+   * @param substring The substring to look for.
+   */
+  export function contains(text: string, substring: string): void {
+    assert(text && substring && text.indexOf(substring) !== -1, `Expected "${text}" to contain "${substring}".`);
+  }
+
+  /**
+   * Check that the two errors are equal (except for their stack property).
+   * @param actualError The actual error.
+   * @param expectedError The expected error.
+   * @param message The optional message to output if this check fails.
+   */
+  export function equalErrors(actualError: Error, expectedError: Error, message?: string): void {
+    actualError.stack = undefined;
+    expectedError.stack = undefined;
+    assert.deepStrictEqual(actualError, expectedError, message);
+  }
+
+  /**
    * Assert that the provided syncFunction throws an Error. If the expectedError is undefined, then
    * this function will just assert that an Error was thrown. If the expectedError is defined, then
    * this function will assert that the Error that was thrown is equal to the provided expectedError.
    * @param syncFunction The synchronous function that is expected to thrown an Error.
    * @param expectedError The Error that is expected to be thrown.
    */
-  export function throws(syncFunction: () => void, expectedError?: ((error: Error) => void) | Error): Error {
-    let thrownError: Error | undefined;
+  export function throws<TError extends Error>(syncFunction: () => void, expectedError?: ((error: TError) => void) | TError): TError {
+    let thrownError: TError | undefined;
 
     try {
       syncFunction();
@@ -26,7 +47,7 @@ export namespace assertEx {
     if (!thrownError) {
       assert.throws(() => { });
     } else if (expectedError instanceof Error) {
-      assert.deepStrictEqual(thrownError, expectedError);
+      equalErrors(thrownError, expectedError);
     } else if (expectedError) {
       expectedError(thrownError);
     }
@@ -41,8 +62,8 @@ export namespace assertEx {
    * @param asyncFunction The asynchronous function that is expected to thrown an Error.
    * @param expectedError The Error that is expected to be thrown.
    */
-  export async function throwsAsync<T>(asyncFunction: (() => Promise<T>) | Promise<T>, expectedError?: ((error: Error) => void) | Error): Promise<Error> {
-    let thrownError: Error | undefined;
+  export async function throwsAsync<T, TError extends Error>(asyncFunction: (() => Promise<T>) | Promise<T>, expectedError?: ((error: TError) => void) | TError): Promise<TError> {
+    let thrownError: TError | undefined;
 
     try {
       await (typeof asyncFunction === "function" ? asyncFunction() : asyncFunction);
