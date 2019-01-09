@@ -21,17 +21,6 @@ describe("run.ts", function () {
       assertEx.throws(() => runSync("fakeCommand", ["arg1", "arg2"], { mockError }), mockError);
     });
 
-    it("with ping www.bing.com and captureOutput: function", function () {
-      let capturedOutput = "";
-      const result: RunResult = runSync("ping", "www.bing.com", { captureOutput: (text: string) => capturedOutput += text });
-      assert(result);
-      assert.strictEqual(result.exitCode, 0);
-      assertEx.contains(result.stdout, "Pinging");
-      assertEx.contains(result.stdout, "Reply from ");
-      assert.strictEqual(capturedOutput, result.stdout);
-      assert.strictEqual(result.stderr, "");
-    });
-
     it("with dir", function () {
       const result: RunResult = runSync("dir");
       assert(result);
@@ -99,22 +88,6 @@ describe("run.ts", function () {
     it("with mockError", async function () {
       const mockError = new Error("hello");
       await assertEx.throwsAsync(runAsync("fakeCommand", ["arg1", "arg2"], { mockError }), mockError);
-    });
-
-    it("with ping www.bing.com and captureOutput: function", async function () {
-      const capturedOutput: string[] = [];
-      const result: RunResult = await runAsync("ping", "www.bing.com", { captureOutput: (text: string) => capturedOutput.push(text) });
-      assert(result);
-      assert.strictEqual(result.exitCode, 0);
-      assert.strictEqual(result.stdout, "");
-      assert(capturedOutput.length >= 1);
-      const output = capturedOutput.join();
-      assertEx.contains(output, "Pinging");
-      assertEx.contains(output, "Reply from ");
-      assertEx.contains(output, "Minimum = ");
-      assertEx.contains(output, "Maximum = ");
-      assertEx.contains(output, "Average = ");
-      assert.strictEqual(result.stderr, "");
     });
 
     it("with dir", async function () {
