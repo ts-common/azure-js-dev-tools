@@ -1,8 +1,18 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
-import assert from "assert";
+import assert, { AssertionError } from "assert";
+import { getNodeVersion } from "./node";
 import { Version } from "./version";
+
+const nodeVersion: Version = getNodeVersion();
+
+function getNode8AndBelowErrorObject(error: Error): Error {
+  return {
+    message: error.message,
+    name: error.name
+  };
+}
 
 /**
  * A collection of additional assertion checks on top of the standard assert checks.
@@ -26,17 +36,22 @@ export namespace assertEx {
   export function equalErrors(actualError: Error, expectedError: Error, message?: string): void {
     actualError.stack = undefined;
     expectedError.stack = undefined;
-    let processVersion: string = process.version;
-    if (processVersion.startsWith("v")) {
-      processVersion = processVersion.substr(1);
+    if (nodeVersion.major <= 8) {
+      actualError = getNode8AndBelowErrorObject(actualError);
+      expectedError = getNode8AndBelowErrorObject(expectedError);
     }
-    const nodeVersion = new Version(processVersion);
-    if (nodeVersion.major >= 10) {
-      assert.deepStrictEqual(actualError, expectedError, message);
-    } else {
-      assert.strictEqual(actualError.message, expectedError.message);
-      assert.strictEqual(actualError.name, expectedError.name);
+    assert.deepStrictEqual(actualError, expectedError, message);
+  }
+
+  function validateThrownError<TError extends Error>(thrownError: TError | undefined, expectedError: undefined | TError | ((error: TError) => void)): TError {
+    if (!thrownError) {
+      throw new AssertionError({ message: "Missing expected exception.", operator: "throws" });
+    } else if (expectedError instanceof Error) {
+      equalErrors(thrownError, expectedError);
+    } else if (expectedError) {
+      expectedError(thrownError);
     }
+    return thrownError!;
   }
 
   /**
@@ -48,22 +63,12 @@ export namespace assertEx {
    */
   export function throws<TError extends Error>(syncFunction: () => void, expectedError?: ((error: TError) => void) | TError): TError {
     let thrownError: TError | undefined;
-
     try {
       syncFunction();
     } catch (error) {
       thrownError = error;
     }
-
-    if (!thrownError) {
-      assert.throws(() => { });
-    } else if (expectedError instanceof Error) {
-      equalErrors(thrownError, expectedError);
-    } else if (expectedError) {
-      expectedError(thrownError);
-    }
-
-    return thrownError!;
+    return validateThrownError(thrownError, expectedError);
   }
 
   /**
@@ -75,21 +80,11 @@ export namespace assertEx {
    */
   export async function throwsAsync<T, TError extends Error>(asyncFunction: (() => Promise<T>) | Promise<T>, expectedError?: ((error: TError) => void) | TError): Promise<TError> {
     let thrownError: TError | undefined;
-
     try {
       await (typeof asyncFunction === "function" ? asyncFunction() : asyncFunction);
     } catch (error) {
       thrownError = error;
     }
-
-    if (!thrownError) {
-      assert.throws(() => { });
-    } else if (expectedError instanceof Error) {
-      assert.deepStrictEqual(thrownError, expectedError);
-    } else if (expectedError) {
-      expectedError(thrownError);
-    }
-
-    return thrownError!;
+    return validateThrownError(thrownError, expectedError);
   }
 }
