@@ -5,11 +5,12 @@ import { AssertionError } from "assert";
 describe("assertEx.ts", function () {
   describe("equalErrors()", function () {
     it("with different errors", function () {
-      assertEx.throws(() => assertEx.equalErrors(new Error("a"), new Error("b")), new AssertionError({
-        actual: new Error("a"),
-        expected: new Error("b"),
-        operator: "deepStrictEqual"
-      }));
+      assertEx.throws(() => assertEx.equalErrors(new Error("a"), new Error("b")), (error: AssertionError) => {
+        assert(error.actual);
+        assert.strictEqual(error.actual.message, "a");
+        assert(error.expected);
+        assert.strictEqual(error.expected.message, "b");
+      });
     });
 
     it("with equal errors", function () {
@@ -42,12 +43,11 @@ describe("assertEx.ts", function () {
     });
 
     it("with different error message", function () {
-      const error: Error = assertEx.throws(() => assertEx.throws(() => { throw new Error("abc"); }, new Error("hello")));
-      assertEx.equalErrors(error, new AssertionError({
-        actual: new Error("abc"),
-        expected: new Error("hello"),
-        operator: "deepStrictEqual"
-      }));
+      const error: AssertionError = assertEx.throws(() => assertEx.throws(() => { throw new Error("abc"); }, new Error("hello")));
+      assert(error.actual);
+      assert.strictEqual(error.actual.message, "abc");
+      assert(error.expected);
+      assert.strictEqual(error.expected.message, "hello");
     });
 
     it("with equal error", function () {
