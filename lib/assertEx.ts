@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 import assert from "assert";
+import { Version } from "./version";
 
 /**
  * A collection of additional assertion checks on top of the standard assert checks.
@@ -25,7 +26,17 @@ export namespace assertEx {
   export function equalErrors(actualError: Error, expectedError: Error, message?: string): void {
     actualError.stack = undefined;
     expectedError.stack = undefined;
-    assert.deepStrictEqual(actualError, expectedError, message);
+    let processVersion: string = process.version;
+    if (processVersion.startsWith("v")) {
+      processVersion = processVersion.substr(1);
+    }
+    const nodeVersion = new Version(processVersion);
+    if (nodeVersion.major >= 10) {
+      assert.deepStrictEqual(actualError, expectedError, message);
+    } else {
+      assert.strictEqual(actualError.message, expectedError.message);
+      assert.strictEqual(actualError.name, expectedError.name);
+    }
   }
 
   /**
