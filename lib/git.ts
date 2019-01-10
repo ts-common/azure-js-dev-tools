@@ -32,6 +32,10 @@ export function gitMergeOriginMaster(options?: RunOptions): RunResult {
   return gitRun("merge origin master", options);
 }
 
+export function gitClone(gitUri: string, destinationPath?: string, options?: RunOptions): RunResult {
+  return gitRun(`clone ${gitUri} ${destinationPath}`, options);
+}
+
 export interface GitCheckoutResult extends GitRunResult {
   /**
    * Get the files that would've been overwritten if this checkout operation had taken place. This
