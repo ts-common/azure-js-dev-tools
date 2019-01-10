@@ -2,6 +2,24 @@ import Octokit from "@octokit/rest";
 import * as fs from "fs";
 import * as arrays from "./arrays";
 
+/**
+ * The type of the body that GitHub sends for a pull_request webhook request.
+ */
+export interface GitHubPullRequestWebhookBody {
+  /**
+   * The action that the Webhook request is being sent as a result of.
+   */
+  action: "assigned" | "unassigned" | "review_requested" | "review_request_removed" | "labeled" | "unlabeled" | "opened" | "edited" | "closed" | "reopened";
+  /**
+   * The pull request number.
+   */
+  number: number;
+  /**
+   * The pull request that was changed.
+   */
+  pull_request: GitHubPullRequest;
+}
+
 export interface GitHubLabel {
   id: number;
   node_id: string;
