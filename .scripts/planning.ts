@@ -52,6 +52,7 @@ const options: Options = {
     "ms-rest-browserauth",
     "ms-rest-js",
     "ms-rest-nodeauth",
+    "swagger-to-sdk-ts",
     { owner: "ts-common", name: "azure-js-dev-tools" }
   ],
   "expectedSprintLabels": [
