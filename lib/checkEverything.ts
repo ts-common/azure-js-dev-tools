@@ -3,6 +3,20 @@ import { checkForSkipCalls, CheckForSkipCallsOptions } from "./checkForSkipCalls
 import { checkPackageJsonVersion, CheckPackageJsonVersionOptions } from "./checkPackageJsonVersion";
 import { getDefaultLogger, Logger } from "./logger";
 
+/**
+ * An additional check that can be run.
+ */
+export interface AdditionalCheck {
+  /**
+   * The name of the additional check.
+   */
+  name: string;
+  /**
+   * The implementation of the additional check.
+   */
+  check: () => number;
+}
+
 export interface CheckEverythingOptions {
   /**
    * The Logger to use for each of the repository checks. If no Logger is specified, then a default
@@ -21,6 +35,10 @@ export interface CheckEverythingOptions {
    * The options to provide to the check for skip() calls check.
    */
   checkForSkipCallsOptions?: CheckForSkipCallsOptions;
+  /**
+   * Additional checks that can be run as a part of check everything.
+   */
+  additionalChecks?: AdditionalCheck | AdditionalCheck[];
 }
 
 /**
@@ -44,6 +62,12 @@ export function checkEverything(checkEverythingOptions?: CheckEverythingOptions)
   runCheck("Package.json Version", () => checkPackageJsonVersion(options.checkPackageJsonVersionOptions));
   runCheck("No only() calls", () => checkForOnlyCalls(options.checkForOnlyCallsOptions));
   runCheck("No skip() calls", () => checkForSkipCalls(options.checkForSkipCallsOptions));
+  if (options.additionalChecks) {
+    const additionalChecks: AdditionalCheck[] = Array.isArray(options.additionalChecks) ? options.additionalChecks : [options.additionalChecks];
+    for (const additionalCheck of additionalChecks) {
+      runCheck(additionalCheck.name, additionalCheck.check);
+    }
+  }
 
   if (exitCode === 0) {
     logger.logInfo(`${exitCode} checks failed.`);
