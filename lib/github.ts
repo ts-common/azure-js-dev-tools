@@ -120,6 +120,8 @@ export interface GitHubPullRequest {
   state: "open" | "closed";
   title: string;
   url: string;
+  html_url: string;
+  diff_url: string;
   milestone?: GitHubMilestone;
   assignees?: GitHubUser[];
 }

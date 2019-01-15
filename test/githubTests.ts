@@ -394,12 +394,15 @@ interface GitHubPullRequestOptions {
   state?: "open" | "closed";
   title?: string;
   url?: string;
+  html_url?: string;
+  diff_url?: string;
   milestone?: GitHubMilestone;
   assignees?: GitHubUser[];
 }
 
 function createFakeGitHubPullRequest(options?: GitHubPullRequestOptions): GitHubPullRequest {
   options = options || {};
+  const url: string = options.url != undefined ? options.url : "Fake URL";
   return {
     base: options.base || createFakeGitHubCommit("Base"),
     head: options.head || createFakeGitHubCommit("Head"),
@@ -408,7 +411,9 @@ function createFakeGitHubPullRequest(options?: GitHubPullRequestOptions): GitHub
     number: options.number != undefined ? options.number : 1,
     state: options.state != undefined ? options.state : "open",
     title: options.title != undefined ? options.title : "Fake Title",
-    url: options.url != undefined ? options.url : "Fake URL",
+    url: url,
+    html_url: options.html_url != undefined ? options.html_url : url,
+    diff_url: options.diff_url != undefined ? options.diff_url : `${url}.diff`,
     assignees: options.assignees,
     milestone: options.milestone
   };
