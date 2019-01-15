@@ -1,6 +1,64 @@
 import Octokit from "@octokit/rest";
 import * as fs from "fs";
-import * as arrays from "./arrays";
+import { contains, first, map, where } from "./arrays";
+
+/**
+ * The name and optional organization that the repository belongs to.
+ */
+export interface GitHubRepository {
+  /**
+   * The name of the repository.
+   */
+  name: string;
+  /**
+   * The organization that owns the repository.
+   */
+  organization: string;
+}
+
+/**
+ * Get a GitHubRepository object from the provided string or GitHubRepository object.
+ * @param repository The repository name or object.
+ */
+export function getGitHubRepository(repository: string | GitHubRepository): GitHubRepository {
+  let result: GitHubRepository;
+  if (!repository) {
+    result = {
+      name: repository,
+      organization: ""
+    };
+  } else if (typeof repository === "string") {
+    let slashIndex: number = repository.indexOf("/");
+    if (slashIndex === -1) {
+      slashIndex = repository.indexOf("\\");
+    }
+    result = {
+      name: repository.substr(slashIndex + 1),
+      organization: slashIndex === -1 ? "" : repository.substr(0, slashIndex)
+    };
+  } else {
+    result = repository;
+  }
+  return result;
+}
+
+/**
+ * Get the full name of the provided repository.
+ * @param repository The repository to get the full name of.
+ */
+export function getRepositoryFullName(repository: string | GitHubRepository): string {
+  let result: string;
+  if (!repository) {
+    result = "";
+  } else if (typeof repository === "string") {
+    result = repository;
+  } else if (!repository.organization) {
+    result = repository.name;
+  } else {
+    result = `${repository.organization}/${repository.name}`;
+  }
+  return result;
+}
 
 /**
  * The type of the body that GitHub sends for a pull_request webhook request.
@@ -62,8 +120,8 @@ export interface GitHubPullRequest {
   state: "open" | "closed";
   title: string;
   url: string;
-  milestone: GitHubMilestone | undefined;
-  assignees: GitHubUser[] | undefined;
+  milestone?: GitHubMilestone;
+  assignees?: GitHubUser[];
 }
 
 export interface GitHubUser {
@@ -86,18 +144,20 @@ export interface GitHubCommit {
  * @param labelName The name of the label to look for.
  */
 export function gitHubPullRequestGetLabel(githubPullRequest: GitHubPullRequest, labelName: string): GitHubLabel | undefined {
-  return arrays.first(githubPullRequest.labels, (label: GitHubLabel) => label.name === labelName);
+  return first(githubPullRequest.labels, (label: GitHubLabel) => label.name === labelName);
 }
 
 export function gitHubPullRequestGetLabels(githubPullRequest: GitHubPullRequest, labelNames: string | string[]): GitHubLabel[] {
   const labelNamesArray: string[] = (typeof labelNames === "string" ? [labelNames] : labelNames);
-  return arrays.where(githubPullRequest.labels, (label: GitHubLabel) => arrays.contains(labelNamesArray, label.name));
+  return where(githubPullRequest.labels, (label: GitHubLabel) => contains(labelNamesArray, label.name));
 }
 
 export function gitHubPullRequestGetAssignee(githubPullRequest: GitHubPullRequest, assignee: GitHubUser | string | number): GitHubUser | undefined {
-  return arrays.first(githubPullRequest.assignees, (existingAssignee: GitHubUser) => {
-    let isMatch = false;
-    if (typeof assignee === "number") {
+  return first(githubPullRequest.assignees, (existingAssignee: GitHubUser) => {
+    let isMatch: boolean;
+    if (!assignee) {
+      isMatch = false;
+    } else if (typeof assignee === "number") {
       isMatch = (existingAssignee.id === assignee);
     } else if (typeof assignee === "string") {
       isMatch = (existingAssignee.login === assignee || existingAssignee.name === assignee);
@@ -118,14 +178,10 @@ export interface GitHubGetMilestonesOptions {
    * value is undefined, then all milestones will be returned.
    */
   open?: boolean;
-
-  repositoryOwner?: string;
 }
 
 export interface GitHubCreateMilestoneOptions {
   endDate?: string;
-
-  repositoryOwner?: string;
 }
 
 /**
@@ -138,48 +194,495 @@ export interface GitHubGetPullRequestsOptions {
    * value is undefined, then all pull requests will be returned.
    */
   open?: boolean;
-
-  repositoryOwner?: string;
 }
 
-const defaultRepositoryOwner = "Azure";
+export interface GitHub {
+  /**
+   * Get the user that is currently authenticated.
+   * @returns The user that is currently authenticated.
+   */
+  getCurrentUser(): Promise<GitHubUser>;
+
+  /**
+   * Get all of the labels in the provided repository.
+   */
+  getLabels(repository: string | GitHubRepository): Promise<GitHubLabel[]>;
+
+  /**
+   * Get all of the labels that contain "-Sprint-" in the provided repository.
+   * @param repository The repository to look in.
+   */
+  getSprintLabels(repository: string | GitHubRepository): Promise<GitHubSprintLabel[]>;
+
+  /**
+   * Create a label with the provided labelName and color in the provided repository.
+   * @param repositoryName The name of the repository where the label will be created.
+   * @param labelName The name of the created label.
+   * @param color The color of the created label.
+   */
+  createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<void>;
+
+  /**
+   * Update the color of the label with the provided name in the provided repository.
+   * @param repository The repository that contains the label to update.
+   * @param labelName The name of the label to update.
+   * @param newColor The color to update the label to.
+   */
+  updateLabelColor(repositoryName: string, labelName: string, newColor: string, repositoryOwner?: string): Promise<void>;
+
+  /**
+   * Get the milestone in the provided repository with either the provided milestone number or name.
+   */
+  getMilestone(repository: string | GitHubRepository, milestone: number | string): Promise<GitHubMilestone>;
+
+  /**
+   * Get all of the milestones that exist in the provided repository.
+   * @param repository The repository to get all of the milestones of.
+   * @returns All of the milestones that exist in the provided repository.
+   */
+  getMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubMilestone[]>;
+
+  /**
+   * Get all of the sprint milestones (milestones that begin with "Sprint-") in the provided
+   * repository.
+   * @param repository The repository.
+   * @returns All of the sprint milestones in the provided repository.
+   */
+  getSprintMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubSprintMilestone[]>;
+
+  /**
+   * Create a new milestone in the provided repository.
+   * @param repository The repository to create a new milestone in.
+   * @param milestoneName The name of the new milestone.
+   * @param options The optional properties to set on the created milestone.
+   */
+  createMilestone(repositoryName: string | GitHubRepository, milestoneName: string, options?: GitHubCreateMilestoneOptions): Promise<GitHubMilestone>;
+
+  /**
+   * Create a new sprint milestone in the provided repository.
+   * @param repository The repository to create the new sprint milestone in.
+   * @param sprintNumber The number of the sprint that the milestone will be associated with.
+   * @param sprintEndDate The last day of the sprint.
+   */
+  createSprintMilestone(repository: string | GitHubRepository, sprintNumber: number, sprintEndDate: string): Promise<GitHubSprintMilestone | undefined>;
+
+  /**
+   * Update the end date of an existing milestone in the provided repository.
+   * @param repository The repository that contains the milestone to update.
+   * @param milestoneNumber The number id of the milestone to update.
+   * @param newSprintEndDate The new end date to update the existing milestone to.
+   */
+  updateMilestoneEndDate(repository: string | GitHubRepository, milestoneNumber: number, newSprintEndDate: string): Promise<GitHubMilestone>;
+
+  updateSprintMilestoneEndDate(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string): Promise<GitHubSprintMilestone>;
+
+  closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<void>;
+
+  closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<void>;
+
+  /**
+   * Get the pull requests in the provided respository.
+   * @param repository The name of the repository.
+   */
+  getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]>;
+
+  addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<void>;
+
+  /**
+   * Add the provided labels to the provided GitHubPullRequest.
+   * @param repository The repository where the pull request exists.
+   * @param githubPullRequest The GitHubPullRequest that the labels will be added to.
+   * @param labelNamesToAdd The name of the label or labels to add to the pull request.
+   */
+  addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest, labelNames: string | string[]): Promise<void>;
+
+  setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest, milestone: number | string | GitHubMilestone): Promise<void>;
+}
+
+export class FakeGitHubRepository {
+  public readonly name: string;
+  public readonly labels: GitHubLabel[] = [];
+  public readonly milestones: GitHubMilestone[] = [];
+  public readonly pullRequests: GitHubPullRequest[] = [];
+
+  constructor(name: string) {
+    this.name = name;
+  }
+}
+
+export class FakeGitHub implements GitHub {
+  private readonly users: GitHubUser[] = [];
+  private currentUser: GitHubUser | undefined;
+  private readonly repositories: FakeGitHubRepository[] = [];
+
+  public getFakeRepository(repository: string | GitHubRepository): Promise<FakeGitHubRepository> {
+    const repositoryFullName: string = getRepositoryFullName(repository);
+    const fakeRepository: FakeGitHubRepository | undefined = first(this.repositories, (fakeRepository: FakeGitHubRepository) => fakeRepository.name === repositoryFullName);
+    let result: Promise<FakeGitHubRepository>;
+    if (fakeRepository) {
+      result = Promise.resolve(fakeRepository);
+    } else {
+      result = Promise.reject(new Error(`No fake repository exists with the name "${repositoryFullName}".`));
+    }
+    return result;
+  }
+
+  public createFakeRepository(repository: string | GitHubRepository): Promise<FakeGitHubRepository> {
+    const repositoryFullName: string = getRepositoryFullName(repository);
+    let fakeRepository: FakeGitHubRepository | undefined = first(this.repositories, (fakeRepository: FakeGitHubRepository) => fakeRepository.name === repositoryFullName);
+    let result: Promise<FakeGitHubRepository>;
+    if (fakeRepository) {
+      result = Promise.reject(new Error(`A fake repository with the name "${repositoryFullName}" already exists.`));
+    } else {
+      fakeRepository = new FakeGitHubRepository(repositoryFullName);
+      this.repositories.push(fakeRepository);
+      result = Promise.resolve(fakeRepository);
+    }
+    return result;
+  }
+
+  public createUser(username: string): Promise<GitHubUser> {
+    let user: GitHubUser | undefined = first(this.users, (user: GitHubUser) => user.login === username);
+    let result: Promise<GitHubUser>;
+    if (user) {
+      result = Promise.reject(new Error(`A fake user with the username "${username}" already exists.`));
+    } else {
+      user = {
+        id: 0,
+        name: "Fake User Name",
+        login: username,
+        url: `https://api.github.com/users/${username}`
+      };
+      this.users.push(user);
+      result = Promise.resolve(user);
+    }
+    return result;
+  }
+
+  public getUser(username: string): Promise<GitHubUser> {
+    const user: GitHubUser | undefined = first(this.users, (user: GitHubUser) => user.login === username);
+    let result: Promise<GitHubUser>;
+    if (!user) {
+      result = Promise.reject(new Error(`No fake user with the username "${username}" exists.`));
+    } else {
+      result = Promise.resolve(user);
+    }
+    return result;
+  }
+
+  public setCurrentUser(username: string): Promise<void> {
+    return this.getUser(username)
+      .then((user: GitHubUser) => {
+        this.currentUser = user;
+      });
+  }
+
+  public getLabel(repository: string | GitHubRepository, label: string): Promise<GitHubLabel> {
+    return this.getLabels(repository)
+      .then((labels: GitHubLabel[]) => {
+        let result: Promise<GitHubLabel>;
+        const githubLabel: GitHubLabel | undefined = first(labels, (l: GitHubLabel) => l.name === label);
+        if (!githubLabel) {
+          result = Promise.reject(new Error(`No fake label named "${label}" found in the fake repository "${getRepositoryFullName(repository)}".`));
+        } else {
+          result = Promise.resolve(githubLabel);
+        }
+        return result;
+      });
+  }
+
+  public getCurrentUser(): Promise<GitHubUser> {
+    return this.currentUser ? Promise.resolve(this.currentUser) : Promise.reject(new Error(`No fake current user has been set.`));
+  }
+
+  public getLabels(repository: string | GitHubRepository): Promise<GitHubLabel[]> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => fakeRepository.labels);
+  }
+
+  public getSprintLabels(repository: string | GitHubRepository): Promise<GitHubSprintLabel[]> {
+    return this.getLabels(repository)
+      .then(getSprintLabels);
+  }
+
+  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<void> {
+    let result: Promise<void>;
+    if (!labelName) {
+      result = Promise.reject(new Error(`labelName cannot be undefined or empty.`));
+    } else if (!color) {
+      result = Promise.reject(new Error(`color cannot be undefined or empty.`));
+    } else {
+      result = this.getFakeRepository(repository)
+        .then((fakeRepository: FakeGitHubRepository) => {
+          const label: GitHubLabel = {
+            id: 0,
+            default: false,
+            node_id: "fake label node_id",
+            url: "fake label url",
+            name: labelName,
+            color: color
+          };
+          fakeRepository.labels.push(label);
+        });
+    }
+    return result;
+  }
+
+  public updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<void> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        const label: GitHubLabel | undefined = first(fakeRepository.labels, (label: GitHubLabel) => label.name === labelName);
+        let result: Promise<void>;
+        if (!label) {
+          result = Promise.reject(new Error(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`));
+        } else {
+          label.color = newColor;
+          result = Promise.resolve();
+        }
+        return result;
+      });
+  }
+
+  public getMilestone(repository: string | GitHubRepository, milestone: string | number): Promise<GitHubMilestone> {
+    return this.getMilestones(repository)
+      .then((milestones: GitHubMilestone[]) => {
+        let result: Promise<GitHubMilestone>;
+        if (typeof milestone === "string") {
+          const milestoneMatch: GitHubMilestone | undefined = first(milestones, (m: GitHubMilestone) => m.title === milestone);
+          if (!milestoneMatch) {
+            result = Promise.reject(new Error(`No milestone found with the name "${milestone}" in the fake repository "${getRepositoryFullName(repository)}".`));
+          } else {
+            result = Promise.resolve(milestoneMatch);
+          }
+        } else {
+          const milestoneMatch: GitHubMilestone | undefined = first(milestones, (m: GitHubMilestone) => m.number === milestone);
+          if (!milestoneMatch) {
+            result = Promise.reject(new Error(`No milestone found with the id number ${milestone} in the fake repository "${getRepositoryFullName(repository)}".`));
+          } else {
+            result = Promise.resolve(milestoneMatch);
+          }
+        }
+        return result;
+      });
+  }
+
+  public getMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubMilestone[]> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        let result: GitHubMilestone[] = fakeRepository.milestones;
+        if (options && options.open !== undefined) {
+          result = where(result, (milestone: GitHubMilestone) => milestone.state === (options.open ? "open" : "closed"));
+        }
+        return result;
+      });
+  }
+
+  public getSprintMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubSprintMilestone[]> {
+    return this.getMilestones(repository, options)
+      .then(githubMilestonesToSprintMilestones);
+  }
+
+  public createMilestone(repository: string | GitHubRepository, milestoneName: string, options?: GitHubCreateMilestoneOptions): Promise<GitHubMilestone> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        const milestone: GitHubMilestone = {
+          title: milestoneName,
+          number: 0,
+          due_on: addOffset(options && options.endDate || "2000-01-02"),
+          state: "open",
+          closed_issues: 0,
+          open_issues: 0
+        };
+        fakeRepository.milestones.push(milestone);
+        return milestone;
+      });
+  }
+
+  public createSprintMilestone(repository: string | GitHubRepository, sprintNumber: number, sprintEndDate: string): Promise<GitHubSprintMilestone | undefined> {
+    const milestoneName = getSprintMilestoneName(sprintNumber);
+    return this.createMilestone(repository, milestoneName, { endDate: sprintEndDate })
+      .then((githubMilestone: GitHubMilestone) => {
+        return githubMilestoneToSprintMilestone(githubMilestone);
+      });
+  }
+
+  public updateMilestoneEndDate(repository: string | GitHubRepository, milestoneNumber: number, newSprintEndDate: string): Promise<GitHubMilestone> {
+    return this.getMilestone(repository, milestoneNumber)
+      .then((milestone: GitHubMilestone) => {
+        milestone.due_on = addOffset(newSprintEndDate);
+        return milestone;
+      });
+  }
+
+  public updateSprintMilestoneEndDate(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string): Promise<GitHubSprintMilestone> {
+    return this.updateMilestoneEndDate(repository, sprintMilestone.milestoneNumber!, newSprintEndDate)
+      .then((githubMilestone: GitHubMilestone) => {
+        return githubMilestoneToSprintMilestone(githubMilestone)!;
+      });
+  }
+
+  public closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<void> {
+    return this.getMilestone(repository, milestoneNumber)
+      .then((milestone: GitHubMilestone) => {
+        milestone.state = "closed";
+      });
+  }
+
+  public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<void> {
+    return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
+  }
+
+  public getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        let result: GitHubPullRequest[] = fakeRepository.pullRequests;
+        if (options && options.open !== undefined) {
+          result = where(result, (pullRequest: GitHubPullRequest) => pullRequest.state === (options.open ? "open" : "closed"));
+        }
+        return result;
+      });
+  }
+
+  public addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<void> {
+    return this.getFakeRepository(repository)
+      .then(() => {
+        let collectAssigneeUsers: Promise<void>;
+
+        const assigneeUsers: GitHubUser[] = [];
+        if (typeof assignees === "string") {
+          collectAssigneeUsers = this.getUser(assignees).then((user: GitHubUser) => {
+            assigneeUsers.push(user);
+          });
+        } else if (!Array.isArray(assignees)) {
+          collectAssigneeUsers = new Promise((resolve) => {
+            assigneeUsers.push(assignees);
+            resolve();
+          });
+        } else {
+          collectAssigneeUsers = Promise.resolve();
+          for (const assignee of assignees) {
+            if (typeof assignee === "string") {
+              collectAssigneeUsers = collectAssigneeUsers.then(() => {
+                collectAssigneeUsers = this.getUser(assignee).then((user: GitHubUser) => {
+                  assigneeUsers.push(user);
+                });
+              });
+            } else {
+              collectAssigneeUsers = collectAssigneeUsers.then(() => {
+                assigneeUsers.push(assignee);
+              });
+            }
+          }
+        }
+
+        return collectAssigneeUsers.then(() => {
+          if (!githubPullRequest.assignees) {
+            githubPullRequest.assignees = [];
+          }
+          githubPullRequest.assignees.push(...assigneeUsers);
+        });
+      });
+  }
+
+  public addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest, labelNames: string | string[]): Promise<void> {
+    return this.getFakeRepository(repository)
+      .then(() => {
+        const labelNamesArray: string[] = (Array.isArray(labelNames) ? labelNames : [labelNames]);
+
+        const labels: GitHubLabel[] = [];
+        let collectLabels: Promise<void> = Promise.resolve();
+        for (const labelName of labelNamesArray) {
+          collectLabels = collectLabels.then(() => this.getLabel(repository, labelName)
+            .then((label: GitHubLabel) => {
+              labels.push(label);
+            }));
+        }
+
+        return collectLabels.then(() => {
+          if (!githubPullRequest.labels) {
+            githubPullRequest.labels = [];
+          }
+          githubPullRequest.labels.push(...labels);
+        });
+      });
+  }
+
+  public setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest, milestone: string | number | GitHubMilestone): Promise<void> {
+    return this.getFakeRepository(repository)
+      .then(() => {
+        let milestonePromise: Promise<GitHubMilestone>;
+        if (typeof milestone === "string" || typeof milestone === "number") {
+          milestonePromise = this.getMilestone(repository, milestone);
+        } else {
+          milestonePromise = Promise.resolve(milestone);
+        }
+
+        milestonePromise.then((githubMilestone: GitHubMilestone) => {
+          githubPullRequest.milestone = githubMilestone;
+        });
+      });
+  }
+}
+
+export function getSprintLabels(labels: GitHubLabel[]): GitHubSprintLabel[] {
+  const repositorySprintLabels: GitHubSprintLabel[] = [];
+  for (const repositoryLabel of labels) {
+    if (repositoryLabel && repositoryLabel.name && repositoryLabel.name.includes("-Sprint-")) {
+      const repositoryLabelName: string = repositoryLabel.name;
+
+      const firstDashIndex: number = repositoryLabelName.indexOf("-");
+      const sprintLabelType: string = repositoryLabelName.substring(0, firstDashIndex);
+
+      const lastDashIndex: number = repositoryLabelName.lastIndexOf("-");
+      const sprintNumber: number = parseInt(repositoryLabelName.substring(lastDashIndex + 1));
+
+      let sprintLabel: GitHubSprintLabel | undefined = first(repositorySprintLabels, (resultLabel: GitHubSprintLabel) => resultLabel.sprint === sprintNumber);
+      if (sprintLabel == undefined) {
+        sprintLabel = {
+          sprint: sprintNumber
+        };
+        repositorySprintLabels.push(sprintLabel);
+      }
+      (sprintLabel as any)[sprintLabelType.toLowerCase() + "Color"] = repositoryLabel.color;
+    }
+  }
+  return repositorySprintLabels;
+}
 
 /**
  * A class that wraps @octokit/rest to interact with github.com.
  */
-export class GitHub {
+export class RealGitHub implements GitHub {
   private readonly github: Octokit;
 
   /**
    * Create a new GitHub object using the provided authentication token to authenticate.
    * @param authenticationToken The token that will be used to authenticate with GitHub.
    */
-  constructor(authenticationToken: string) {
+  constructor(authenticationToken?: string) {
     this.github = new Octokit();
-    this.github.authenticate({
-      type: "token",
-      token: authenticationToken
-    });
+    if (authenticationToken) {
+      this.github.authenticate({
+        type: "token",
+        token: authenticationToken
+      });
+    }
   }
 
-  public static fromToken(authenticationToken: string): GitHub {
-    return new GitHub(authenticationToken);
+  public static fromToken(authenticationToken: string): RealGitHub {
+    return new RealGitHub(authenticationToken);
   }
 
-  public static fromTokenFile(tokenFilePath: string): GitHub {
+  public static fromTokenFile(tokenFilePath: string): RealGitHub {
     if (!fs.existsSync(tokenFilePath)) {
       throw new Error(`The file ${tokenFilePath} doesn't exist. Create a GitHub personal access token, create this file with the personal access token as its contents, and then run this application again.`);
     }
 
     const githubAuthToken: string = fs.readFileSync(tokenFilePath, { encoding: "utf-8" });
 
-    return new GitHub(githubAuthToken);
+    return new RealGitHub(githubAuthToken);
   }
 
-  /**
-   * Get the user that is currently authenticated.
-   * @returns The user that is currently authenticated.
-   */
   public getCurrentUser(): Promise<GitHubUser> {
     return new Promise((resolve, reject) => {
       this.github.users.get({
@@ -193,14 +696,12 @@ export class GitHub {
     });
   }
 
-  /**
-   * Get all of the labels in the repository with the provided name.
-   */
-  public getLabels(repositoryName: string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubLabel[]> {
+  public getLabels(repository: string | GitHubRepository): Promise<GitHubLabel[]> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       this.github.issues.getLabels({
-        owner: repositoryOwner,
-        repo: repositoryName
+        owner: githubRepository.organization,
+        repo: githubRepository.name
       }, (error: Error | null, response: Octokit.AnyResponse) => {
         if (error) {
           reject(error);
@@ -211,49 +712,16 @@ export class GitHub {
     });
   }
 
-  /**
-   * Get all of the labels that contain "-Sprint-" in the repository with the provided name.
-   * @param repositoryName The name of the repository to look in.
-   */
-  public getSprintLabels(repositoryName: string, repositoryOwner?: string): Promise<GitHubSprintLabel[]> {
-    return this.getLabels(repositoryName, repositoryOwner)
-      .then((githubLabels: GitHubLabel[]) => {
-        const repositorySprintLabels: GitHubSprintLabel[] = [];
-        for (const repositoryLabel of githubLabels) {
-          if (repositoryLabel && repositoryLabel.name && repositoryLabel.name.includes("-Sprint-")) {
-            const repositoryLabelName: string = repositoryLabel.name;
-
-            const firstDashIndex: number = repositoryLabelName.indexOf("-");
-            const sprintLabelType: string = repositoryLabelName.substring(0, firstDashIndex);
-
-            const lastDashIndex: number = repositoryLabelName.lastIndexOf("-");
-            const sprintNumber: number = parseInt(repositoryLabelName.substring(lastDashIndex + 1));
-
-            let sprintLabel: GitHubSprintLabel | undefined = arrays.first(repositorySprintLabels, (resultLabel: GitHubSprintLabel) => resultLabel.sprint === sprintNumber);
-            if (sprintLabel == undefined) {
-              sprintLabel = {
-                sprint: sprintNumber
-              };
-              repositorySprintLabels.push(sprintLabel);
-            }
-            (sprintLabel as any)[sprintLabelType.toLowerCase() + "Color"] = repositoryLabel.color;
-          }
-        }
-        return repositorySprintLabels;
-      });
+  public getSprintLabels(repository: string | GitHubRepository): Promise<GitHubSprintLabel[]> {
+    return this.getLabels(repository).then(getSprintLabels);
   }
 
-  /**
-   * Create a label with the provided labelName and color in the repository with the provided name.
-   * @param repositoryName The name of the repository where the label will be created.
-   * @param labelName The name of the created label.
-   * @param color The color of the created label.
-   */
-  public createLabel(repositoryName: string, labelName: string, color: string, repositoryOwner = defaultRepositoryOwner): Promise<void> {
+  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<void> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       this.github.issues.createLabel({
-        owner: repositoryOwner,
-        repo: repositoryName,
+        owner: githubRepository.organization,
+        repo: githubRepository.name,
         name: labelName,
         color: color
       }, (error: Error | null) => {
@@ -266,17 +734,12 @@ export class GitHub {
     });
   }
 
-  /**
-   * Update the color of the label with the provided name in the repository with the provided name.
-   * @param repositoryName The name of the repository that contains the label to update.
-   * @param labelName The name of the label to update.
-   * @param newColor The color to update the label to.
-   */
-  public updateLabelColor(repositoryName: string, labelName: string, newColor: string, repositoryOwner = defaultRepositoryOwner): Promise<void> {
+  public updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<void> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       this.github.issues.updateLabel({
-        owner: repositoryOwner,
-        repo: repositoryName,
+        owner: githubRepository.organization,
+        repo: githubRepository.name,
         current_name: labelName,
         color: newColor
       } as any,
@@ -290,16 +753,13 @@ export class GitHub {
     });
   }
 
-  /**
-   * Get the milestone in the provided repository with either the provided milestone number or the
-   * provided milestone name.
-   */
-  public getMilestone(repositoryName: string, milestone: number | string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubMilestone> {
+  public getMilestone(repository: string | GitHubRepository, milestone: number | string): Promise<GitHubMilestone> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       if (typeof milestone === "number") {
         this.github.issues.getMilestone({
-          owner: repositoryOwner,
-          repo: repositoryName,
+          owner: githubRepository.organization,
+          repo: githubRepository.name,
           number: milestone
         }, (error: Error | null, response: Octokit.AnyResponse) => {
           if (error) {
@@ -309,11 +769,11 @@ export class GitHub {
           }
         });
       } else {
-        resolve(this.getMilestones(repositoryName)
+        resolve(this.getMilestones(githubRepository)
           .then((githubMilestones: GitHubMilestone[]) => {
-            const githubMilestone: GitHubMilestone | undefined = arrays.first(githubMilestones, (githubMilestone: GitHubMilestone) => githubMilestone.title === milestone);
+            const githubMilestone: GitHubMilestone | undefined = first(githubMilestones, (githubMilestone: GitHubMilestone) => githubMilestone.title === milestone);
             if (!githubMilestone) {
-              throw new Error(`Could not find a milestone in repository "${repositoryName}" with the name "${milestone}".`);
+              throw new Error(`Could not find a milestone in repository "${getRepositoryFullName(githubRepository)}" with the name "${milestone}".`);
             }
             return githubMilestone;
           }));
@@ -326,7 +786,7 @@ export class GitHub {
    * @param repositoryName The name of the repository to get all of the milestones of.
    * @returns All of the milestones that exist in the provided repository.
    */
-  public getMilestones(repositoryName: string, options?: GitHubGetMilestonesOptions): Promise<GitHubMilestone[]> {
+  public getMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubMilestone[]> {
     let milestoneState: "open" | "closed" | "all" = "all";
     if (options) {
       if (options.open === true) {
@@ -336,10 +796,11 @@ export class GitHub {
       }
     }
 
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       const getMilestonesArguments: Octokit.IssuesGetMilestonesParams = {
-        owner: (options && options.repositoryOwner) || defaultRepositoryOwner,
-        repo: repositoryName,
+        owner: githubRepository.organization,
+        repo: githubRepository.name,
         state: milestoneState
       };
       this.github.issues.getMilestones(getMilestonesArguments, (error: Error | null, response: Octokit.AnyResponse) => {
@@ -352,35 +813,16 @@ export class GitHub {
     });
   }
 
-  /**
-   * Get all of the sprint milestones (milestones that begin with "Sprint-") in the provided repository.
-   * @param repositoryName The name of the repository.
-   * @returns All of the sprint milestones in the provided repository.
-   */
-  public getSprintMilestones(repositoryName: string, options?: GitHubGetMilestonesOptions): Promise<GitHubSprintMilestone[]> {
-    return this.getMilestones(repositoryName, options)
-      .then((githubMilestones: GitHubMilestone[]) => {
-        const repositorySprintMilestones: GitHubSprintMilestone[] = [];
-        for (const githubMilestone of githubMilestones) {
-          const sprintMilestone: GitHubSprintMilestone | undefined = githubMilestoneToSprintMilestone(githubMilestone);
-          if (sprintMilestone) {
-            repositorySprintMilestones.push(sprintMilestone);
-          }
-        }
-        return repositorySprintMilestones;
-      });
+  public getSprintMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubSprintMilestone[]> {
+    return this.getMilestones(repository, options)
+      .then(githubMilestonesToSprintMilestones);
   }
 
-  /**
-   * Create a new milestone in the provided repository.
-   * @param repositoryName The name of the repository to create a new milestone in.
-   * @param milestoneName The name of the new milestone.
-   * @param options The optional properties to set on the created milestone.
-   */
-  public createMilestone(repositoryName: string, milestoneName: string, options?: GitHubCreateMilestoneOptions): Promise<GitHubMilestone> {
+  public createMilestone(repository: string | GitHubRepository, milestoneName: string, options?: GitHubCreateMilestoneOptions): Promise<GitHubMilestone> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
     const createMilestoneArguments: Octokit.IssuesCreateMilestoneParams = {
-      owner: (options && options.repositoryOwner) || defaultRepositoryOwner,
-      repo: repositoryName,
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
       title: milestoneName
     };
 
@@ -399,32 +841,21 @@ export class GitHub {
     });
   }
 
-  /**
-   * Create a new sprint milestone in the provided repository.
-   * @param repositoryName The name of the repository to create the new sprint milestone in.
-   * @param sprintNumber The number of the sprint that the milestone will be associated with.
-   * @param sprintEndDate The last day of the sprint.
-   */
-  public createSprintMilestone(repositoryName: string, sprintNumber: number, sprintEndDate: string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubSprintMilestone | undefined> {
+  public createSprintMilestone(repository: string | GitHubRepository, sprintNumber: number, sprintEndDate: string): Promise<GitHubSprintMilestone | undefined> {
     const milestoneName = getSprintMilestoneName(sprintNumber);
-    return this.createMilestone(repositoryName, milestoneName, { endDate: sprintEndDate, repositoryOwner: repositoryOwner })
+    return this.createMilestone(repository, milestoneName, { endDate: sprintEndDate })
       .then((githubMilestone: GitHubMilestone) => {
         return githubMilestoneToSprintMilestone(githubMilestone);
       });
   }
 
-  /**
-   * Update the end date of an existing milestone in the provided repository.
-   * @param repositoryName The name of the repository that contains the milestone to update.
-   * @param milestoneNumber The number id of the milestone to update.
-   * @param newSprintEndDate The new end date to update the existing milestone to.
-   */
-  public updateMilestoneEndDate(repositoryName: string, milestoneNumber: number, newSprintEndDate: string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubMilestone> {
+  public updateMilestoneEndDate(repository: string | GitHubRepository, milestoneNumber: number, newSprintEndDate: string): Promise<GitHubMilestone> {
     newSprintEndDate = addOffset(newSprintEndDate);
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       this.github.issues.updateMilestone({
-        owner: repositoryOwner,
-        repo: repositoryName,
+        owner: githubRepository.organization,
+        repo: githubRepository.name,
         number: milestoneNumber,
         due_on: newSprintEndDate
       }, (error: Error | null, response: Octokit.AnyResponse) => {
@@ -437,18 +868,19 @@ export class GitHub {
     });
   }
 
-  public updateSprintMilestoneEndDate(repositoryName: string, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string, repositoryOwner = defaultRepositoryOwner): Promise<GitHubSprintMilestone> {
-    return this.updateMilestoneEndDate(repositoryName, sprintMilestone.milestoneNumber!, newSprintEndDate, repositoryOwner)
+  public updateSprintMilestoneEndDate(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string): Promise<GitHubSprintMilestone> {
+    return this.updateMilestoneEndDate(repository, sprintMilestone.milestoneNumber!, newSprintEndDate)
       .then((githubMilestone: GitHubMilestone) => {
         return githubMilestoneToSprintMilestone(githubMilestone)!;
       });
   }
 
-  public closeMilestone(repositoryName: string, milestoneNumber: number, repositoryOwner = defaultRepositoryOwner): Promise<void> {
+  public closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<void> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       this.github.issues.updateMilestone({
-        owner: repositoryOwner,
-        repo: repositoryName,
+        owner: githubRepository.organization,
+        repo: githubRepository.name,
         number: milestoneNumber,
         state: "closed"
       }, (error: Error | null) => {
@@ -461,15 +893,15 @@ export class GitHub {
     });
   }
 
-  public closeSprintMilestone(repositoryName: string, sprintMilestone: GitHubSprintMilestone, repositoryOwner = defaultRepositoryOwner): Promise<void> {
-    return this.closeMilestone(repositoryName, sprintMilestone.milestoneNumber!, repositoryOwner);
+  public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<void> {
+    return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
   }
 
   /**
    * Get the pull requests in the respository with the provided name.
    * @param repositoryName The name of the repository.
    */
-  public getPullRequests(repositoryName: string, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]> {
+  public getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]> {
     let pullRequestState: "open" | "closed" | "all" = "all";
     if (options) {
       if (options.open === true) {
@@ -479,16 +911,17 @@ export class GitHub {
       }
     }
 
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
     const githubArguments: Octokit.PullRequestsGetAllParams = {
-      owner: (options && options.repositoryOwner) || defaultRepositoryOwner,
-      repo: repositoryName,
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
       state: pullRequestState
     };
     return this.github.pullRequests.getAll(githubArguments)
       .then((response: Octokit.AnyResponse) => this.getAllPageData<GitHubPullRequest>(response));
   }
 
-  public addPullRequestAssignees(repositoryName: string, githubPullRequest: GitHubPullRequest, assignees: string | GitHubUser | (string | GitHubUser)[], repositoryOwner = defaultRepositoryOwner): Promise<void> {
+  public addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<void> {
     return new Promise((resolve, reject) => {
       let assigneeLogins: string[];
       if (typeof assignees === "string") {
@@ -496,21 +929,22 @@ export class GitHub {
       } else if (!(assignees instanceof Array)) {
         assigneeLogins = [assignees.login];
       } else {
-        assigneeLogins = arrays.map(assignees, (assignee: string | GitHubUser) => {
+        assigneeLogins = map(assignees, (assignee: string | GitHubUser) => {
           return typeof assignee === "string" ? assignee : assignee.login;
         });
       }
 
-      const currentAssigneeLogins: string[] = arrays.map(githubPullRequest.assignees, (assignee: GitHubUser) => assignee.login);
-      const assigneeLoginsToAdd: string[] = arrays.where(assigneeLogins, (assigneeLogin: string) => !arrays.contains(currentAssigneeLogins, assigneeLogin));
+      const currentAssigneeLogins: string[] = map(githubPullRequest.assignees, (assignee: GitHubUser) => assignee.login);
+      const assigneeLoginsToAdd: string[] = where(assigneeLogins, (assigneeLogin: string) => !contains(currentAssigneeLogins, assigneeLogin));
 
       if (assigneeLoginsToAdd.length === 0) {
         resolve();
       } else {
         const updatedAssigneeLogins: string[] = [...currentAssigneeLogins, ...assigneeLoginsToAdd];
+        const githubRepository: GitHubRepository = getGitHubRepository(repository);
         this.github.issues.edit({
-          owner: repositoryOwner,
-          repo: repositoryName,
+          owner: githubRepository.organization,
+          repo: githubRepository.name,
           number: githubPullRequest.number,
           assignees: updatedAssigneeLogins
         }, (error: Error | null) => {
@@ -524,26 +958,21 @@ export class GitHub {
     });
   }
 
-  /**
-   * Add the provided labels to the provided GitHubPullRequest.
-   * @param repositoryName The name of the repository where the pull request exists.
-   * @param githubPullRequest The GitHubPullRequest that the labels will be added to.
-   * @param labelNamesToAdd The name of the label or labels to add to the pull request.
-   */
-  public addPullRequestLabels(repositoryName: string, githubPullRequest: GitHubPullRequest, labelNames: string | string[], repositoryOwner = defaultRepositoryOwner): Promise<void> {
+  public addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest, labelNames: string | string[]): Promise<void> {
     return new Promise((resolve, reject) => {
       const labelNamesArray: string[] = (typeof labelNames === "string" ? [labelNames] : labelNames);
 
-      const currentLabelNames: string[] = arrays.map(githubPullRequest.labels, (label: GitHubLabel) => label.name);
-      const labelNamesToAdd: string[] = arrays.where(labelNamesArray, (labelName: string) => !arrays.contains(currentLabelNames, labelName));
+      const currentLabelNames: string[] = map(githubPullRequest.labels, (label: GitHubLabel) => label.name);
+      const labelNamesToAdd: string[] = where(labelNamesArray, (labelName: string) => !contains(currentLabelNames, labelName));
 
       if (labelNamesToAdd.length === 0) {
         resolve();
       } else {
         const updatedLabelNamesArray: string[] = [...currentLabelNames, ...labelNamesToAdd];
+        const githubRepository: GitHubRepository = getGitHubRepository(repository);
         this.github.issues.edit({
-          owner: repositoryOwner,
-          repo: repositoryName,
+          owner: githubRepository.organization,
+          repo: githubRepository.name,
           number: githubPullRequest.number,
           labels: updatedLabelNamesArray
         }, (error: Error | null) => {
@@ -557,12 +986,12 @@ export class GitHub {
     });
   }
 
-  public setPullRequestMilestone(repositoryName: string, githubPullRequest: GitHubPullRequest, milestone: number | string | GitHubMilestone, repositoryOwner = defaultRepositoryOwner): Promise<void> {
+  public setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest, milestone: number | string | GitHubMilestone): Promise<void> {
     let milestoneNumberPromise: Promise<number>;
     if (typeof milestone === "number") {
       milestoneNumberPromise = Promise.resolve(milestone);
     } else if (typeof milestone === "string") {
-      milestoneNumberPromise = this.getMilestone(repositoryName, milestone).then((githubMilestone: GitHubMilestone) => githubMilestone.number);
+      milestoneNumberPromise = this.getMilestone(repository, milestone).then((githubMilestone: GitHubMilestone) => githubMilestone.number);
     } else {
       milestoneNumberPromise = Promise.resolve(milestone.number);
     }
@@ -570,9 +999,10 @@ export class GitHub {
     return milestoneNumberPromise
       .then((milestoneNumber: number) => {
         return new Promise<void>((resolve, reject) => {
+          const githubRepository: GitHubRepository = getGitHubRepository(repository);
           this.github.issues.edit({
-            owner: repositoryOwner,
-            repo: repositoryName,
+            owner: githubRepository.organization,
+            repo: githubRepository.name,
             number: githubPullRequest.number,
             milestone: milestoneNumber
           }, (error: Error | null) => {
@@ -617,6 +1047,17 @@ export class GitHub {
   }
 }
 
+function githubMilestonesToSprintMilestones(githubMilestones: GitHubMilestone[]): GitHubSprintMilestone[] {
+  const result: GitHubSprintMilestone[] = [];
+  for (const githubMilestone of githubMilestones) {
+    const sprintMilestone: GitHubSprintMilestone | undefined = githubMilestoneToSprintMilestone(githubMilestone);
+    if (sprintMilestone) {
+      result.push(sprintMilestone);
+    }
+  }
+  return result;
+}
+
 function githubMilestoneToSprintMilestone(githubMilestone: GitHubMilestone): GitHubSprintMilestone | undefined {
   let result: GitHubSprintMilestone | undefined;
 
@@ -642,7 +1083,6 @@ function githubMilestoneToSprintMilestone(githubMilestone: GitHubMilestone): Git
 export function getSprintMilestoneName(sprintNumber: number): string {
   return `Sprint-${sprintNumber}`;
 }
-
 
 /**
  * Ensure that the provided date string contains a timezone offset.

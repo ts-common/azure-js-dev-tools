@@ -87,4 +87,32 @@ export namespace assertEx {
     }
     return validateThrownError(thrownError, expectedError);
   }
+
+  /**
+   * Assert that the provided value starts with the provided prefix.
+   * @param value The value to check.
+   * @param prefix The prefix to look for.
+   * @param expressionName The name of the expression that provided the value.
+   */
+  export function startsWith(value: string, prefix: string, expressionName?: string): void {
+    defined(value, expressionName);
+    defined(prefix, "prefix");
+    assert(value.startsWith(prefix), `${expressionName || "value"} (${value}) must start with the provided prefix (${prefix}).`);
+  }
+
+  export function defined(value: any, expressionName?: string): void {
+    assert(value != undefined, `${expressionName || "value"} must be defined.`);
+  }
+
+  export function definedAndNotEmpty(value: string, expressionName?: string): void {
+    expressionName = expressionName || "value";
+    defined(value, expressionName);
+    assert(value, `${expressionName} cannot be empty.`);
+  }
+
+  export function greaterThan(value: number, expectedLowerBound: number, expressionName?: string): void {
+    defined(value, expressionName);
+    defined(expectedLowerBound, "expectedLowerBound");
+    assert(value > expectedLowerBound, `${expressionName || "value"} (${value}) must be greater than ${expectedLowerBound}.`);
+  }
 }
