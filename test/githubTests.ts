@@ -261,6 +261,8 @@ describe("github.ts", async function () {
   function githubTests(testSuiteName: string, rawGithub: GitHub | undefined): void {
     const github: GitHub = rawGithub!;
     (rawGithub ? describe : describe.skip)(testSuiteName, function () {
+      this.timeout(10000);
+
       it("getCurrentUser()", async function () {
         const currentUser: GitHubUser = await github.getCurrentUser();
         assert(currentUser);
