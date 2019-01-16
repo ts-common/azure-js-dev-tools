@@ -129,8 +129,10 @@ export interface GitHubPullRequest {
 export interface GitHubUser {
   id: number;
   login: string;
-  name: string;
+  name?: string;
   url: string;
+  node_id: string;
+  site_admin: boolean;
 }
 
 export interface GitHubCommit {
@@ -283,6 +285,12 @@ export interface GitHub {
   closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<void>;
 
   /**
+   * Get the pull request from the provided repository with the provided number.
+   * @param repository The repository to get the pull request from.
+   */
+  getPullRequest(repository: string | GitHubRepository, pullRequestNumber: number): Promise<GitHubPullRequest>;
+
+  /**
    * Get the pull requests in the provided respository.
    * @param repository The name of the repository.
    */
@@ -352,8 +360,10 @@ export class FakeGitHub implements GitHub {
       user = {
         id: 0,
         name: "Fake User Name",
+        node_id: "Fake Node ID",
         login: username,
-        url: `https://api.github.com/users/${username}`
+        url: `https://api.github.com/users/${username}`,
+        site_admin: false
       };
       this.users.push(user);
       result = Promise.resolve(user);
@@ -532,6 +542,29 @@ export class FakeGitHub implements GitHub {
 
   public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<void> {
     return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
+  }
+
+  public createPullRequest(repository: string | GitHubRepository, pullRequest: GitHubPullRequest): Promise<void> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        let result: Promise<void>;
+        const existingPullRequest: GitHubPullRequest | undefined = first(fakeRepository.pullRequests, (pr: GitHubPullRequest) => pr.number === pullRequest.number);
+        if (existingPullRequest) {
+          result = Promise.reject(new Error(`A pull request already exists in the fake repository "${getRepositoryFullName(repository)}" with the number ${pullRequest.number}.`));
+        } else {
+          fakeRepository.pullRequests.push(pullRequest);
+          result = Promise.resolve();
+        }
+        return result;
+      });
+  }
+
+  public getPullRequest(repository: string | GitHubRepository, pullRequestNumber: number): Promise<GitHubPullRequest> {
+    return this.getPullRequests(repository)
+      .then((pullRequests: GitHubPullRequest[]) => {
+        const pullRequest: GitHubPullRequest | undefined = first(pullRequests, (pr: GitHubPullRequest) => pr.number === pullRequestNumber);
+        return pullRequest ? Promise.resolve(pullRequest) : Promise.reject(new Error(`No pull request found in fake repository "${getRepositoryFullName(repository)}" with number ${pullRequestNumber}.`));
+      });
   }
 
   public getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]> {
@@ -899,10 +932,19 @@ export class RealGitHub implements GitHub {
     return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
   }
 
-  /**
-   * Get the pull requests in the respository with the provided name.
-   * @param repositoryName The name of the repository.
-   */
+  public getPullRequest(repository: string | GitHubRepository, pullRequestNumber: number): Promise<GitHubPullRequest> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.PullRequestsGetParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      number: pullRequestNumber
+    };
+    return this.github.pullRequests.get(githubArguments)
+      .then((response: Octokit.AnyResponse) => {
+        return response.data as GitHubPullRequest;
+      });
+  }
+
   public getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]> {
     let pullRequestState: "open" | "closed" | "all" = "all";
     if (options) {

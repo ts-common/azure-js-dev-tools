@@ -356,6 +356,49 @@ describe("github.ts", async function () {
           await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "fake label name", ""));
         });
       });
+
+      describe("getPullRequest()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.getPullRequest(undefined as any, 50));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.getPullRequest(null as any, 50));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.getPullRequest("", 50));
+        });
+
+        it("with repository that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.getPullRequest("ImARepositoryThatDoesntExist", 50));
+        });
+
+        it("with pull request number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.getPullRequest("ts-common/azure-js-dev-tools", 1325097123));
+        });
+
+        it("with pull request number that exists", async function () {
+          const pullRequest: GitHubPullRequest = await github.getPullRequest("ts-common/azure-js-dev-tools", 60);
+          assert(pullRequest);
+          assert(pullRequest.base);
+          assert.strictEqual(pullRequest.base.label, "ts-common:master");
+          assert.strictEqual(pullRequest.base.ref, "master");
+          assert.strictEqual(pullRequest.base.sha, "7f562c0a9104d8463641da2db1cb0630d059fa34");
+          assert.strictEqual(pullRequest.diff_url, "https://github.com/ts-common/azure-js-dev-tools/pull/60.diff");
+          assert(pullRequest.head);
+          assert.strictEqual(pullRequest.head.label, "ts-common:daschult/diffurl");
+          assert.strictEqual(pullRequest.head.ref, "daschult/diffurl");
+          assert.strictEqual(pullRequest.head.sha, "994dbf73048b85d55adba83fb21360b7cb1b7a94");
+          assert.strictEqual(pullRequest.html_url, "https://github.com/ts-common/azure-js-dev-tools/pull/60");
+          assert.strictEqual(pullRequest.id, 244965069);
+          assert.strictEqual(pullRequest.number, 60);
+          assert.strictEqual(pullRequest.state, "closed");
+          assert.strictEqual(pullRequest.title, "Add GitHubPullRequest.diff_url property");
+          assert.strictEqual(pullRequest.url, "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/60");
+        });
+      });
     });
   }
   githubTests("FakeGitHub", await createFakeGitHub());
@@ -370,6 +413,25 @@ async function createFakeGitHub(): Promise<FakeGitHub> {
 
   await fakeGitHub.createFakeRepository("ts-common/azure-js-dev-tools");
   await fakeGitHub.createLabel("ts-common/azure-js-dev-tools", "Planned-Sprint-130", "fake label color");
+  await fakeGitHub.createPullRequest("ts-common/azure-js-dev-tools", createFakeGitHubPullRequest({
+    base: {
+      label: "ts-common:master",
+      ref: "master",
+      sha: "7f562c0a9104d8463641da2db1cb0630d059fa34"
+    },
+    diff_url: "https://github.com/ts-common/azure-js-dev-tools/pull/60.diff",
+    head: {
+      label: "ts-common:daschult/diffurl",
+      ref: "daschult/diffurl",
+      sha: "994dbf73048b85d55adba83fb21360b7cb1b7a94"
+    },
+    html_url: "https://github.com/ts-common/azure-js-dev-tools/pull/60",
+    id: 244965069,
+    number: 60,
+    state: "closed",
+    title: "Add GitHubPullRequest.diff_url property",
+    url: "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/60"
+  }));
 
   return fakeGitHub;
 }
@@ -451,8 +513,10 @@ function createFakeGitHubCommit(name: "Base" | "Head"): GitHubCommit {
 export interface GitHubUserOptions {
   id?: number;
   login?: string;
+  node_id?: string;
   name?: string;
   url?: string;
+  site_admin?: boolean;
 }
 
 function createFakeGitHubUser(options?: GitHubUserOptions): GitHubUser {
@@ -460,7 +524,9 @@ function createFakeGitHubUser(options?: GitHubUserOptions): GitHubUser {
   return {
     id: options.id != undefined ? options.id : 0,
     login: options.login != undefined ? options.login : "Fake User Login",
+    node_id: options.node_id != undefined ? options.node_id : "Fake Node ID",
     name: options.name != undefined ? options.name : "Fake User Name",
-    url: options.url != undefined ? options.url : "Fake User URL"
+    url: options.url != undefined ? options.url : "Fake User URL",
+    site_admin: options.site_admin != undefined ? options.site_admin : false,
   };
 }
