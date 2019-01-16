@@ -270,7 +270,6 @@ describe("http.ts", function () {
     it("with host that doesn't exist", async function () {
       const httpClient = new NodeHttpClient();
       const error: Error = await assertEx.throwsAsync(httpClient.sendRequest({ method: "GET", url: "http://idont.exist.com/" }));
-      assert.strictEqual(error.name, "Error");
       assert.strictEqual(error.message, "getaddrinfo ENOTFOUND idont.exist.com idont.exist.com:80");
     });
 

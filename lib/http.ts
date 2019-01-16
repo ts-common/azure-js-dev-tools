@@ -210,6 +210,8 @@ export interface HttpClient {
  */
 export class NodeHttpClient implements HttpClient {
   sendRequest(request: HttpRequest): Promise<HttpResponse> {
+    const requestUrl: URLBuilder = request.url instanceof URLBuilder ? request.url : URLBuilder.parse(request.url);
+
     let requestHeaders: http.OutgoingHttpHeaders | undefined;
     if (request.headers instanceof HttpHeaders) {
       requestHeaders = request.headers.rawHeaders();
@@ -219,12 +221,16 @@ export class NodeHttpClient implements HttpClient {
 
     const requestOptions: http.RequestOptions = {
       method: request.method,
-      headers: requestHeaders
+      headers: requestHeaders,
+      protocol: (requestUrl.getScheme() || "http") + ":",
+      host: requestUrl.getHost(),
+      port: requestUrl.getPort(),
+      path: (requestUrl.getPath() || "") + (requestUrl.getQuery() || "")
     };
 
     return new Promise((resolve, reject) => {
       try {
-        const clientRequest: http.ClientRequest = http.request(request.url.toString(), requestOptions, (response: http.IncomingMessage) => {
+        const clientRequest: http.ClientRequest = http.request(requestOptions, (response: http.IncomingMessage) => {
           try {
             response.setEncoding("utf8");
 
@@ -260,12 +266,16 @@ export class NodeHttpClient implements HttpClient {
           }
         });
         if (request.body) {
-          clientRequest.write(request.body);
+          clientRequest.write(request.body, (error: Error | null | undefined) => {
+            if (error) {
+              reject(error);
+            }
+          });
         }
         clientRequest.on("error", (error: Error) => {
           reject(error);
         });
-        clientRequest.end();
+        clientRequest.end(() => {});
       } catch (error) {
         reject(error);
       }
