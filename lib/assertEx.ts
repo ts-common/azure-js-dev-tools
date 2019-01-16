@@ -104,7 +104,7 @@ export namespace assertEx {
     assert(value != undefined, `${expressionName || "value"} must be defined.`);
   }
 
-  export function definedAndNotEmpty(value: string, expressionName?: string): void {
+  export function definedAndNotEmpty(value: string | undefined, expressionName?: string): void {
     expressionName = expressionName || "value";
     defined(value, expressionName);
     assert(value, `${expressionName} cannot be empty.`);
