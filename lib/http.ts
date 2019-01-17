@@ -256,16 +256,9 @@ function sendNodeHttpClientRequest(request: HttpRequest): Promise<HttpResponse> 
                 }
               }
 
-              const responseStatusCode: number = response.statusCode!;
-
-              // Handle redirects
-              if (300 <= responseStatusCode && responseStatusCode < 400) {
-
-              }
-
               resolve({
                 request,
-                statusCode: responseStatusCode!,
+                statusCode: response.statusCode!,
                 headers: responseHeaders,
                 body: responseBody
               });
