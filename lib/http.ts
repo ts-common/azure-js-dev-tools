@@ -213,12 +213,8 @@ export function getDefaultHttpClient(): HttpClient {
   return new NodeHttpClient();
 }
 
-/**
- * An HTTP client that uses the built-in Node.js http module.
- */
-export class NodeHttpClient implements HttpClient {
-  sendRequest(request: HttpRequest): Promise<HttpResponse> {
-    const requestUrl: URLBuilder = request.url instanceof URLBuilder ? request.url : URLBuilder.parse(request.url);
+function sendNodeHttpClientRequest(request: HttpRequest): Promise<HttpResponse> {
+  const requestUrl: URLBuilder = request.url instanceof URLBuilder ? request.url : URLBuilder.parse(request.url);
 
     let requestHeaders: http.OutgoingHttpHeaders | undefined;
     if (request.headers instanceof HttpHeaders) {
@@ -260,9 +256,16 @@ export class NodeHttpClient implements HttpClient {
                 }
               }
 
+              const responseStatusCode: number = response.statusCode!;
+
+              // Handle redirects
+              if (300 <= responseStatusCode && responseStatusCode < 400) {
+
+              }
+
               resolve({
                 request,
-                statusCode: response.statusCode!,
+                statusCode: responseStatusCode!,
                 headers: responseHeaders,
                 body: responseBody
               });
@@ -290,5 +293,35 @@ export class NodeHttpClient implements HttpClient {
         reject(error);
       }
     });
+}
+
+/**
+ * Options that can be provided when creating a new NodeHttpClient.
+ */
+export interface NodeHttpClientOptions {
+  /**
+   * Whether or not redirects will be automatically handled. Defaults to true.
+   */
+  handleRedirects?: boolean;
+}
+
+/**
+ * An HTTP client that uses the built-in Node.js http module.
+ */
+export class NodeHttpClient implements HttpClient {
+  private readonly handleRedirects: boolean;
+
+  constructor(options?: NodeHttpClientOptions) {
+    options = options || {};
+    this.handleRedirects = options.handleRedirects == undefined ? true : options.handleRedirects;
+  }
+
+  async sendRequest(request: HttpRequest): Promise<HttpResponse> {
+    let response: HttpResponse = await sendNodeHttpClientRequest(request);
+    while (this.handleRedirects && 300 <= response.statusCode && response.statusCode < 400 && response.headers.contains("location")) {
+      request.url = response.headers.get("location")!;
+      response = await sendNodeHttpClientRequest(request);
+    }
+    return response;
   }
 }

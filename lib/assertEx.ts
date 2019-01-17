@@ -23,8 +23,8 @@ export namespace assertEx {
    * @param text The text to look in.
    * @param substring The substring to look for.
    */
-  export function contains(text: string, substring: string): void {
-    assert(text && substring && text.indexOf(substring) !== -1, `Expected "${text}" to contain "${substring}".`);
+  export function contains(text: string | undefined, substring: string): void {
+    assert(text && substring && text.indexOf(substring) !== -1, `Expected ${JSON.stringify(text)} to contain "${substring}".`);
   }
 
   /**

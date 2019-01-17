@@ -296,6 +296,36 @@ describe("http.ts", function () {
       assert.strictEqual(response.request, request);
     });
 
+    it("with http url that redirects with handleRedirects set to false", async function () {
+      const httpClient = new NodeHttpClient({ handleRedirects: false });
+      const request: HttpRequest = { method: "GET", url: "http://github.com/Azure/azure-rest-api-specs/pull/5040.diff" };
+      const response: HttpResponse = await httpClient.sendRequest(request);
+      assert(response);
+      assert.strictEqual(response.statusCode, 301);
+      assert.strictEqual(response.body, "");
+      assert.strictEqual(response.headers.get("location"), "https://github.com/Azure/azure-rest-api-specs/pull/5040.diff");
+    });
+
+    it("with http url that redirects with handleRedirects set to true", async function () {
+      const httpClient = new NodeHttpClient({ handleRedirects: true });
+      const request: HttpRequest = { method: "GET", url: "http://github.com/Azure/azure-rest-api-specs/pull/5040.diff" };
+      const response: HttpResponse = await httpClient.sendRequest(request);
+      assert(response);
+      assert.strictEqual(response.statusCode, 200);
+      assertEx.contains(response.body, `diff --git a/specification/network/resource-manager/readme.go.md b/specification/network/resource-manager/readme.go.md`);
+      assert.strictEqual(response.headers.get("location"), undefined);
+    });
+
+    it("with http url that redirects with handleRedirects undefined", async function () {
+      const httpClient = new NodeHttpClient({ handleRedirects: undefined });
+      const request: HttpRequest = { method: "GET", url: "http://github.com/Azure/azure-rest-api-specs/pull/5040.diff" };
+      const response: HttpResponse = await httpClient.sendRequest(request);
+      assert(response);
+      assert.strictEqual(response.statusCode, 200);
+      assertEx.contains(response.body, `diff --git a/specification/network/resource-manager/readme.go.md b/specification/network/resource-manager/readme.go.md`);
+      assert.strictEqual(response.headers.get("location"), undefined);
+    });
+
     it("with https host that doesn't exist", async function () {
       const httpClient = new NodeHttpClient();
       const error: Error = await assertEx.throwsAsync(httpClient.sendRequest({ method: "GET", url: "https://idont.exist.com/" }));
@@ -318,6 +348,36 @@ describe("http.ts", function () {
       assert(response);
       assert.strictEqual(response.statusCode, 200);
       assert.strictEqual(response.request, request);
+    });
+
+    it("with https url that redirects with handleRedirects set to false", async function () {
+      const httpClient = new NodeHttpClient({ handleRedirects: false });
+      const request: HttpRequest = { method: "GET", url: "https://github.com/Azure/azure-rest-api-specs/pull/5040.diff" };
+      const response: HttpResponse = await httpClient.sendRequest(request);
+      assert(response);
+      assert.strictEqual(response.statusCode, 302);
+      assert.strictEqual(response.headers.get("location"), "https://patch-diff.githubusercontent.com/raw/Azure/azure-rest-api-specs/pull/5040.diff");
+      assert.strictEqual(response.body, `<html><body>You are being <a href="https://patch-diff.githubusercontent.com/raw/Azure/azure-rest-api-specs/pull/5040.diff">redirected</a>.</body></html>`);
+    });
+
+    it("with https url that redirects with handleRedirects set to true", async function () {
+      const httpClient = new NodeHttpClient({ handleRedirects: true });
+      const request: HttpRequest = { method: "GET", url: "https://github.com/Azure/azure-rest-api-specs/pull/5040.diff" };
+      const response: HttpResponse = await httpClient.sendRequest(request);
+      assert(response);
+      assert.strictEqual(response.statusCode, 200);
+      assert.strictEqual(response.headers.get("location"), undefined);
+      assertEx.contains(response.body, `diff --git a/specification/network/resource-manager/readme.go.md b/specification/network/resource-manager/readme.go.md`);
+    });
+
+    it("with https url that redirects with handleRedirects undefined", async function () {
+      const httpClient = new NodeHttpClient({ handleRedirects: undefined });
+      const request: HttpRequest = { method: "GET", url: "https://github.com/Azure/azure-rest-api-specs/pull/5040.diff" };
+      const response: HttpResponse = await httpClient.sendRequest(request);
+      assert(response);
+      assert.strictEqual(response.statusCode, 200);
+      assert.strictEqual(response.headers.get("location"), undefined);
+      assertEx.contains(response.body, `diff --git a/specification/network/resource-manager/readme.go.md b/specification/network/resource-manager/readme.go.md`);
     });
   });
 });
