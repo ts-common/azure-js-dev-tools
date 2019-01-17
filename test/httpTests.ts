@@ -4,7 +4,7 @@ import { getHeaderKey, HttpHeaders, NodeHttpClient, HttpResponse, HttpRequest, H
 
 describe("http.ts", function () {
   this.timeout(5000);
-  
+
   describe("getHeaderKey()", function () {
     it("with undefined", function () {
       assertEx.throws(() => getHeaderKey(undefined as any));
