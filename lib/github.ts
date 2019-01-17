@@ -114,6 +114,7 @@ export interface GitHubSprintMilestone {
 export interface GitHubPullRequest {
   base: GitHubCommit;
   head: GitHubCommit;
+  merge_commit_sha?: string;
   id: number;
   labels: GitHubLabel[];
   number: number;

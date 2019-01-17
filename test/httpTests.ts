@@ -3,6 +3,8 @@ import { assertEx } from "../lib";
 import { getHeaderKey, HttpHeaders, NodeHttpClient, HttpResponse, HttpRequest, HttpClient, getDefaultHttpClient } from "../lib/http";
 
 describe("http.ts", function () {
+  this.timeout(5000);
+
   describe("getHeaderKey()", function () {
     it("with undefined", function () {
       assertEx.throws(() => getHeaderKey(undefined as any));

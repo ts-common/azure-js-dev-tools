@@ -395,6 +395,7 @@ describe("github.ts", async function () {
           assert.strictEqual(pullRequest.head.sha, "994dbf73048b85d55adba83fb21360b7cb1b7a94");
           assert.strictEqual(pullRequest.html_url, "https://github.com/ts-common/azure-js-dev-tools/pull/60");
           assert.strictEqual(pullRequest.id, 244965069);
+          assert.strictEqual(pullRequest.merge_commit_sha, "c4a1fde1575f1604a6a53651bdf3361c118bf560");
           assert.strictEqual(pullRequest.number, 60);
           assert.strictEqual(pullRequest.state, "closed");
           assert.strictEqual(pullRequest.title, "Add GitHubPullRequest.diff_url property");
@@ -429,6 +430,7 @@ async function createFakeGitHub(): Promise<FakeGitHub> {
     },
     html_url: "https://github.com/ts-common/azure-js-dev-tools/pull/60",
     id: 244965069,
+    merge_commit_sha: "c4a1fde1575f1604a6a53651bdf3361c118bf560",
     number: 60,
     state: "closed",
     title: "Add GitHubPullRequest.diff_url property",
@@ -454,6 +456,7 @@ interface GitHubPullRequestOptions {
   head?: GitHubCommit;
   id?: number;
   labels?: GitHubLabel[];
+  merge_commit_sha?: string;
   number?: number;
   state?: "open" | "closed";
   title?: string;
@@ -472,6 +475,7 @@ function createFakeGitHubPullRequest(options?: GitHubPullRequestOptions): GitHub
     head: options.head || createFakeGitHubCommit("Head"),
     id: options.id != undefined ? options.id : 0,
     labels: options.labels || [],
+    merge_commit_sha: options.merge_commit_sha != undefined ? options.merge_commit_sha : "Fake Merge Commit SHA",
     number: options.number != undefined ? options.number : 1,
     state: options.state != undefined ? options.state : "open",
     title: options.title != undefined ? options.title : "Fake Title",
