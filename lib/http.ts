@@ -1,4 +1,5 @@
 import * as http from "http";
+import * as https from "https";
 import { URLBuilder } from "./url";
 
 /**
@@ -206,6 +207,13 @@ export interface HttpClient {
 }
 
 /**
+ * Get an instance of the default HttpClient.
+ */
+export function getDefaultHttpClient(): HttpClient {
+  return new NodeHttpClient();
+}
+
+/**
  * An HTTP client that uses the built-in Node.js http module.
  */
 export class NodeHttpClient implements HttpClient {
@@ -219,10 +227,12 @@ export class NodeHttpClient implements HttpClient {
       requestHeaders = request.headers;
     }
 
+    const protocol: string = requestUrl.getScheme() || "http";
+
     const requestOptions: http.RequestOptions = {
       method: request.method,
       headers: requestHeaders,
-      protocol: (requestUrl.getScheme() || "http") + ":",
+      protocol: protocol + ":",
       host: requestUrl.getHost(),
       port: requestUrl.getPort(),
       path: (requestUrl.getPath() || "") + (requestUrl.getQuery() || "")
@@ -230,7 +240,7 @@ export class NodeHttpClient implements HttpClient {
 
     return new Promise((resolve, reject) => {
       try {
-        const clientRequest: http.ClientRequest = http.request(requestOptions, (response: http.IncomingMessage) => {
+        const clientRequest: http.ClientRequest = (protocol === "http" ? http : https).request(requestOptions, (response: http.IncomingMessage) => {
           try {
             response.setEncoding("utf8");
 

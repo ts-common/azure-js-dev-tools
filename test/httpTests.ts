@@ -1,6 +1,6 @@
 import { assert } from "chai";
 import { assertEx } from "../lib";
-import { getHeaderKey, HttpHeaders, NodeHttpClient, HttpResponse, HttpRequest } from "../lib/http";
+import { getHeaderKey, HttpHeaders, NodeHttpClient, HttpResponse, HttpRequest, HttpClient, getDefaultHttpClient } from "../lib/http";
 
 describe("http.ts", function () {
   describe("getHeaderKey()", function () {
@@ -266,14 +266,19 @@ describe("http.ts", function () {
     });
   });
 
+  it("getDefaultHttpClient()", function () {
+    const httpClient: HttpClient = getDefaultHttpClient();
+    assert(httpClient instanceof NodeHttpClient);
+  });
+
   describe("NodeHttpClient", function () {
-    it("with host that doesn't exist", async function () {
+    it("with http host that doesn't exist", async function () {
       const httpClient = new NodeHttpClient();
       const error: Error = await assertEx.throwsAsync(httpClient.sendRequest({ method: "GET", url: "http://idont.exist.com/" }));
       assert.strictEqual(error.message, "getaddrinfo ENOTFOUND idont.exist.com idont.exist.com:80");
     });
 
-    it("with path that doesn't exist", async function () {
+    it("with http path that doesn't exist", async function () {
       const httpClient = new NodeHttpClient();
       const request: HttpRequest = { method: "GET", url: "http://www.bing.com/this/isnt/a/valid/path" };
       const response: HttpResponse = await httpClient.sendRequest(request);
@@ -282,9 +287,33 @@ describe("http.ts", function () {
       assert.strictEqual(response.request, request);
     });
 
-    it("with url that exists", async function () {
+    it("with http url that exists", async function () {
       const httpClient = new NodeHttpClient();
       const request: HttpRequest = { method: "GET", url: "http://example.org/" };
+      const response: HttpResponse = await httpClient.sendRequest(request);
+      assert(response);
+      assert.strictEqual(response.statusCode, 200);
+      assert.strictEqual(response.request, request);
+    });
+
+    it("with https host that doesn't exist", async function () {
+      const httpClient = new NodeHttpClient();
+      const error: Error = await assertEx.throwsAsync(httpClient.sendRequest({ method: "GET", url: "https://idont.exist.com/" }));
+      assert.strictEqual(error.message, "getaddrinfo ENOTFOUND idont.exist.com idont.exist.com:443");
+    });
+
+    it("with https path that doesn't exist", async function () {
+      const httpClient = new NodeHttpClient();
+      const request: HttpRequest = { method: "GET", url: "https://www.bing.com/this/isnt/a/valid/path" };
+      const response: HttpResponse = await httpClient.sendRequest(request);
+      assert(response);
+      assert.strictEqual(response.statusCode, 404);
+      assert.strictEqual(response.request, request);
+    });
+
+    it("with https url that exists", async function () {
+      const httpClient = new NodeHttpClient();
+      const request: HttpRequest = { method: "GET", url: "https://example.org/" };
       const response: HttpResponse = await httpClient.sendRequest(request);
       assert(response);
       assert.strictEqual(response.statusCode, 200);
