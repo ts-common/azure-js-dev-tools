@@ -32,8 +32,72 @@ export function gitMergeOriginMaster(options?: RunOptions): RunResult {
   return gitRun("merge origin master", options);
 }
 
-export function gitClone(gitUri: string, destinationPath?: string, options?: RunOptions): RunResult {
-  return gitRun(`clone ${gitUri} ${destinationPath}`, options);
+/**
+ * Options that can be passed to gitClone().
+ */
+export interface GitCloneOptions extends RunOptions {
+  /**
+   * Operate quietly. Progress is not reported to the standard error stream.
+   */
+  quiet?: boolean;
+  /**
+   * Run verbosely. Does not affect the reporting of progress status to the standard error stream.
+   */
+  verbose?: boolean;
+  /**
+   * Instead of using the remote name "origin" to keep track of the upstream repository, use this value.
+   */
+  origin?: string;
+  /**
+   * Instead of pointing the newly created HEAD to the branch pointed to by the cloned repository’s
+   * HEAD, point to this value's branch instead. In a non-bare repository, this is the branch that
+   * will be checked out. This value can also take tags and detaches the HEAD at that commit in the
+   * resulting repository.
+   */
+  branch?: string;
+  /**
+   * Create a shallow clone with a history truncated to the specified number of commits. Implies
+   * "single-branch"=true unless "no-single-branch"=true is given to fetch the histories near the
+   * tips of all branches. If you want to clone submodules shallowly, also use
+   * "shallow-submodules"=true.
+   */
+  depth?: number;
+  /**
+   * The name of a new directory to clone into. The "humanish" part of the source repository is used
+   * if no directory is explicitly given (repo for /path/to/repo.git and foo for host.xz:foo/.git).
+   * Cloning into an existing directory is only allowed if the directory is empty.
+   */
+  directory?: string;
+}
+
+/**
+ * Clone the repository with the provided URI.
+ * @param gitUri The repository URI to clone.
+ * @param options The options that can be passed to "git clone".
+ */
+export function gitClone(gitUri: string, options?: GitCloneOptions): RunResult {
+  options = options || {};
+  let command = `clone`;
+  if (options.quiet) {
+    command += ` --quiet`;
+  }
+  if (options.verbose) {
+    command += ` --verbose`;
+  }
+  if (options.origin) {
+    command += ` --origin ${options.origin}`;
+  }
+  if (options.branch) {
+    command += ` --branch ${options.branch}`;
+  }
+  if (options.depth != undefined) {
+    command += ` --depth ${options.depth}`;
+  }
+  command += ` ${gitUri}`;
+  if (options.directory) {
+    command += ` ${options.directory}`;
+  }
+  return gitRun(command, options);
 }
 
 export interface GitCheckoutResult extends GitRunResult {
