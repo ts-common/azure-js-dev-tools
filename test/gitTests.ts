@@ -1,4 +1,4 @@
-import { gitStatus, GitStatusResult } from "../lib/git";
+import { gitStatus, GitStatusResult, gitFetch, GitRunResult, FakeGit } from "../lib/git";
 import { assert } from "chai";
 import { RunResult } from "../lib/run";
 
@@ -66,6 +66,36 @@ nothing to commit, working tree clean`,
         stagedModifiedFiles: [],
         untrackedFiles: []
       });
+    });
+  });
+
+  describe("gitFetch()", function () {
+    it("with no options", function () {
+      const git = new FakeGit();
+      git.set("git fetch", {
+        exitCode: 1,
+        stdout: "a",
+        stderr: "b"
+      });
+      const result: GitRunResult = gitFetch({ git });
+      assert(result);
+      assert.strictEqual(result.exitCode, 1);
+      assert.strictEqual(result.stdout, "a");
+      assert.strictEqual(result.stderr, "b");
+    });
+
+    it ("with prune: true", function () {
+      const git = new FakeGit();
+      git.set("fetch --prune", {
+        exitCode: 2,
+        stdout: "c",
+        stderr: "d"
+      });
+      const result: GitRunResult = gitFetch({ git, prune: true });
+      assert(result);
+      assert.strictEqual(result.exitCode, 2);
+      assert.strictEqual(result.stdout, "c");
+      assert.strictEqual(result.stderr, "d");
     });
   });
 });
