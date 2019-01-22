@@ -35,7 +35,10 @@ export function normalize(pathString: string): string {
 export function getRootPath(pathString: string): string | undefined {
   let result: string | undefined;
   if (pathString) {
-    result = path.parse(pathString).root || undefined;
+    result = path.win32.parse(pathString).root || undefined;
+    if (!result) {
+      result = path.posix.parse(pathString).root || undefined;
+    }
   }
   return result;
 }
