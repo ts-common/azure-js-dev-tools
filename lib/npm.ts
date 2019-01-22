@@ -69,7 +69,7 @@ export function npmInstall(options?: NPMInstallOptions): RunResult {
     command += ` ${options.installSource}`;
   }
   if (options.save) {
-    command += "--save";
+    command += " --save";
     if (!options.save.startsWith("-")) {
       command += "-";
     }
