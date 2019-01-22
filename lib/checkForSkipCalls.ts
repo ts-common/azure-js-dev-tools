@@ -1,6 +1,7 @@
 import { getChildFilePaths, readFileContents } from "./fileSystem2";
 import { getDefaultLogger, Logger } from "./logger";
 import { getName } from "./path";
+import { padLeft } from "./common";
 
 export interface CheckForSkipCallsOptions {
   /**
@@ -15,6 +16,11 @@ export interface CheckForSkipCallsOptions {
    * The Logger to use. If no Logger is specified, then a default Logger will be used instead.
    */
   logger?: Logger;
+}
+
+export interface SkipLine {
+  lineNumber: number;
+  text: string;
 }
 
 /**
@@ -47,11 +53,26 @@ export function checkForSkipCalls(options?: CheckForSkipCallsOptions): number {
     } else {
       for (const sourceFilePath of sourceFilePaths) {
         const sourceFileContents: string = readFileContents(sourceFilePath)!;
-        if (sourceFileContents.indexOf(".skip(") !== -1) {
-          logSkip(`  Found *.skip(...) call in "${sourceFilePath}".`);
+        const sourceFileLines: string[] = sourceFileContents.split(/\r?\n/);
+        const skipLines: SkipLine[] = [];
+        for (let i = 0; i < sourceFileLines.length; ++i) {
+          const sourceFileLine: string = sourceFileLines[i];
+          if (sourceFileLine.indexOf(".skip(") !== -1) {
+            skipLines.push({ lineNumber: i, text: sourceFileLine });
+          }
+        }
+        if (skipLines.length > 0) {
+          logSkip(`  Found ${skipLines.length} *.skip(...) call${skipLines.length === 1 ? "" : "s"} in "${sourceFilePath}".`);
           ++filesWithSkipCalls;
           if (!options.skipIsWarning) {
-            ++exitCode;
+            exitCode += skipLines.length;
+          }
+          let numberWidth = 1;
+          for (const skipLine of skipLines) {
+            numberWidth = Math.max(numberWidth, skipLine.lineNumber.toString().length);
+          }
+          for (const skipLine of skipLines) {
+            logSkip(`    Line ${padLeft(skipLine.lineNumber, numberWidth)}. ${skipLine.text}`);
           }
         }
       }

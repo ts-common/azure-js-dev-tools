@@ -47,3 +47,11 @@ export function padLeft(value: string | number, targetLength: number, padding?: 
  * A map/dictionary that maps strings to a generic type of value.
  */
 export type StringMap<TValue> = { [key: string]: TValue };
+
+/**
+ * Get the lines of the provided text.
+ * @param text The text to get the lines of.
+ */
+export function getLines(text: string): string[] {
+  return text.split(/\r?\n/);
+}
