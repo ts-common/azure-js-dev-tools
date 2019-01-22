@@ -1,6 +1,7 @@
 import { getChildFilePaths, readFileContents } from "./fileSystem2";
 import { getDefaultLogger, Logger } from "./logger";
 import { getName } from "./path";
+import { getLines, padLeft } from "./common";
 
 export interface CheckForOnlyCallsOptions {
   /**
@@ -11,6 +12,11 @@ export interface CheckForOnlyCallsOptions {
    * The Logger to use. If no Logger is specified, then a default Logger will be used instead.
    */
   logger?: Logger;
+}
+
+export interface OnlyLine {
+  lineNumber: number;
+  text: string;
 }
 
 /**
@@ -40,9 +46,24 @@ export function checkForOnlyCalls(options?: CheckForOnlyCallsOptions): number {
     } else {
       for (const sourceFilePath of sourceFilePaths) {
         const sourceFileContents: string = readFileContents(sourceFilePath)!;
-        if (sourceFileContents.indexOf(".only(") !== -1) {
-          logger.logError(`  Found *.only(...) call in "${sourceFilePath}".`);
-          ++exitCode;
+        const sourceFileLines: string[] = getLines(sourceFileContents);
+        const onlyLines: OnlyLine[] = [];
+        for (let i = 0; i < sourceFileLines.length; ++i) {
+          const sourceFileLine: string = sourceFileLines[i];
+          if (sourceFileLine.indexOf(".only(") !== -1) {
+            onlyLines.push({ lineNumber: i, text: sourceFileLine });
+          }
+        }
+        if (onlyLines.length > 0) {
+          logger.logError(`  Found ${onlyLines.length} *.only(...) call${onlyLines.length === 1 ? "" : "s"} in "${sourceFilePath}".`);
+          exitCode += onlyLines.length;
+          let numberWidth = 1;
+          for (const onlyLine of onlyLines) {
+            numberWidth = Math.max(numberWidth, onlyLine.lineNumber.toString().length);
+          }
+          for (const onlyLine of onlyLines) {
+            logger.logError(`    Line ${padLeft(onlyLine.lineNumber, numberWidth)}. ${onlyLine.text}`);
+          }
         }
       }
     }
