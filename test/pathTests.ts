@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import { isRooted, resolvePath, normalize, joinPath } from "../lib/path";
+import { isRooted, resolvePath, normalize, joinPath, getRootPath } from "../lib/path";
 
 describe("path.ts", function () {
   describe("joinPath(...string[])", function () {
@@ -78,6 +78,49 @@ describe("path.ts", function () {
 
     it(`with "/folder/file"`, function () {
       assert.strictEqual(normalize("/folder/file"), "/folder/file");
+    });
+  });
+
+  describe("getRootPath(string)", function () {
+    it(`with undefined`, function () {
+      assert.strictEqual(getRootPath(undefined as any), undefined);
+    });
+
+    it(`with null`, function () {
+      // tslint:disable-next-line:no-null-keyword
+      assert.strictEqual(getRootPath(null as any), undefined);
+    });
+
+    it(`with ""`, function () {
+      assert.strictEqual(getRootPath(""), undefined);
+    });
+
+    it(`with "apples"`, function () {
+      assert.strictEqual(getRootPath("apples"), undefined);
+    });
+
+    it(`with "apples/kiwi"`, function () {
+      assert.strictEqual(getRootPath("apples/kiwi"), undefined);
+    });
+
+    it(`with "/apples/kiwi"`, function () {
+      assert.strictEqual(getRootPath("/apples/kiwi"), "/");
+    });
+
+    it(`with "\\apples\\kiwi"`, function () {
+      assert.strictEqual(getRootPath("\\apples\\kiwi"), "\\");
+    });
+
+    it(`with "Z:/bananas"`, function () {
+      assert.strictEqual(getRootPath("Z:/bananas"), "Z:/");
+    });
+
+    it(`with "X:/bananas\\oranges"`, function () {
+      assert.strictEqual(getRootPath("X:/bananas\\oranges"), "X:/");
+    });
+
+    it(`with "X:\\bananas\\oranges"`, function () {
+      assert.strictEqual(getRootPath("X:\\bananas\\oranges"), "X:\\");
     });
   });
 

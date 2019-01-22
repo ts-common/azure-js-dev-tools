@@ -28,12 +28,28 @@ export function normalize(pathString: string): string {
 }
 
 /**
+ * Get the root path of the provided path string. If the provided path string is relative (not
+ * rooted), then undefined will be returned.
+ * @param pathString The path to get the root of.
+ */
+export function getRootPath(pathString: string): string | undefined {
+  let result: string | undefined;
+  if (pathString) {
+    result = path.win32.parse(pathString).root || undefined;
+    if (!result) {
+      result = path.posix.parse(pathString).root || undefined;
+    }
+  }
+  return result;
+}
+
+/**
  * Check whether or not the provided pathString is rooted (absolute).
  * @param pathString The path to check.
  * @returns Whether or not the provided pathString is rooted (absolute).
  */
 export function isRooted(pathString: string): boolean {
-  return path.win32.isAbsolute(pathString) || path.posix.isAbsolute(pathString);
+  return !!getRootPath(pathString);
 }
 
 /**
