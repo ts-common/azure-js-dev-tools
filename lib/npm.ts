@@ -38,13 +38,44 @@ export function npmPack(options?: RunOptions): RunResult {
 }
 
 /**
+ * Options that can be passed to "npm install" commands.
+ */
+export interface NPMInstallOptions extends RunOptions {
+  /**
+   * The source of the package to install. This can be an NPM package's name (with or without the
+   * package version), a Git URL, a path to a tarball, or a path to a folder.
+   */
+  installSource?: string;
+  /**
+   * Whether or not to update the execution folder path's package.json file with this installation.
+   * If this property is undefined, then the package.json won't be updated. If this property is
+   * defined, then it's value will be appended to the `--save` command-line argument name. For
+   * example, if you specified `save: "prod"`, then the command-line would add a `--save-prod`
+   * argument.
+   */
+  save?: string;
+}
+
+/**
  * Run "npm install" from the optional packageFolderPath, or if packageFolderPath isn't specified,
  * then run "npm install" from the current directory.
  * @param options The optional arguments that can be added to the NPM command.
  * @returns The result of running the NPM command.
  */
-export function npmInstall(options?: RunOptions): RunResult {
-  return npm("install", options);
+export function npmInstall(options?: NPMInstallOptions): RunResult {
+  options = options || {};
+  let command = "install";
+  if (options.installSource) {
+    command += ` ${options.installSource}`;
+  }
+  if (options.save) {
+    command += "--save";
+    if (!options.save.startsWith("-")) {
+      command += "-";
+    }
+    command += options.save;
+  }
+  return npm(command, options);
 }
 
 /**
@@ -167,7 +198,7 @@ export class NPMScope {
    * @param options The optional arguments that can be added to the NPM command.
    * @returns The result of running the NPM command.
    */
-  public install(options?: RunOptions): RunResult {
+  public install(options?: NPMInstallOptions): RunResult {
     return npmInstall({
       ...this.defaultOptions,
       ...options,
