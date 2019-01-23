@@ -3,9 +3,15 @@ import { RunOptions, RunResult, runSync } from "./run";
 import { StringMap } from "./common";
 
 /**
- * The executable that will be used to run NPM commands.
+ * Get the executable that will be used to run NPM commands.
+ * @param osPlatform The platform that this script is being run on.
  */
-export const npmExecutable: string = (os.platform() === "win32" ? "npm.cmd" : "npm");
+export function npmExecutable(osPlatform?: string): string {
+  if (!osPlatform) {
+    osPlatform = os.platform();
+  }
+  return osPlatform === "win32" ? "npm.cmd" : "npm";
+}
 
 /**
  * Run a NPM command.
@@ -14,7 +20,8 @@ export const npmExecutable: string = (os.platform() === "win32" ? "npm.cmd" : "n
  * @returns The result of running the NPM command.
  */
 export function npm(args: string | string[], options?: RunOptions): RunResult {
-  return runSync(npmExecutable, args, options);
+  const npmCommand: string = npmExecutable();
+  return runSync(npmCommand, args, options);
 }
 
 /**
