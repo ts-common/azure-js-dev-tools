@@ -1,7 +1,7 @@
 import { getChildFilePaths, readFileContents } from "./fileSystem2";
 import { getDefaultLogger, Logger } from "./logger";
 import { getName } from "./path";
-import { padLeft } from "./common";
+import { padLeft, getLines } from "./common";
 
 export interface CheckForSkipCallsOptions {
   /**
@@ -53,7 +53,7 @@ export function checkForSkipCalls(options?: CheckForSkipCallsOptions): number {
     } else {
       for (const sourceFilePath of sourceFilePaths) {
         const sourceFileContents: string = readFileContents(sourceFilePath)!;
-        const sourceFileLines: string[] = sourceFileContents.split(/\r?\n/);
+        const sourceFileLines: string[] = getLines(sourceFileContents);
         const skipLines: SkipLine[] = [];
         for (let i = 0; i < sourceFileLines.length; ++i) {
           const sourceFileLine: string = sourceFileLines[i];

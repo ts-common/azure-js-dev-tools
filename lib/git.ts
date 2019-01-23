@@ -1,14 +1,6 @@
-import { RunOptions, RunResult, runSync } from "./run";
+import { getLines } from "./common";
 import { joinPath } from "./path";
-
-/**
- * Get the lines that exist in the provided text.
- * @param text The text to get the lines from.
- * @returns The lines that exist in the provided text.
- */
-function getLines(text: string): string[] {
-  return text.split(/\r?\n/);
-}
+import { RunOptions, RunResult, runSync } from "./run";
 
 /**
  * The result of running a git operation.
@@ -24,8 +16,32 @@ export function gitRun(args: string | string[], options?: RunOptions): RunResult
   return runSync("git", args, options);
 }
 
-export function gitFetch(options?: RunOptions): RunResult {
-  return gitRun("fetch -p", options);
+/**
+ * Options that can be passed to `git fetch`.
+ */
+export interface GitFetchOptions extends RunOptions {
+  /**
+   * Before fetching, remove any remote-tracking references that no longer exist on the remote. Tags
+   * are not subject to pruning if they are fetched only because of the default tag auto-following
+   * or due to a --tags option. However, if tags are fetched due to an explicit refspec (either on
+   * the command line or in the remote configuration, for example if the remote was cloned with the
+   * --mirror option), then they are also subject to pruning. Supplying --prune-tags is a shorthand
+   * for providing the tag refspec.
+   */
+  prune?: boolean;
+}
+
+/**
+ * Download objects and refs from another repository.
+ * @param options The options that can be passed to `git fetch`.
+ */
+export function gitFetch(options?: GitFetchOptions): RunResult {
+  options = options || {};
+  let command = "fetch";
+  if (options.prune) {
+    command += " --prune";
+  }
+  return gitRun(command, options);
 }
 
 export function gitMergeOriginMaster(options?: RunOptions): RunResult {
@@ -112,7 +128,7 @@ export function gitCheckout(refId: string, options?: RunOptions): GitCheckoutRes
   const runResult: RunResult = gitRun(`checkout ${refId}`, options);
   let filesThatWouldBeOverwritten: string[] | undefined;
   if (runResult.stderr) {
-    const stderrLines: string[] = runResult.stderr.split(/\r?\n/);
+    const stderrLines: string[] = getLines(runResult.stderr);
     if (stderrLines[0].trim() === "error: The following untracked working tree files would be overwritten by checkout:") {
       filesThatWouldBeOverwritten = [];
       let lineIndex = 1;
@@ -188,7 +204,7 @@ export function gitBranch(options?: RunOptions): GitBranchResult {
   const commandResult: RunResult = gitRun("branch", options);
   let currentBranch = "";
   const localBranches: string[] = [];
-  for (let branch of commandResult.stdout.split(/\r?\n/)) {
+  for (let branch of getLines(commandResult.stdout)) {
     if (branch) {
       branch = branch.trim();
       if (branch) {
