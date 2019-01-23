@@ -1,63 +1,6 @@
-import { RunOptions, RunResult, runSync } from "./run";
+import { getLines } from "./common";
 import { joinPath } from "./path";
-import { getLines, StringMap } from "./common";
-
-/**
- * An interface for a Git command runner.
- */
-export interface Git {
-  /**
-   * Run the provided Git command.
-   * @param args The arguments to the git command to run.
-   * @param options The options to use when running the command.
-   */
-  run(args: string | string[], options?: RunOptions): RunResult;
-}
-
-/**
- * A Git command runner that runs commands using the installed Git application.
- */
-export class RealGit implements Git {
-  run(args: string | string[], options?: RunOptions | undefined): RunResult {
-    return runSync("git", args, options);
-  }
-}
-
-/**
- * A fake Git command runner.
- */
-export class FakeGit implements Git {
-  private readonly results: StringMap<(() => RunResult)> = {};
-
-  /**
-   * Set the fake result to return when the provided command is run.
-   * @param commandString The command to set the result for.
-   * @param result The result to return when the provided command is run.
-   */
-  public set(commandString: string, result: RunResult | (() => RunResult)): void {
-    if (commandString.startsWith("git ")) {
-      commandString = commandString.substring("git ".length);
-    }
-    this.results[commandString] = typeof result === "function" ? result : () => result;
-  }
-
-  run(args: string | string[]): RunResult {
-    const commandString: string = (typeof args === "string" ? args : args.join(" "));
-    const resultFunction: (() => RunResult) | undefined = this.results[commandString];
-    if (!resultFunction) {
-      throw new Error(`No FakeGit result has been registered for the command "${commandString}".`);
-    }
-
-    return resultFunction();
-  }
-}
-
-export interface GitOptions extends RunOptions {
-  /**
-   * The Git command runner that will be used to run this command.
-   */
-  git?: Git;
-}
+import { RunOptions, RunResult, runSync } from "./run";
 
 /**
  * The result of running a git operation.
@@ -69,15 +12,14 @@ export interface GitRunResult extends RunResult {
   error?: Error;
 }
 
-export function gitRun(args: string | string[], options?: GitOptions): RunResult {
-  const runner: Git = (options && options.git) || new RealGit();
-  return runner.run(args, options);
+export function gitRun(args: string | string[], options?: RunOptions): RunResult {
+  return runSync("git", args, options);
 }
 
 /**
  * Options that can be passed to `git fetch`.
  */
-export interface GitFetchOptions extends GitOptions {
+export interface GitFetchOptions extends RunOptions {
   /**
    * Before fetching, remove any remote-tracking references that no longer exist on the remote. Tags
    * are not subject to pruning if they are fetched only because of the default tag auto-following
@@ -102,14 +44,14 @@ export function gitFetch(options?: GitFetchOptions): RunResult {
   return gitRun(command, options);
 }
 
-export function gitMergeOriginMaster(options?: GitOptions): RunResult {
+export function gitMergeOriginMaster(options?: RunOptions): RunResult {
   return gitRun("merge origin master", options);
 }
 
 /**
  * Options that can be passed to gitClone().
  */
-export interface GitCloneOptions extends GitOptions {
+export interface GitCloneOptions extends RunOptions {
   /**
    * Operate quietly. Progress is not reported to the standard error stream.
    */
@@ -182,7 +124,7 @@ export interface GitCheckoutResult extends GitRunResult {
   filesThatWouldBeOverwritten?: string[];
 }
 
-export function gitCheckout(refId: string, options?: GitOptions): GitCheckoutResult {
+export function gitCheckout(refId: string, options?: RunOptions): GitCheckoutResult {
   const runResult: RunResult = gitRun(`checkout ${refId}`, options);
   let filesThatWouldBeOverwritten: string[] | undefined;
   if (runResult.stderr) {
@@ -207,23 +149,23 @@ export function gitCheckout(refId: string, options?: GitOptions): GitCheckoutRes
   };
 }
 
-export function gitPull(options?: GitOptions): RunResult {
+export function gitPull(options?: RunOptions): RunResult {
   return gitRun(`pull`, options);
 }
 
-export function gitPush(options?: GitOptions): RunResult {
+export function gitPush(options?: RunOptions): RunResult {
   return gitRun(`push`, options);
 }
 
-export function gitAddAll(options?: GitOptions): RunResult {
+export function gitAddAll(options?: RunOptions): RunResult {
   return gitRun("add *", options);
 }
 
-export function gitCommit(commitMessage: string, options?: GitOptions): RunResult {
+export function gitCommit(commitMessage: string, options?: RunOptions): RunResult {
   return gitRun(["commit", "-m", commitMessage], options);
 }
 
-export function gitDeleteLocalBranch(branchName: string, options?: GitOptions): RunResult {
+export function gitDeleteLocalBranch(branchName: string, options?: RunOptions): RunResult {
   return gitRun(`branch -D ${branchName}`, options);
 }
 
@@ -237,7 +179,7 @@ export interface GitDiffResult extends GitRunResult {
   filesChanged: string[];
 }
 
-export function gitDiff(baseCommitSha: string, headCommitSha: string, options?: GitOptions): GitDiffResult {
+export function gitDiff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): GitDiffResult {
   const commandResult: RunResult = gitRun(`diff --name-only ${baseCommitSha} ${headCommitSha}`, options);
   const filesChanged: string[] = [];
   const repositoryFolderPath: string | undefined = (options && options.executionFolderPath) || process.cwd();
@@ -258,7 +200,7 @@ export interface GitBranchResult extends GitRunResult {
 }
 
 const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.*)\)/;
-export function gitBranch(options?: GitOptions): GitBranchResult {
+export function gitBranch(options?: RunOptions): GitBranchResult {
   const commandResult: RunResult = gitRun("branch", options);
   let currentBranch = "";
   const localBranches: string[] = [];
@@ -340,7 +282,7 @@ const onBranchRegExp: RegExp = /On branch (.*)/i;
 /**
  * Run "git status".
  */
-export function gitStatus(options?: GitOptions): GitStatusResult {
+export function gitStatus(options?: RunOptions): GitStatusResult {
   const folderPath: string = (options && options.executionFolderPath) || process.cwd();
 
   let parseState: StatusParseState = "CurrentBranch";
@@ -475,87 +417,87 @@ export function gitStatus(options?: GitOptions): GitStatusResult {
 }
 
 export class GitScope {
-  constructor(private options: GitOptions) {
+  constructor(private options: RunOptions) {
   }
 
-  public run(args: string | string[], options?: GitOptions): RunResult {
+  public run(args: string | string[], options?: RunOptions): RunResult {
     return gitRun(args, {
       ...this.options,
       ...options,
     });
   }
 
-  public fetch(options?: GitOptions): RunResult {
+  public fetch(options?: RunOptions): RunResult {
     return gitFetch({
       ...this.options,
       ...options,
     });
   }
 
-  public mergeOriginMaster(options?: GitOptions): RunResult {
+  public mergeOriginMaster(options?: RunOptions): RunResult {
     return gitMergeOriginMaster({
       ...this.options,
       ...options
     });
   }
 
-  public checkout(refId: string, options?: GitOptions): GitCheckoutResult {
+  public checkout(refId: string, options?: RunOptions): GitCheckoutResult {
     return gitCheckout(refId, {
       ...this.options,
       ...options
     });
   }
 
-  public pull(options?: GitOptions): RunResult {
+  public pull(options?: RunOptions): RunResult {
     return gitPull({
       ...this.options,
       ...options
     });
   }
 
-  public push(options?: GitOptions): RunResult {
+  public push(options?: RunOptions): RunResult {
     return gitPush({
       ...this.options,
       ...options
     });
   }
 
-  public addAll(options?: GitOptions): RunResult {
+  public addAll(options?: RunOptions): RunResult {
     return gitAddAll({
       ...this.options,
       ...options
     });
   }
 
-  public commit(commitMessage: string, options?: GitOptions): RunResult {
+  public commit(commitMessage: string, options?: RunOptions): RunResult {
     return gitCommit(commitMessage, {
       ...this.options,
       ...options
     });
   }
 
-  public deleteLocalBranch(branchName: string, options?: GitOptions): RunResult {
+  public deleteLocalBranch(branchName: string, options?: RunOptions): RunResult {
     return gitDeleteLocalBranch(branchName, {
       ...this.options,
       ...options
     });
   }
 
-  public diff(baseCommitSha: string, headCommitSha: string, options?: GitOptions): GitDiffResult {
+  public diff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): GitDiffResult {
     return gitDiff(baseCommitSha, headCommitSha, {
       ...this.options,
       ...options,
     });
   }
 
-  public branch(options?: GitOptions): GitBranchResult {
+  public branch(options?: RunOptions): GitBranchResult {
     return gitBranch({
       ...this.options,
       ...options,
     });
   }
 
-  public status(options?: GitOptions): GitStatusResult {
+  public status(options?: RunOptions): GitStatusResult {
     return gitStatus({
       ...this.options,
       ...options,

@@ -1,25 +1,28 @@
 import { assertEx } from "../lib/assertEx";
-import { RunResult, runSync, runAsync } from "../lib/run";
+import { RunResult, runSync, runAsync, FakeRunner, createRunResult } from "../lib/run";
 import { assert } from "chai";
 
 describe("run.ts", function () {
+  describe("FakeRunner", function () {
+    describe("runSync()", function () {
+      it("with no registered result and single string arg", function () {
+        const runner = new FakeRunner();
+        const error: Error = assertEx.throws(() => runner.runSync("git", "status"));
+        assert.strictEqual(error.message, `No FakeRunner result has been registered for the command "git status".`);
+      });
+
+      it("with registered result and args array", function () {
+        const git = new FakeRunner();
+        const registeredResult: RunResult = createRunResult(1, "a", "b");
+        git.set("git fetch --prune", registeredResult);
+        const result: RunResult = git.runSync("git", ["fetch", "--prune"]);
+        assert.deepEqual(result, registeredResult);
+      });
+    });
+  });
+
   describe("runSync()", function () {
     this.timeout(10000);
-
-    it("with mockResult", function () {
-      const mockResult: RunResult = {
-        exitCode: 1,
-        stdout: "hello",
-        stderr: "there"
-      };
-      const result: RunResult = runSync("fakeCommand", ["arg1", "arg2"], { mockResult });
-      assert.strictEqual(result, mockResult);
-    });
-
-    it("with mockError", function () {
-      const mockError = new Error("hello");
-      assertEx.throws(() => runSync("fakeCommand", ["arg1", "arg2"], { mockError }), mockError);
-    });
 
     it("with dir", function () {
       const result: RunResult = runSync("dir");
@@ -74,21 +77,6 @@ describe("run.ts", function () {
 
   describe("runAsync()", function () {
     this.timeout(10000);
-
-    it("with mockResult", async function () {
-      const mockResult: RunResult = {
-        exitCode: 1,
-        stdout: "hello",
-        stderr: "there"
-      };
-      const result: RunResult = await runAsync("fakeCommand", ["arg1", "arg2"], { mockResult });
-      assert.strictEqual(result, mockResult);
-    });
-
-    it("with mockError", async function () {
-      const mockError = new Error("hello");
-      await assertEx.throwsAsync(runAsync("fakeCommand", ["arg1", "arg2"], { mockError }), mockError);
-    });
 
     it("with dir", async function () {
       const result: RunResult = await runAsync("dir", []);

@@ -1,4 +1,143 @@
 import { spawnSync, SpawnSyncReturns, spawn, ChildProcess, StdioOptions } from "child_process";
+import { StringMap } from "./common";
+
+/**
+ * An object that runs a provided command.
+ */
+export interface Runner {
+  /**
+   * Run the provided command synchronously.
+   * @param command The command to run.
+   * @param args The arguments to the command to run.
+   * @param options The options to use when running the command.
+   */
+  runSync(command: string, args: string | string[] | undefined, options: RunOptions | undefined): RunResult;
+
+  /**
+   * Run the provided command asynchronously.
+   * @param command  The command to run.
+   * @param args The arguments to the command to run.
+   * @param options The options to use when running the command.
+   */
+  runAsync(command: string, args: string | string[] | undefined, options: RunOptions | undefined): Promise<RunResult>;
+}
+
+/**
+ * A command runner that runs commands using a spawned process.
+ */
+export class RealRunner implements Runner {
+  runSync(command: string, args: string | string[] | undefined, options: RunOptions | undefined): RunResult {
+    options = options || {};
+    const argsArray: string[] = getArgsArray(args);
+    const spawnSyncResult: SpawnSyncReturns<string> = spawnSync(command, argsArray, {
+      cwd: options.executionFolderPath,
+      encoding: "utf8",
+      stdio: getChildProcessStdio(options)
+    });
+    return {
+      exitCode: spawnSyncResult.status,
+      stdout: spawnSyncResult.stdout,
+      stderr: spawnSyncResult.stderr,
+    };
+  }
+
+  runAsync(command: string, args: string | string[] | undefined, options: RunOptions | undefined): Promise<RunResult> {
+    const runOptions: RunOptions = options || {};
+    const argsArray: string[] = getArgsArray(args);
+
+    return new Promise((resolve, reject) => {
+      let result: RunResult | undefined;
+      const childProcess: ChildProcess = spawn(command, argsArray, {
+        cwd: runOptions.executionFolderPath,
+        stdio: getChildProcessStdio(runOptions)
+      });
+
+      let childProcessOutput = "";
+      const captureOutputFunction: undefined | ((text: string) => void) = getCaptureStreamFunction(runOptions.captureOutput, (text: string) => childProcessOutput += text);
+      if (captureOutputFunction) {
+        childProcess.stdout.addListener("data", (data: Uint8Array) => captureOutputFunction(data.toString()));
+      }
+
+      let childProcessError = "";
+      const captureErrorFunction: undefined | ((text: string) => void) = getCaptureStreamFunction(runOptions.captureError, (text: string) => childProcessError += text);
+      if (captureErrorFunction) {
+        childProcess.stderr.addListener("data", (data: Uint8Array) => captureErrorFunction(data.toString()));
+      }
+
+      const childProcessDone = (exitCode: number) => {
+        if (result === undefined) {
+          result = {
+            exitCode,
+            stdout: childProcessOutput,
+            stderr: childProcessError
+          };
+
+          resolve(result);
+        }
+      };
+      childProcess.addListener("close", childProcessDone);
+      childProcess.addListener("exit", childProcessDone);
+      childProcess.addListener("error", reject);
+    });
+  }
+}
+
+/**
+ * A fake command runner.
+ */
+export class FakeRunner implements Runner {
+  private readonly results: StringMap<(() => RunResult)> = {};
+
+  /**
+   * Set the fake result to return when the provided command is run.
+   * @param commandString The command to set the result for.
+   * @param result The result to return when the provided command is run.
+   */
+  public set(commandString: string, result: RunResult | (() => RunResult)): void {
+    this.results[commandString] = typeof result === "function" ? result : () => result;
+  }
+
+  private get(command: string, args: string | string[] | undefined): () => RunResult {
+    const commandString: string = getCommandString(command, args);
+
+    const result: (() => RunResult) | undefined = this.results[commandString];
+    if (!result) {
+      throw new Error(`No FakeRunner result has been registered for the command "${commandString}".`);
+    }
+
+    return result;
+  }
+
+  runSync(command: string, args: string | string[] | undefined): RunResult {
+    const resultFunction: () => RunResult = this.get(command, args);
+    return resultFunction();
+  }
+
+  runAsync(command: string, args: string | string[] | undefined): Promise<RunResult> {
+    const resultFunction: () => RunResult = this.get(command, args);
+    return new Promise((resolve, reject) => {
+      try {
+        resolve(resultFunction());
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+}
+
+/**
+ * Create a new RunResult with the provided properties.
+ * @param exitCode The exit code for the RunResult.
+ * @param stdout The stdout for the RunResult.
+ * @param stderr The stderr for the RunResult.
+ */
+export function createRunResult(exitCode: number, stdout?: string, stderr?: string): RunResult {
+  return {
+    exitCode,
+    stdout: stdout || "",
+    stderr: stderr || ""
+  };
+}
 
 /**
  * The result of running a command.
@@ -51,16 +190,9 @@ export interface RunOptions {
    */
   captureError?: boolean | ((errorLine: string) => void);
   /**
-   * If this property is specified, then the command will never be run and this result will be
-   * returned instead. This is used for unit testing commands.
+   * The runner that will be used to execute this command.
    */
-  mockResult?: RunResult;
-  /**
-   * If this property is specified, then the command will never be run and this error will be
-   * returned instead. This is used for unit testing commands, and mockError takes precedence over
-   * mockResult.
-   */
-  mockError?: Error;
+  runner?: Runner;
 }
 
 /**
@@ -93,9 +225,22 @@ export function getShowResultFunction(showResult: undefined | boolean | ((result
   return result;
 }
 
-export function logCommand(command: string, argsArray: string[], options: RunOptions): void {
-  if (options.log && (options.showCommand == undefined || options.showCommand)) {
-    let commandString = `${command} ${argsArray.join(" ")}`;
+export function getCommandString(command: string, args: string | string[] | undefined): string {
+  let result: string = command;
+  if (args) {
+    if (Array.isArray(args)) {
+      args = args.join(" ");
+    }
+    if (args) {
+      result += ` ${args}`;
+    }
+  }
+  return result;
+}
+
+export function logCommand(command: string, args: string | string[] | undefined, options: RunOptions | undefined): void {
+  if (options && options.log && (options.showCommand == undefined || options.showCommand)) {
+    let commandString: string = getCommandString(command, args);
     if (options.executionFolderPath) {
       commandString = `${options.executionFolderPath}: ${commandString}`;
     }
@@ -103,17 +248,19 @@ export function logCommand(command: string, argsArray: string[], options: RunOpt
   }
 }
 
-export function logResult(result: RunResult, options: RunOptions): void {
-  const showResult: (result: RunResult) => boolean = getShowResultFunction(options.showResult);
-  if (options.log && showResult(result)) {
-    options.log(`Exit Code: ${result.exitCode}`);
-    if (result.stdout && options.captureOutput === true) {
-      options.log(`Output:`);
-      options.log(result.stdout);
-    }
-    if (result.stderr && options.captureError === true) {
-      options.log(`Error:`);
-      options.log(result.stderr);
+export function logResult(result: RunResult, options: RunOptions | undefined): void {
+  if (options && options.log) {
+    const showResult: (result: RunResult) => boolean = getShowResultFunction(options.showResult);
+    if (showResult(result)) {
+      options.log(`Exit Code: ${result.exitCode}`);
+      if (result.stdout && options.captureOutput === true) {
+        options.log(`Output:`);
+        options.log(result.stdout);
+      }
+      if (result.stderr && options.captureError === true) {
+        options.log(`Error:`);
+        options.log(result.stderr);
+      }
     }
   }
 }
@@ -130,35 +277,20 @@ export function getChildProcessStdio(options: RunOptions): StdioOptions {
  * Run the provided command synchronously.
  */
 export function runSync(command: string, args?: string | string[], options?: RunOptions): RunResult {
-  const runOptions: RunOptions = options || {};
-  const argsArray: string[] = getArgsArray(args);
-  logCommand(command, argsArray, runOptions);
+  options = options || {};
 
-  let result: RunResult;
-  if (runOptions.mockError) {
-    throw runOptions.mockError;
-  } else if (runOptions.mockResult) {
-    result = runOptions.mockResult;
-  } else {
-    const spawnSyncResult: SpawnSyncReturns<string> = spawnSync(command, argsArray, {
-      cwd: runOptions.executionFolderPath,
-      encoding: "utf8",
-      stdio: getChildProcessStdio(runOptions)
-    });
-    if (typeof runOptions.captureOutput === "function") {
-      runOptions.captureOutput(spawnSyncResult.stdout);
-    }
-    if (typeof runOptions.captureError === "function") {
-      runOptions.captureError(spawnSyncResult.stderr);
-    }
-    result = {
-      exitCode: spawnSyncResult.status,
-      stdout: spawnSyncResult.stdout,
-      stderr: spawnSyncResult.stderr,
-    };
+  logCommand(command, args, options);
+
+  const runner: Runner = options.runner || new RealRunner();
+  const result: RunResult = runner.runSync(command, args, options);
+  if (typeof options.captureOutput === "function") {
+    options.captureOutput(result.stdout);
+  }
+  if (typeof options.captureError === "function") {
+    options.captureError(result.stderr);
   }
 
-  logResult(result, runOptions);
+  logResult(result, options);
 
   return result;
 }
@@ -181,50 +313,13 @@ export function getCaptureStreamFunction(captureOption: undefined | boolean | ((
  * @param args The arguments to provide to the command.
  */
 export function runAsync(command: string, args: string | string[], options?: RunOptions): Promise<RunResult> {
-  const runOptions: RunOptions = options || {};
-  const argsArray: string[] = getArgsArray(args);
-  logCommand(command, argsArray, runOptions);
+  options = options || {};
+  const runner: Runner = options.runner || new RealRunner();
 
-  return new Promise((resolve, reject) => {
-    let result: RunResult | undefined;
-    if (runOptions.mockError) {
-      reject(runOptions.mockError);
-    } else if (runOptions.mockResult) {
-      resolve(runOptions.mockResult);
-    } else {
-      const childProcess: ChildProcess = spawn(command, argsArray, {
-        cwd: runOptions.executionFolderPath,
-        stdio: getChildProcessStdio(runOptions)
-      });
-
-      let childProcessOutput = "";
-      const captureOutputFunction: undefined | ((text: string) => void) = getCaptureStreamFunction(runOptions.captureOutput, (text: string) => childProcessOutput += text);
-      if (captureOutputFunction) {
-        childProcess.stdout.addListener("data", (data: Uint8Array) => captureOutputFunction(data.toString()));
-      }
-
-      let childProcessError = "";
-      const captureErrorFunction: undefined | ((text: string) => void) = getCaptureStreamFunction(runOptions.captureError, (text: string) => childProcessError += text);
-      if (captureErrorFunction) {
-        childProcess.stderr.addListener("data", (data: Uint8Array) => captureErrorFunction(data.toString()));
-      }
-
-      const childProcessDone = (exitCode: number) => {
-        if (result === undefined) {
-          result = {
-            exitCode,
-            stdout: childProcessOutput,
-            stderr: childProcessError
-          };
-
-          logResult(result, runOptions);
-
-          resolve(result);
-        }
-      };
-      childProcess.addListener("close", childProcessDone);
-      childProcess.addListener("exit", childProcessDone);
-      childProcess.addListener("error", reject);
-    }
-  });
+  logCommand(command, args, options);
+  return runner.runAsync(command, args, options)
+    .then((result: RunResult) => {
+      logResult(result, options);
+      return result;
+    });
 }
