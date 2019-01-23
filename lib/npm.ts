@@ -3,13 +3,17 @@ import { RunOptions, RunResult, runSync } from "./run";
 import { StringMap } from "./common";
 
 /**
+ * The executable that will be used to run NPM commands.
+ */
+export const npmExecutable: string = (os.platform() === "win32" ? "npm.cmd" : "npm");
+
+/**
  * Run a NPM command.
  * @param args The arguments to the NPM command.
  * @param options The optional arguments that can be added to the NPM command.
  * @returns The result of running the NPM command.
  */
 export function npm(args: string | string[], options?: RunOptions): RunResult {
-  const npmExecutable: string = (os.platform() === "win32" ? "npm.cmd" : "npm");
   return runSync(npmExecutable, args, options);
 }
 
