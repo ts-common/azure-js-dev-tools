@@ -1,5 +1,7 @@
 import { assert } from "chai";
-import { npmExecutable } from "../lib/npm";
+import { assertEx } from "../lib/assertEx";
+import { npm, npmExecutable } from "../lib/npm";
+import { RunResult } from "../lib/run";
 
 describe("npm.ts", function () {
   describe("npmExecutable()", function () {
@@ -41,6 +43,17 @@ describe("npm.ts", function () {
     it(`with "win32"`, function () {
       const npmCommand: string = npmExecutable("win32");
       assert.strictEqual(npmCommand, "npm.cmd");
+    });
+  });
+
+  describe("npm()", function () {
+    it("with unrecognized command", function () {
+      const result: RunResult = npm("foo");
+      assert(result);
+      assert.strictEqual(result.exitCode, 1);
+      assertEx.contains(result.stdout, "Usage: npm <command>");
+      assertEx.contains(result.stdout, "where <command> is one of:");
+      assert.strictEqual(result.stderr, "");
     });
   });
 });

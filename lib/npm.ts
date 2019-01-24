@@ -1,6 +1,6 @@
 import * as os from "os";
-import { RunOptions, RunResult, runSync } from "./run";
 import { StringMap } from "./common";
+import { RunOptions, RunResult, runSync } from "./run";
 
 /**
  * Get the executable that will be used to run NPM commands.
