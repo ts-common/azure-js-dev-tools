@@ -1,8 +1,25 @@
 import { assert } from "chai";
-import { gitCheckout, gitClone, gitFetch, gitMergeOriginMaster, gitStatus, GitStatusResult } from "../lib/git";
-import { RunResult, FakeRunner, createRunResult } from "../lib/run";
+import { getLines } from "../lib/common";
+import { git, gitCheckout, gitClone, gitFetch, gitMergeOriginMaster, gitStatus, GitStatusResult } from "../lib/git";
+import { createRunResult, FakeRunner, RunResult } from "../lib/run";
 
 describe("git.ts", function () {
+  describe("git()", function () {
+    it("with unrecognized command", function () {
+      const result: RunResult = git("foo");
+      assert(result);
+      assert.strictEqual(result.exitCode, 1);
+      assert.deepEqual(getLines(result.stdout), [""]);
+      assert.deepEqual(getLines(result.stderr), [
+        "git: 'foo' is not a git command. See 'git --help'.",
+        "",
+        "The most similar command is",
+        "\tflow",
+        ""
+      ]);
+    });
+  });
+
   describe("gitFetch()", function () {
     it("with no options", function () {
       const runner = new FakeRunner();
