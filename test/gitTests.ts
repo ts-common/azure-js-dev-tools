@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import { getLines } from "../lib/common";
+import { assertEx } from "../lib/assertEx";
 import { git, gitCheckout, gitClone, gitFetch, gitMergeOriginMaster, gitStatus, GitStatusResult } from "../lib/git";
 import { createRunResult, FakeRunner, RunResult } from "../lib/run";
 
@@ -9,14 +9,9 @@ describe("git.ts", function () {
       const result: RunResult = git("foo");
       assert(result);
       assert.strictEqual(result.exitCode, 1);
-      assert.deepEqual(getLines(result.stdout), [""]);
-      assert.deepEqual(getLines(result.stderr), [
-        "git: 'foo' is not a git command. See 'git --help'.",
-        "",
-        "The most similar command is",
-        "\tflow",
-        ""
-      ]);
+      assert.strictEqual(result.stdout, "");
+      assertEx.contains(result.stderr, "git: 'foo' is not a git command. See 'git --help'.");
+      assertEx.contains(result.stderr, "The most similar command is");
     });
   });
 
