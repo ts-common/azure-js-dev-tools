@@ -7,14 +7,12 @@ jobs:
     vmImage: 'Ubuntu 16.04'
   strategy:
     matrix:
-      Node6:
-        node.version: 6.x
       Node8:
         node.version: 8.x
       Node10:
         node.version: 10.x
       Node11:
-        node.version: 11.6
+        node.version: 11.x
   steps:
   - task: NodeTool@0
     displayName: 'Install Node'
@@ -32,6 +30,12 @@ jobs:
       command: custom
       verbose: false
       customCommand: test
+  - task: Npm@1
+    displayName: 'npm run coverage'
+    inputs:
+      command: custom
+      verbose: false
+      customCommand: run coverage
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: "$(System.DefaultWorkingDirectory)/test-results.xml"

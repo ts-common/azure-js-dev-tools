@@ -1,5 +1,7 @@
-import { spawnSync, SpawnSyncReturns, spawn, ChildProcess, StdioOptions } from "child_process";
+import { ChildProcess, spawn, spawnSync, SpawnSyncReturns, StdioOptions } from "child_process";
+import * as os from "os";
 import { StringMap } from "./common";
+import { normalize } from "./path";
 
 /**
  * An object that runs a provided command.
@@ -28,6 +30,7 @@ export interface Runner {
 export class RealRunner implements Runner {
   runSync(command: string, args: string | string[] | undefined, options: RunOptions | undefined): RunResult {
     options = options || {};
+    command = normalize(command, os.platform());
     const argsArray: string[] = getArgsArray(args);
     const spawnSyncResult: SpawnSyncReturns<string> = spawnSync(command, argsArray, {
       cwd: options.executionFolderPath,
@@ -35,14 +38,17 @@ export class RealRunner implements Runner {
       stdio: getChildProcessStdio(options)
     });
     return {
-      exitCode: spawnSyncResult.status,
-      stdout: spawnSyncResult.stdout,
-      stderr: spawnSyncResult.stderr,
+      exitCode: spawnSyncResult.status != undefined ? spawnSyncResult.status : undefined,
+      stdout: spawnSyncResult.stdout != undefined ? spawnSyncResult.stdout : undefined,
+      stderr: spawnSyncResult.stderr != undefined ? spawnSyncResult.stderr : undefined,
+      error: spawnSyncResult.error != undefined ? spawnSyncResult.error : undefined,
+      processId: spawnSyncResult.pid != undefined ? spawnSyncResult.pid : undefined
     };
   }
 
   runAsync(command: string, args: string | string[] | undefined, options: RunOptions | undefined): Promise<RunResult> {
     const runOptions: RunOptions = options || {};
+    command = normalize(command, os.platform());
     const argsArray: string[] = getArgsArray(args);
 
     return new Promise((resolve, reject) => {
@@ -68,8 +74,9 @@ export class RealRunner implements Runner {
         if (result === undefined) {
           result = {
             exitCode,
-            stdout: childProcessOutput,
-            stderr: childProcessError
+            stdout: childProcessOutput == undefined ? undefined : childProcessOutput,
+            stderr: childProcessError == undefined ? undefined : childProcessError,
+            processId: childProcess.pid == undefined ? undefined : childProcess.pid,
           };
 
           resolve(result);
@@ -126,35 +133,29 @@ export class FakeRunner implements Runner {
 }
 
 /**
- * Create a new RunResult with the provided properties.
- * @param exitCode The exit code for the RunResult.
- * @param stdout The stdout for the RunResult.
- * @param stderr The stderr for the RunResult.
- */
-export function createRunResult(exitCode: number, stdout?: string, stderr?: string): RunResult {
-  return {
-    exitCode,
-    stdout: stdout || "",
-    stderr: stderr || ""
-  };
-}
-
-/**
  * The result of running a command.
  */
 export interface RunResult {
   /**
    * The code that the process exited with.
    */
-  exitCode: number;
+  exitCode?: number;
   /**
    * The text that the process wrote to its stdout stream.
    */
-  stdout: string;
+  stdout?: string;
   /**
    * The text that the process wrote to its stderr stream.
    */
-  stderr: string;
+  stderr?: string;
+  /**
+   * An error that occurred when trying to run the process.
+   */
+  error?: Error;
+  /**
+   * The id of the process.
+   */
+  processId?: number;
 }
 
 export interface RunOptions {
@@ -283,10 +284,10 @@ export function runSync(command: string, args?: string | string[], options?: Run
 
   const runner: Runner = options.runner || new RealRunner();
   const result: RunResult = runner.runSync(command, args, options);
-  if (typeof options.captureOutput === "function") {
+  if (typeof options.captureOutput === "function" && result.stdout) {
     options.captureOutput(result.stdout);
   }
-  if (typeof options.captureError === "function") {
+  if (typeof options.captureError === "function" && result.stderr) {
     options.captureError(result.stderr);
   }
 
