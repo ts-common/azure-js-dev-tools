@@ -1,6 +1,6 @@
-import { assertEx } from "../lib/assertEx";
-import { RunResult, runSync, runAsync, FakeRunner, createRunResult } from "../lib/run";
 import { assert } from "chai";
+import { assertEx } from "../lib/assertEx";
+import { FakeRunner, runAsync, RunResult, runSync } from "../lib/run";
 
 describe("run.ts", function () {
   describe("FakeRunner", function () {
@@ -13,7 +13,7 @@ describe("run.ts", function () {
 
       it("with registered result and args array", function () {
         const git = new FakeRunner();
-        const registeredResult: RunResult = createRunResult(1, "a", "b");
+        const registeredResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
         git.set("git fetch --prune", registeredResult);
         const result: RunResult = git.runSync("git", ["fetch", "--prune"]);
         assert.deepEqual(result, registeredResult);
@@ -37,8 +37,7 @@ describe("run.ts", function () {
       const result: RunResult = runSync("dir", [], { captureOutput: false });
       assert(result);
       assert.strictEqual(result.exitCode, 0);
-      // tslint:disable-next-line:no-null-keyword
-      assert.strictEqual(result.stdout, null);
+      assert.strictEqual(result.stdout, undefined);
       assert.strictEqual(result.stderr, "");
     });
 
@@ -59,8 +58,7 @@ describe("run.ts", function () {
       assert.strictEqual(result.exitCode, 0);
       assertEx.contains(result.stdout, "README.md");
       assertEx.contains(result.stdout, "package.json");
-      // tslint:disable-next-line:no-null-keyword
-      assert.strictEqual(result.stderr, null);
+      assert.strictEqual(result.stderr, undefined);
     });
 
     it("with dir and captureError: function", function () {

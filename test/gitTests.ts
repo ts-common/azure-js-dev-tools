@@ -1,7 +1,7 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
 import { git, gitCheckout, gitClone, gitFetch, gitMergeOriginMaster, gitStatus, GitStatusResult } from "../lib/git";
-import { createRunResult, FakeRunner, RunResult } from "../lib/run";
+import { FakeRunner, RunResult } from "../lib/run";
 
 describe("git.ts", function () {
   describe("git()", function () {
@@ -18,21 +18,21 @@ describe("git.ts", function () {
   describe("gitFetch()", function () {
     it("with no options", function () {
       const runner = new FakeRunner();
-      const expectedResult: RunResult = createRunResult(2, "c", "d");
+      const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
       runner.set("git fetch", expectedResult);
       assert.deepEqual(gitFetch({ runner }), expectedResult);
     });
 
     it("with prune: true", function () {
       const runner = new FakeRunner();
-      const expectedResult: RunResult = createRunResult(3, "e", "f");
+      const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
       runner.set("git fetch --prune", () => expectedResult);
       assert.deepEqual(gitFetch({ runner, prune: true }), expectedResult);
     });
 
     it("with prune: false", function () {
       const runner = new FakeRunner();
-      const expectedResult: RunResult = createRunResult(3, "e", "f");
+      const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
       runner.set("git fetch", () => expectedResult);
       assert.deepEqual(gitFetch({ runner, prune: false }), expectedResult);
     });
@@ -40,7 +40,7 @@ describe("git.ts", function () {
 
   it("gitMergeOriginMaster()", function () {
     const runner = new FakeRunner();
-    const expectedResult: RunResult = createRunResult(1, "a", "b");
+    const expectedResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
     runner.set("git merge origin master", expectedResult);
     assert.deepEqual(gitMergeOriginMaster({ runner }), expectedResult);
   });
@@ -48,14 +48,14 @@ describe("git.ts", function () {
   describe("gitClone()", function () {
     it("with no options", function () {
       const runner = new FakeRunner();
-      const expectedResult: RunResult = createRunResult(2, "c", "d");
+      const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
       runner.set("git clone https://my.fake.git/url", expectedResult);
       assert.deepEqual(gitClone("https://my.fake.git/url", { runner }), expectedResult);
     });
 
     it("with all options", function () {
       const runner = new FakeRunner();
-      const expectedResult: RunResult = createRunResult(2, "c", "d");
+      const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
       runner.set("git clone --quiet --verbose --origin foo --branch fake-branch --depth 5 https://my.fake.git/url fake-directory", expectedResult);
       assert.deepEqual(
         gitClone("https://my.fake.git/url", {
@@ -74,7 +74,7 @@ describe("git.ts", function () {
   describe("gitCheckout()", function () {
     it("with no stderr", function () {
       const runner = new FakeRunner();
-      const expectedResult: RunResult = createRunResult(2, "blah", "");
+      const expectedResult: RunResult = { exitCode: 2, stdout: "blah", stderr: "" };
       runner.set("git checkout master", expectedResult);
       assert.deepEqual(
         gitCheckout("master", { runner }),
@@ -88,7 +88,9 @@ describe("git.ts", function () {
   describe("gitStatus()", function () {
     it("with not staged modified file", function () {
       const runner = new FakeRunner();
-      const expectedResult: RunResult = createRunResult(2, `On branch daschult/ci
+      const expectedResult: RunResult = {
+        exitCode: 2,
+        stdout: `On branch daschult/ci
 Your branch is up to date with 'origin/daschult/ci'.
 
 Changes not staged for commit:
@@ -97,7 +99,8 @@ Changes not staged for commit:
 
       modified:   gulpfile.ts
 
-no changes added to commit (use "git add" and/or "git commit -a")`);
+no changes added to commit (use "git add" and/or "git commit -a")`
+      };
       runner.set("git status", expectedResult);
       const statusResult: GitStatusResult = gitStatus({
         executionFolderPath: "/mock/folder/",

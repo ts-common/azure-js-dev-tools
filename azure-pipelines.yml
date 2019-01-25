@@ -14,7 +14,7 @@ jobs:
       Node10:
         node.version: 10.x
       Node11:
-        node.version: 11.6
+        node.version: 11.x
   steps:
   - task: NodeTool@0
     displayName: 'Install Node'
@@ -27,11 +27,11 @@ jobs:
       verbose: false
       customCommand: install
   - task: Npm@1
-    displayName: 'npm test'
+    displayName: 'npm test:coverage'
     inputs:
       command: custom
       verbose: false
-      customCommand: test
+      customCommand: test:coverage
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: "$(System.DefaultWorkingDirectory)/test-results.xml"

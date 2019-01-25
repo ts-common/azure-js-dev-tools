@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import { isRooted, resolvePath, normalize, joinPath, getRootPath } from "../lib/path";
+import { getRootPath, isRooted, joinPath, normalize, resolvePath } from "../lib/path";
 
 describe("path.ts", function () {
   describe("joinPath(...string[])", function () {
@@ -78,6 +78,22 @@ describe("path.ts", function () {
 
     it(`with "/folder/file"`, function () {
       assert.strictEqual(normalize("/folder/file"), "/folder/file");
+    });
+
+    it(`with "" and "win32" osPlatform`, function () {
+      assert.strictEqual(normalize("", "win32"), "");
+    });
+
+    it(`with "abc" and "win32" osPlatform`, function () {
+      assert.strictEqual(normalize("abc", "win32"), "abc");
+    });
+
+    it(`with "C:\\a\\b.txt" and "win32" osPlatform`, function () {
+      assert.strictEqual(normalize("C:\\a\\b.txt", "win32"), "C:\\a\\b.txt");
+    });
+
+    it(`with "/folder/file" and "win32" osPlatform`, function () {
+      assert.strictEqual(normalize("/folder/file", "win32"), "\\folder\\file");
     });
   });
 

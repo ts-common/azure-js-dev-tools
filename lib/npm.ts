@@ -142,10 +142,10 @@ export interface NPMViewResult extends RunResult {
     "npm-signature": string;
   };
   _hasShrinkwrap?: boolean;
-  error?: {
-    code: string;
-    summary: string;
-    detail: string;
+  error?: Error & {
+    code?: string;
+    summary?: string;
+    detail?: string;
   };
 }
 
@@ -162,9 +162,13 @@ export function npmView(options?: NPMViewOptions): NPMViewResult {
   }
   args.push("--json");
   const commandResult: RunResult = npm(args, options);
-  const npmViewResponse: any = JSON.parse(commandResult.stdout.trim());
+  const npmViewResponse: any = JSON.parse(commandResult.stdout!.trim());
   return {
-    commandResult,
+    exitCode: commandResult.exitCode,
+    stdout: commandResult.stdout,
+    stderr: commandResult.stderr,
+    processId: commandResult.processId,
+    runError: commandResult.error,
     ...npmViewResponse
   };
 }

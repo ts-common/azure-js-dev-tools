@@ -19,12 +19,22 @@ export function resolvePath(...pathSegments: string[]): string {
 }
 
 /**
- * Replace all of the backslashes (\) with forward slashes (/).
+ * Replace all of the backslashes (\) with forward slashes (/), unless the provided osPlatform is
+ * win32. If the osPlatform is win32, then all forward slashes (/) will be replaced with backslahes
+ * (\).
  * @param pathString The path to normalize.
  * @returns The normalized path.
  */
-export function normalize(pathString: string): string {
-  return pathString && pathString.replace(/\\/g, "/");
+export function normalize(pathString: string, osPlatform?: string): string {
+  let result: string;
+  if (!pathString) {
+    result = pathString;
+  } else if (osPlatform === "win32") {
+    result = pathString.replace(/\//g, "\\");
+  } else {
+    result = pathString.replace(/\\/g, "/");
+  }
+  return result;
 }
 
 /**

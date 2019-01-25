@@ -207,7 +207,7 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
   const forceInstall: boolean | undefined = getBooleanArgument("force-install", { defaultValue: false });
   const includeAzureJsDevTools: boolean | undefined = getBooleanArgument("include-azure-js-dev-tools", { defaultValue: false });
 
-  let exitCode = 0;
+  let exitCode: number | undefined = 0;
 
   const clonedPackages: StringMap<ClonedPackage | undefined> = {};
   const packageFolderPathsToVisit: string[] = [];
@@ -359,6 +359,9 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
     }
   }
 
+  if (exitCode == undefined) {
+    exitCode = 1;
+  }
   if (options.setProcessExitCode !== false) {
     process.exitCode = exitCode;
   }
