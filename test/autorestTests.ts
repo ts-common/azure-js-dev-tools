@@ -58,7 +58,7 @@ describe("autorest.ts", function () {
       assert(result.error!.name, "Error");
       assert(result.error!.message, "spawnSync ./i'm/not/here/autorest.cmd ENOENT");
       assert.strictEqual(result.exitCode, undefined);
-      assert.strictEqual(result.processId, 0);
+      assertEx.defined(result.processId, "result.processId");
       assert.strictEqual(result.stderr, undefined);
       assert.strictEqual(result.stdout, undefined);
     });
