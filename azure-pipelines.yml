@@ -25,11 +25,17 @@ jobs:
       verbose: false
       customCommand: install
   - task: Npm@1
-    displayName: 'npm test:coverage'
+    displayName: 'npm test'
     inputs:
       command: custom
       verbose: false
-      customCommand: test:coverage
+      customCommand: test
+  - task: Npm@1
+    displayName: 'npm run coverage'
+    inputs:
+      command: custom
+      verbose: false
+      customCommand: run coverage
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: "$(System.DefaultWorkingDirectory)/test-results.xml"
