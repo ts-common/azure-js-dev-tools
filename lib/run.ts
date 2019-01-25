@@ -254,11 +254,11 @@ export function logResult(result: RunResult, options: RunOptions | undefined): v
     const showResult: (result: RunResult) => boolean = getShowResultFunction(options.showResult);
     if (showResult(result)) {
       options.log(`Exit Code: ${result.exitCode}`);
-      if (result.stdout && options.captureOutput === true) {
+      if (result.stdout && (options.captureOutput === true || options.captureOutput === undefined)) {
         options.log(`Output:`);
         options.log(result.stdout);
       }
-      if (result.stderr && options.captureError === true) {
+      if (result.stderr && (options.captureError === true || options.captureError === undefined)) {
         options.log(`Error:`);
         options.log(result.stderr);
       }

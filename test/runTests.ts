@@ -41,6 +41,15 @@ describe("run.ts", function () {
       assert.strictEqual(result.stderr, "");
     });
 
+    it("with dir and captureOutput: true", function () {
+      const result: RunResult = runSync("dir", [], { captureOutput: true });
+      assert(result);
+      assert.strictEqual(result.exitCode, 0);
+      assertEx.contains(result.stdout, "README.md");
+      assertEx.contains(result.stdout, "package.json");
+      assert.strictEqual(result.stderr, "");
+    });
+
     it("with dir and captureOutput: function", function () {
       let capturedOutput = "";
       const result: RunResult = runSync("dir", [], { captureOutput: (text: string) => capturedOutput += text });
@@ -70,6 +79,20 @@ describe("run.ts", function () {
       assertEx.contains(result.stdout, "package.json");
       assert.strictEqual(result.stderr, "");
       assert.strictEqual(capturedError, result.stderr);
+    });
+
+    it("with dir and log and showResult defined", function () {
+      let capturedOutput = "";
+      const result: RunResult = runSync("dir", [], { log: (text: string) => capturedOutput += text, showResult: true });
+      assert(result);
+      assert.strictEqual(result.exitCode, 0);
+      assertEx.contains(result.stdout, "README.md");
+      assertEx.contains(result.stdout, "package.json");
+      assert.strictEqual(result.stderr, "");
+      assertEx.contains(capturedOutput, "dir");
+      assertEx.contains(capturedOutput, "Exit Code: 0");
+      assertEx.contains(capturedOutput, "Output:");
+      assertEx.contains(capturedOutput, "README.md");
     });
   });
 
