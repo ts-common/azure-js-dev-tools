@@ -6,6 +6,7 @@ checkEverything({
     startPaths: testFolderPath
   },
   checkForSkipCallsOptions: {
-    startPaths: testFolderPath
+    startPaths: testFolderPath,
+    skipIsWarning: true
   }
 });

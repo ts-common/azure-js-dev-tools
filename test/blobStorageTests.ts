@@ -302,7 +302,7 @@ describe("blobStorage.ts", function () {
   }
 
   describe.skip("AzureBlobStorage", function () {
-    const blobStorageUrl = "add SAS Token URL here";
+    const blobStorageUrl = "add SAS Token URL here to test AzureBlobStorage";
 
     blobStorageTests(() => new AzureBlobStorage(blobStorageUrl));
 
