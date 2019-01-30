@@ -66,6 +66,22 @@ export class BlobStorageContainer {
   }
 
   /**
+   * Get a reference to a blob from the context of this container.
+   * @param blobName The name of the blob.
+   */
+  public getBlob(blobName: string): BlobStorageBlob {
+    return this.storage.getBlob(new BlobPath(this.name, blobName));
+  }
+
+  /**
+   * Get a prefix that can be used to perform blob operations relative to the provided path.
+   * @param path The path to the prefix.
+   */
+  public getPrefix(path: string): BlobStoragePrefix {
+    return this.storage.getPrefix(new BlobPath(this.name, path));
+  }
+
+  /**
    * Create this container. This method will return false when the container already exists.
    */
   public create(): Promise<boolean> {
@@ -85,6 +101,139 @@ export class BlobStorageContainer {
    */
   public delete(): Promise<boolean> {
     return this.storage.deleteContainer(this.name);
+  }
+
+  /**
+   * Create a blob relative to this container with the provided name.
+   * @param blobName The name of the blob relative to this container.
+   */
+  public createBlob(blobName: string): Promise<boolean> {
+    return this.storage.createBlob(new BlobPath(this.name, blobName));
+  }
+
+  /**
+   * Get whether or not a blob exists with the provided name relative to this container.
+   * @param blobName The name of the blob relative to this container.
+   */
+  public blobExists(blobName: string): Promise<boolean> {
+    return this.storage.blobExists(new BlobPath(this.name, blobName));
+  }
+
+  /**
+   * Get the contents of the blob with the provided name relative to this container.
+   * @param blobName The name of the blob relative to this container.
+   */
+  public getBlobContentsAsString(blobName: string): Promise<string | undefined> {
+    return this.storage.getBlobContentsAsString(new BlobPath(this.name, blobName));
+  }
+
+  /**
+   * Set the contents of the blob with the provided name relative to this container.
+   * @param blobName The name of the blob relative to this container.
+   * @param blobContents The contents to set.
+   */
+  public setBlobContentsFromString(blobName: string, blobContents: string): Promise<void> {
+    return this.storage.setBlobContentsFromString(new BlobPath(this.name, blobName), blobContents);
+  }
+
+  /**
+   * Delete the blob with the provided name relative to this container. This method returns whether
+   * or not the blob was deleted. Returning false means that the blob didn't exist before this
+   * method was called.
+   * @param blobPath The path to the blob to delete relative to this container.
+   */
+  public deleteBlob(blobName: string): Promise<boolean> {
+    return this.storage.deleteBlob(new BlobPath(this.name, blobName));
+  }
+}
+
+/**
+ * A prefix to other BlobStorageBlobs.
+ */
+export class BlobStoragePrefix {
+  /**
+   * The BlobStorage system that this prefix is targeting.
+   */
+  public readonly storage: BlobStorage;
+  /**
+   * The path of this prefix.
+   */
+  public readonly path: BlobPath;
+
+  /**
+   * Create a new prefix within the provided BlobStorage system.
+   * @param storage The BlobStorage system that this prefix targets.
+   * @param path The path of this prefix.
+   */
+  constructor(storage: BlobStorage, path: string | BlobPath) {
+    this.storage = storage;
+    this.path = typeof path === "string" ? BlobPath.parse(path) : path;
+  }
+
+  /**
+   * Get the container that this prefix belongs to.
+   */
+  public getContainer(): BlobStorageContainer {
+    return this.storage.getContainer(this.path.containerName);
+  }
+
+  /**
+   * Get a blob with the provided name relative to this prefix.
+   * @param blobName The name to append to this prefix.
+   */
+  public getBlob(blobName: string): BlobStorageBlob {
+    return this.getContainer().getBlob(this.path.blobName + blobName);
+  }
+
+  /**
+   * Get a prefix that can be used to perform blob operations relative to the provided path.
+   * @param path The path to the prefix.
+   */
+  public getPrefix(path: string): BlobStoragePrefix {
+    return this.getContainer().getPrefix(this.path.blobName + path);
+  }
+
+  /**
+   * Create a blob relative to this prefix with the provided name.
+   * @param blobName The name of the blob relative to this prefix.
+   */
+  public createBlob(blobName: string): Promise<boolean> {
+    return this.getContainer().createBlob(this.path.blobName + blobName);
+  }
+
+  /**
+   * Get whether or not a blob exists with the provided name relative to this prefix.
+   * @param blobName The name of the blob relative to this prefix.
+   */
+  public blobExists(blobName: string): Promise<boolean> {
+    return this.getContainer().blobExists(this.path.blobName + blobName);
+  }
+
+  /**
+   * Get the contents of the blob with the provided name relative to this prefix.
+   * @param blobName The name of the blob relative to this prefix.
+   */
+  public getBlobContentsAsString(blobName: string): Promise<string | undefined> {
+    return this.getContainer().getBlobContentsAsString(this.path.blobName + blobName);
+  }
+
+  /**
+   * Set the contents of the blob with the provided name relative to this prefix.
+   * @param blobName The name of the blob relative to this prefix.
+   * @param blobContents The contents to set.
+   */
+  public setBlobContentsFromString(blobName: string, blobContents: string): Promise<void> {
+    return this.getContainer().setBlobContentsFromString(this.path.blobName + blobName, blobContents);
+  }
+
+  /**
+   * Delete the blob with the provided name relative to this prefix. This method returns whether or
+   * not the blob was deleted. Returning false means that the blob didn't exist before this method
+   * was called.
+   * @param blobPath The path to the blob to delete relative to this prefix.
+   */
+  public deleteBlob(blobName: string): Promise<boolean> {
+    return this.getContainer().deleteBlob(this.path.blobName + blobName);
   }
 }
 
@@ -132,6 +281,21 @@ export class BlobStorageBlob {
   public delete(): Promise<boolean> {
     return this.storage.deleteBlob(this.path);
   }
+
+  /**
+   * Get the contents of this blob as a UTF-8 decoded string.
+   */
+  public getContentsAsString(): Promise<string | undefined> {
+    return this.storage.getBlobContentsAsString(this.path);
+  }
+
+  /**
+   * Set the contents of this blob to be the provided UTF-8 encoded string.
+   * @param blobContents The contents to set. This will be UTF-8 encoded.
+   */
+  public setContentsFromString(blobContents: string): Promise<void> {
+    return this.storage.setBlobContentsFromString(this.path, blobContents);
+  }
 }
 
 /**
@@ -145,6 +309,14 @@ export abstract class BlobStorage {
    */
   public getBlob(blobPath: string | BlobPath): BlobStorageBlob {
     return new BlobStorageBlob(this, blobPath);
+  }
+
+  /**
+   * Get a prefix that can be used to perform blob operations relative to the provided prefix.
+   * @param prefix The path to the prefix.
+   */
+  public getPrefix(prefix: string | BlobPath): BlobStoragePrefix {
+    return new BlobStoragePrefix(this, prefix);
   }
 
   /**

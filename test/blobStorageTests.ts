@@ -1,6 +1,6 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
-import { AzureBlobStorage, BlobStorage, BlobStorageContainer, BlobPath, BlobStorageBlob, InMemoryBlobStorage } from "../lib/blobStorage";
+import { AzureBlobStorage, BlobStorage, BlobStorageContainer, BlobPath, BlobStorageBlob, InMemoryBlobStorage, BlobStoragePrefix } from "../lib/blobStorage";
 
 describe("blobStorage.ts", function () {
   function blobStorageTests(createBlobStorage: () => BlobStorage): Mocha.Suite {
@@ -31,6 +31,14 @@ describe("blobStorage.ts", function () {
         assert.strictEqual(blob.path.containerName, "abcd");
         assert.strictEqual(blob.path.blobName, "efghi");
         assert.strictEqual(blob.storage, blobStorage);
+      });
+
+      it("getPrefix()", function () {
+        const blobStorage: BlobStorage = createBlobStorage();
+        const prefix: BlobStoragePrefix = blobStorage.getPrefix("abc/xyz");
+        assert.strictEqual(prefix.path.containerName, "abc");
+        assert.strictEqual(prefix.path.blobName, "xyz");
+        assert.strictEqual(prefix.storage, blobStorage);
       });
 
       describe("containerExists()", function () {
