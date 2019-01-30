@@ -301,8 +301,8 @@ describe("blobStorage.ts", function () {
     });
   }
 
-  describe("AzureBlobStorage", function () {
-    const blobStorageUrl = "https://autosdkstorage.blob.core.windows.net/?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2019-02-02T06:15:39Z&st=2019-01-29T22:15:39Z&spr=https&sig=cxzG2paJ7neR7ijxVO7dZZfja%2BwtfbTc7J0UF1ohSOk%3D";
+  describe.skip("AzureBlobStorage", function () {
+    const blobStorageUrl = "add SAS Token URL here";
 
     blobStorageTests(() => new AzureBlobStorage(blobStorageUrl));
 
