@@ -1,7 +1,79 @@
 import { assert } from "chai";
-import { InMemoryLogger, getInMemoryLogger, wrapLogger, Logger, getConsoleLogger, getAzureDevOpsLogger } from "../lib";
+import { InMemoryLogger, getInMemoryLogger, wrapLogger, Logger, getConsoleLogger, getAzureDevOpsLogger, getCompositeLogger } from "../lib";
 
 describe("logger.ts", function () {
+  describe("getCompositeLogger()", function () {
+    it("logInfo()", function () {
+      const logger1: InMemoryLogger = getInMemoryLogger();
+      const logger2: InMemoryLogger = getInMemoryLogger();
+      const logger3: InMemoryLogger = getInMemoryLogger({ logInfo: false });
+      const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
+      logger.logInfo("test info");
+      assert.deepEqual(logger1.allLogs, ["test info"]);
+      assert.deepEqual(logger1.infoLogs, ["test info"]);
+      assert.deepEqual(logger2.allLogs, ["test info"]);
+      assert.deepEqual(logger2.infoLogs, ["test info"]);
+      assert.deepEqual(logger3.allLogs, []);
+      assert.deepEqual(logger3.infoLogs, []);
+    });
+
+    it("logError()", function () {
+      const logger1: InMemoryLogger = getInMemoryLogger();
+      const logger2: InMemoryLogger = getInMemoryLogger();
+      const logger3: InMemoryLogger = getInMemoryLogger({ logError: false });
+      const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
+      logger.logError("test error");
+      assert.deepEqual(logger1.allLogs, ["test error"]);
+      assert.deepEqual(logger1.errorLogs, ["test error"]);
+      assert.deepEqual(logger2.allLogs, ["test error"]);
+      assert.deepEqual(logger2.errorLogs, ["test error"]);
+      assert.deepEqual(logger3.allLogs, []);
+      assert.deepEqual(logger3.errorLogs, []);
+    });
+
+    it("logSection()", function () {
+      const logger1: InMemoryLogger = getInMemoryLogger();
+      const logger2: InMemoryLogger = getInMemoryLogger();
+      const logger3: InMemoryLogger = getInMemoryLogger({ logSection: false });
+      const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
+      logger.logSection("test section");
+      assert.deepEqual(logger1.allLogs, ["test section"]);
+      assert.deepEqual(logger1.sectionLogs, ["test section"]);
+      assert.deepEqual(logger2.allLogs, ["test section"]);
+      assert.deepEqual(logger2.sectionLogs, ["test section"]);
+      assert.deepEqual(logger3.allLogs, []);
+      assert.deepEqual(logger3.sectionLogs, []);
+    });
+
+    it("logVerbose()", function () {
+      const logger1: InMemoryLogger = getInMemoryLogger({ logVerbose: true });
+      const logger2: InMemoryLogger = getInMemoryLogger({ logVerbose: true });
+      const logger3: InMemoryLogger = getInMemoryLogger({ logVerbose: false });
+      const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
+      logger.logVerbose("test verbose");
+      assert.deepEqual(logger1.allLogs, ["test verbose"]);
+      assert.deepEqual(logger1.verboseLogs, ["test verbose"]);
+      assert.deepEqual(logger2.allLogs, ["test verbose"]);
+      assert.deepEqual(logger2.verboseLogs, ["test verbose"]);
+      assert.deepEqual(logger3.allLogs, []);
+      assert.deepEqual(logger3.verboseLogs, []);
+    });
+
+    it("logWarning()", function () {
+      const logger1: InMemoryLogger = getInMemoryLogger();
+      const logger2: InMemoryLogger = getInMemoryLogger();
+      const logger3: InMemoryLogger = getInMemoryLogger({ logWarning: false });
+      const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
+      logger.logWarning("test warning");
+      assert.deepEqual(logger1.allLogs, ["test warning"]);
+      assert.deepEqual(logger1.warningLogs, ["test warning"]);
+      assert.deepEqual(logger2.allLogs, ["test warning"]);
+      assert.deepEqual(logger2.warningLogs, ["test warning"]);
+      assert.deepEqual(logger3.allLogs, []);
+      assert.deepEqual(logger3.warningLogs, []);
+    });
+  });
+
   it("getConsoleLogger()", function () {
     const logger: Logger = getConsoleLogger();
     assert(logger);

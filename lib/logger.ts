@@ -36,6 +36,20 @@ export interface Logger {
 }
 
 /**
+ * Get a logger that will log to each of the provided loggers when it is logged to.
+ * @param loggers The loggers to log to.
+ */
+export function getCompositeLogger(...loggers: Logger[]): Logger {
+  return {
+    logInfo: (text: string) => loggers.forEach((logger: Logger) => logger.logInfo(text)),
+    logError: (text: string) => loggers.forEach((logger: Logger) => logger.logError(text)),
+    logWarning: (text: string) => loggers.forEach((logger: Logger) => logger.logWarning(text)),
+    logSection: (text: string) => loggers.forEach((logger: Logger) => logger.logSection(text)),
+    logVerbose: (text: string) => loggers.forEach((logger: Logger) => logger.logVerbose(text))
+  };
+}
+
+/**
  * The options that can be provided when creating a Logger.
  */
 export interface LoggerOptions {
