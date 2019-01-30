@@ -258,9 +258,9 @@ describe("github.ts", async function () {
     });
   });
 
-  function githubTests(testSuiteName: string, rawGithub: GitHub | undefined): void {
+  function githubTests(testSuiteName: string, rawGithub: GitHub | undefined): Mocha.Suite | void {
     const github: GitHub = rawGithub!;
-    (rawGithub ? describe : describe.skip)(testSuiteName, function () {
+    return (rawGithub ? describe : describe.skip)(testSuiteName, function () {
       this.timeout(10000);
 
       it("getCurrentUser()", async function () {

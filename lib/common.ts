@@ -55,3 +55,29 @@ export type StringMap<TValue> = { [key: string]: TValue };
 export function getLines(text: string | undefined): string[] {
   return !text ? [] : text.split(/\r?\n/);
 }
+
+/**
+ * Capture and return the text from the provided readableStream.
+ * @param readableStream The stream to read from.
+ */
+export function readEntireString(readableStream?: NodeJS.ReadableStream): Promise<string | undefined> {
+  return new Promise((resolve, reject) => {
+    if (!readableStream) {
+      resolve(undefined);
+    } else {
+      let result = "";
+      readableStream.on("data", (data: string) => result += data.toString());
+      readableStream.on("error", (error: Error) => reject(error));
+
+      let closed = false;
+      const onClose = () => {
+        if (!closed) {
+          closed = true;
+          resolve(result);
+        }
+      };
+      readableStream.on("close", onClose);
+      readableStream.on("end", onClose);
+    }
+  });
+}
