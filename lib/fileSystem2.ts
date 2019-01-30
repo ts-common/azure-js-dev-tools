@@ -38,6 +38,25 @@ export function folderExistsSync(folderPath: string): boolean {
   return entryExistsSync(folderPath) && fs.lstatSync(folderPath).isDirectory();
 }
 
+/**
+ * Create a folder at the provided folderPath. If the folder is successfully created, then true will
+ * be returned. If the folder already exists, then false will be returned.
+ * @param folderPath The path to create a folder at.
+ */
+export function createFolder(folderPath: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    fs.mkdir(folderPath, (error: Error) => {
+      if (!error) {
+        resolve(true);
+      } else if (error.message.indexOf("EEXIST: file already exists") !== -1) {
+        resolve(false);
+      } else {
+        reject(error);
+      }
+    });
+  });
+}
+
 function findEntryInPathSync(entryName: string, startFolderPath: string | undefined, condition: (entryPath: string) => boolean): string | undefined {
   let result: string | undefined;
   let folderPath: string = startFolderPath || process.cwd();
