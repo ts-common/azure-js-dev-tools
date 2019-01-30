@@ -3,12 +3,12 @@ import { InMemoryLogger, getInMemoryLogger, wrapLogger, Logger, getConsoleLogger
 
 describe("logger.ts", function () {
   describe("getCompositeLogger()", function () {
-    it("logInfo()", function () {
+    it("logInfo()", async function () {
       const logger1: InMemoryLogger = getInMemoryLogger();
       const logger2: InMemoryLogger = getInMemoryLogger();
       const logger3: InMemoryLogger = getInMemoryLogger({ logInfo: false });
       const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
-      logger.logInfo("test info");
+      await logger.logInfo("test info");
       assert.deepEqual(logger1.allLogs, ["test info"]);
       assert.deepEqual(logger1.infoLogs, ["test info"]);
       assert.deepEqual(logger2.allLogs, ["test info"]);
@@ -17,12 +17,12 @@ describe("logger.ts", function () {
       assert.deepEqual(logger3.infoLogs, []);
     });
 
-    it("logError()", function () {
+    it("logError()", async function () {
       const logger1: InMemoryLogger = getInMemoryLogger();
       const logger2: InMemoryLogger = getInMemoryLogger();
       const logger3: InMemoryLogger = getInMemoryLogger({ logError: false });
       const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
-      logger.logError("test error");
+      await logger.logError("test error");
       assert.deepEqual(logger1.allLogs, ["test error"]);
       assert.deepEqual(logger1.errorLogs, ["test error"]);
       assert.deepEqual(logger2.allLogs, ["test error"]);
@@ -31,12 +31,12 @@ describe("logger.ts", function () {
       assert.deepEqual(logger3.errorLogs, []);
     });
 
-    it("logSection()", function () {
+    it("logSection()", async function () {
       const logger1: InMemoryLogger = getInMemoryLogger();
       const logger2: InMemoryLogger = getInMemoryLogger();
       const logger3: InMemoryLogger = getInMemoryLogger({ logSection: false });
       const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
-      logger.logSection("test section");
+      await logger.logSection("test section");
       assert.deepEqual(logger1.allLogs, ["test section"]);
       assert.deepEqual(logger1.sectionLogs, ["test section"]);
       assert.deepEqual(logger2.allLogs, ["test section"]);
@@ -45,12 +45,12 @@ describe("logger.ts", function () {
       assert.deepEqual(logger3.sectionLogs, []);
     });
 
-    it("logVerbose()", function () {
+    it("logVerbose()", async function () {
       const logger1: InMemoryLogger = getInMemoryLogger({ logVerbose: true });
       const logger2: InMemoryLogger = getInMemoryLogger({ logVerbose: true });
       const logger3: InMemoryLogger = getInMemoryLogger({ logVerbose: false });
       const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
-      logger.logVerbose("test verbose");
+      await logger.logVerbose("test verbose");
       assert.deepEqual(logger1.allLogs, ["test verbose"]);
       assert.deepEqual(logger1.verboseLogs, ["test verbose"]);
       assert.deepEqual(logger2.allLogs, ["test verbose"]);
@@ -59,12 +59,12 @@ describe("logger.ts", function () {
       assert.deepEqual(logger3.verboseLogs, []);
     });
 
-    it("logWarning()", function () {
+    it("logWarning()", async function () {
       const logger1: InMemoryLogger = getInMemoryLogger();
       const logger2: InMemoryLogger = getInMemoryLogger();
       const logger3: InMemoryLogger = getInMemoryLogger({ logWarning: false });
       const logger: Logger = getCompositeLogger(logger1, logger2, logger3);
-      logger.logWarning("test warning");
+      await logger.logWarning("test warning");
       assert.deepEqual(logger1.allLogs, ["test warning"]);
       assert.deepEqual(logger1.warningLogs, ["test warning"]);
       assert.deepEqual(logger2.allLogs, ["test warning"]);
@@ -105,11 +105,11 @@ describe("logger.ts", function () {
       assert(logger.logWarning);
     });
 
-    it("with toWrap logger", function () {
+    it("with toWrap logger", async function () {
       const inMemoryLogger: InMemoryLogger = getInMemoryLogger({ logVerbose: true });
       const logger: Logger = getAzureDevOpsLogger({ toWrap: inMemoryLogger });
 
-      logger.logError("a");
+      await logger.logError("a");
       assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a"]);
       assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
       assert.deepEqual(inMemoryLogger.infoLogs, []);
@@ -117,7 +117,7 @@ describe("logger.ts", function () {
       assert.deepEqual(inMemoryLogger.warningLogs, []);
       assert.deepEqual(inMemoryLogger.verboseLogs, []);
 
-      logger.logInfo("b");
+      await logger.logInfo("b");
       assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a", "b"]);
       assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
       assert.deepEqual(inMemoryLogger.infoLogs, ["b"]);
@@ -125,7 +125,7 @@ describe("logger.ts", function () {
       assert.deepEqual(inMemoryLogger.warningLogs, []);
       assert.deepEqual(inMemoryLogger.verboseLogs, []);
 
-      logger.logSection("c");
+      await logger.logSection("c");
       assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a", "b", "##[section]c"]);
       assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
       assert.deepEqual(inMemoryLogger.infoLogs, ["b"]);
@@ -133,7 +133,7 @@ describe("logger.ts", function () {
       assert.deepEqual(inMemoryLogger.warningLogs, []);
       assert.deepEqual(inMemoryLogger.verboseLogs, []);
 
-      logger.logWarning("d");
+      await logger.logWarning("d");
       assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a", "b", "##[section]c", "##[warning]d"]);
       assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
       assert.deepEqual(inMemoryLogger.infoLogs, ["b"]);
@@ -141,7 +141,7 @@ describe("logger.ts", function () {
       assert.deepEqual(inMemoryLogger.warningLogs, ["##[warning]d"]);
       assert.deepEqual(inMemoryLogger.verboseLogs, []);
 
-      logger.logVerbose("e");
+      await logger.logVerbose("e");
       assert.deepEqual(inMemoryLogger.allLogs, ["##[error]a", "b", "##[section]c", "##[warning]d", "e"]);
       assert.deepEqual(inMemoryLogger.errorLogs, ["##[error]a"]);
       assert.deepEqual(inMemoryLogger.infoLogs, ["b"]);
@@ -159,17 +159,17 @@ describe("logger.ts", function () {
       assert.deepEqual(logger.errorLogs, []);
     });
 
-    it("logInfo()", function () {
+    it("logInfo()", async function () {
       const logger: InMemoryLogger = getInMemoryLogger();
-      logger.logInfo("apples");
+      await logger.logInfo("apples");
       assert.deepEqual(logger.allLogs, ["apples"]);
       assert.deepEqual(logger.infoLogs, ["apples"]);
       assert.deepEqual(logger.errorLogs, []);
     });
 
-    it("logError()", function () {
+    it("logError()", async function () {
       const logger: InMemoryLogger = getInMemoryLogger();
-      logger.logError("bananas");
+      await logger.logError("bananas");
       assert.deepEqual(logger.allLogs, ["bananas"]);
       assert.deepEqual(logger.infoLogs, []);
       assert.deepEqual(logger.errorLogs, ["bananas"]);
@@ -177,35 +177,35 @@ describe("logger.ts", function () {
   });
 
   describe("wrapLogger()", function () {
-    it("with overridden logInfo()", function () {
+    it("with overridden logInfo()", async function () {
       const logger: InMemoryLogger = getInMemoryLogger();
       const wrappedLogger: Logger = wrapLogger(logger, {
         logInfo: (text: string) => logger.logInfo(`[INFO] ${text}`)
       });
 
-      wrappedLogger.logInfo("abc");
+      await wrappedLogger.logInfo("abc");
       assert.deepEqual(logger.allLogs, ["[INFO] abc"]);
       assert.deepEqual(logger.infoLogs, ["[INFO] abc"]);
       assert.deepEqual(logger.errorLogs, []);
 
-      wrappedLogger.logError("xyz");
+      await wrappedLogger.logError("xyz");
       assert.deepEqual(logger.allLogs, ["[INFO] abc", "xyz"]);
       assert.deepEqual(logger.infoLogs, ["[INFO] abc"]);
       assert.deepEqual(logger.errorLogs, ["xyz"]);
     });
 
-    it("with overridden logError()", function () {
+    it("with overridden logError()", async function () {
       const logger: InMemoryLogger = getInMemoryLogger();
       const wrappedLogger: Logger = wrapLogger(logger, {
         logError: (text: string) => logger.logError(`[ERROR] ${text}`)
       });
 
-      wrappedLogger.logInfo("abc");
+      await wrappedLogger.logInfo("abc");
       assert.deepEqual(logger.allLogs, ["abc"]);
       assert.deepEqual(logger.infoLogs, ["abc"]);
       assert.deepEqual(logger.errorLogs, []);
 
-      wrappedLogger.logError("xyz");
+      await wrappedLogger.logError("xyz");
       assert.deepEqual(logger.allLogs, ["abc", "[ERROR] xyz"]);
       assert.deepEqual(logger.infoLogs, ["abc"]);
       assert.deepEqual(logger.errorLogs, ["[ERROR] xyz"]);

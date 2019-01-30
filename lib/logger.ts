@@ -8,31 +8,31 @@ export interface Logger {
    * Log the provided text as informational.
    * @param text The text to log.
    */
-  logInfo(text: string): void;
+  logInfo(text: string): Promise<void>;
 
   /**
    * Log the provided text as an error.
    * @param text The text to log.
    */
-  logError(text: string): void;
+  logError(text: string): Promise<void>;
 
   /**
    * Log the provided text as a warning.
    * @param text The text to log.
    */
-  logWarning(text: string): void;
+  logWarning(text: string): Promise<void>;
 
   /**
    * Log the provided text as a section header.
    * @param text The text to log.
    */
-  logSection(text: string): void;
+  logSection(text: string): Promise<void>;
 
   /**
    * Log the provided text as a verbose log.
    * @param text The text to log.
    */
-  logVerbose(text: string): void;
+  logVerbose(text: string): Promise<void>;
 }
 
 /**
@@ -41,11 +41,11 @@ export interface Logger {
  */
 export function getCompositeLogger(...loggers: Logger[]): Logger {
   return {
-    logInfo: (text: string) => loggers.forEach((logger: Logger) => logger.logInfo(text)),
-    logError: (text: string) => loggers.forEach((logger: Logger) => logger.logError(text)),
-    logWarning: (text: string) => loggers.forEach((logger: Logger) => logger.logWarning(text)),
-    logSection: (text: string) => loggers.forEach((logger: Logger) => logger.logSection(text)),
-    logVerbose: (text: string) => loggers.forEach((logger: Logger) => logger.logVerbose(text))
+    logInfo: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logInfo(text))).then(() => {}),
+    logError: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logError(text))).then(() => {}),
+    logWarning: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logWarning(text))).then(() => {}),
+    logSection: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logSection(text))).then(() => {}),
+    logVerbose: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logVerbose(text))).then(() => {})
   };
 }
 
@@ -57,35 +57,35 @@ export interface LoggerOptions {
    * Log the provided text as informational.
    * @param text The text to log.
    */
-  logInfo?: boolean | ((text: string) => void);
+  logInfo?: boolean | ((text: string) => Promise<void>);
 
   /**
    * Log the provided text as an error.
    * @param text The text to log.
    */
-  logError?: boolean | ((text: string) => void);
+  logError?: boolean | ((text: string) => Promise<void>);
 
   /**
    * Log the provided text as a warning.
    * @param text The text to log.
    */
-  logWarning?: boolean | ((text: string) => void);
+  logWarning?: boolean | ((text: string) => Promise<void>);
 
   /**
    * Log the provided text as a section header.
    * @param text The text to log.
    */
-  logSection?: boolean | ((text: string) => void);
+  logSection?: boolean | ((text: string) => Promise<void>);
 
   /**
    * Log the provided text as a verbose log.
    * @param text The text to log.
    */
-  logVerbose?: boolean | ((text: string) => void);
+  logVerbose?: boolean | ((text: string) => Promise<void>);
 }
 
-function getLogFunction(optionsFunction: undefined | boolean | ((text: string) => void), normalFunction: (text: string) => void, undefinedUsesNormalFunction = true): (text: string) => void {
-  let result: (text: string) => void = () => { };
+function getLogFunction(optionsFunction: undefined | boolean | ((text: string) => Promise<void>), normalFunction: (text: string) => Promise<void>, undefinedUsesNormalFunction = true): (text: string) => Promise<void> {
+  let result: ((text: string) => Promise<void>) = () => Promise.resolve();
   if (optionsFunction !== false) {
     if (typeof optionsFunction === "function") {
       result = optionsFunction;
@@ -120,11 +120,11 @@ export function getConsoleLogger(options?: LoggerOptions): Logger {
   options = options || {};
   return wrapLogger(
     {
-      logInfo: (text: string) => console.log(text),
-      logError: (text: string) => console.error(text),
-      logWarning: (text: string) => console.log(text),
-      logSection: (text: string) => console.log(text),
-      logVerbose: (text: string) => console.log(text)
+      logInfo: (text: string) => Promise.resolve(console.log(text)),
+      logError: (text: string) => Promise.resolve(console.error(text)),
+      logWarning: (text: string) => Promise.resolve(console.log(text)),
+      logSection: (text: string) => Promise.resolve(console.log(text)),
+      logVerbose: (text: string) => Promise.resolve(console.log(text))
     },
     options);
 }
@@ -160,39 +160,9 @@ export interface InMemoryLogger extends Logger {
 }
 
 /**
- * The options that can be provided when creating an InMemoryLogger.
- */
-export interface InMemoryLoggerOptions {
-  /**
-   * Log the provided text as informational.
-   */
-  logInfo?: boolean;
-
-  /**
-   * Log the provided text as an error.
-   */
-  logError?: boolean;
-
-  /**
-   * Log the provided text as a warning.
-   */
-  logWarning?: boolean;
-
-  /**
-   * Log the provided text as a section header.
-   */
-  logSection?: boolean;
-
-  /**
-   * Log the provided text as a verbose log.
-   */
-  logVerbose?: boolean;
-}
-
-/**
  * Get a Logger that will store its logs in memory.
  */
-export function getInMemoryLogger(options?: InMemoryLoggerOptions): InMemoryLogger {
+export function getInMemoryLogger(options?: LoggerOptions): InMemoryLogger {
   options = options || {};
   const allLogs: string[] = [];
   const infoLogs: string[] = [];
@@ -210,22 +180,27 @@ export function getInMemoryLogger(options?: InMemoryLoggerOptions): InMemoryLogg
     logInfo: getLogFunction(options.logInfo, (text: string) => {
       allLogs.push(text);
       infoLogs.push(text);
+      return Promise.resolve();
     }),
     logError: getLogFunction(options.logError, (text: string) => {
       allLogs.push(text);
       errorLogs.push(text);
+      return Promise.resolve();
     }),
     logWarning: getLogFunction(options.logWarning, (text: string) => {
       allLogs.push(text);
       warningLogs.push(text);
+      return Promise.resolve();
     }),
     logSection: getLogFunction(options.logSection, (text: string) => {
       allLogs.push(text);
       sectionLogs.push(text);
+      return Promise.resolve();
     }),
     logVerbose: getLogFunction(options.logVerbose, (text: string) => {
       allLogs.push(text);
       verboseLogs.push(text);
+      return Promise.resolve();
     }, false)
   };
 }
@@ -241,7 +216,7 @@ export function getAzureDevOpsLogger(options?: AzureDevOpsLoggerOptions): Logger
   options = options || {};
   const innerLogger: Logger = options.toWrap || getConsoleLogger({
     ...options,
-    logError: ("logError" in options ? options.logError : (text: string) => console.log(text)),
+    logError: ("logError" in options ? options.logError : (text: string) => Promise.resolve(console.log(text))),
   });
   return wrapLogger(innerLogger, {
     logError: (text: string) => innerLogger.logError(`##[error]${text}`),
