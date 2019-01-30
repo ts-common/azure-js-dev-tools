@@ -1,6 +1,7 @@
 export * from "./arrays";
 export * from "./assertEx";
 export * from "./autorest";
+export * from "./blobStorage";
 export * from "./checkEverything";
 export * from "./checkForOnlyCalls";
 export * from "./checkForSkipCalls";
