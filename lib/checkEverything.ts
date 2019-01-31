@@ -2,6 +2,7 @@ import { checkForOnlyCalls, CheckForOnlyCallsOptions } from "./checkForOnlyCalls
 import { checkForSkipCalls, CheckForSkipCallsOptions } from "./checkForSkipCalls";
 import { checkPackageJsonVersion, CheckPackageJsonVersionOptions } from "./checkPackageJsonVersion";
 import { getDefaultLogger, Logger } from "./logger";
+import { toPromise } from "./common";
 
 /**
  * An additional check that can be run.
@@ -14,7 +15,7 @@ export interface AdditionalCheck {
   /**
    * The implementation of the additional check.
    */
-  check: () => number;
+  check: () => number | Promise<number>;
 }
 
 export interface CheckEverythingOptions {
@@ -45,27 +46,29 @@ export interface CheckEverythingOptions {
  * Run all of the repository checks.
  * @returns The number of repository checks that failed.
  */
-export function checkEverything(checkEverythingOptions?: CheckEverythingOptions): number {
+export async function checkEverything(checkEverythingOptions?: CheckEverythingOptions): Promise<number> {
   const options: CheckEverythingOptions = checkEverythingOptions || {};
   const logger: Logger = options.logger || getDefaultLogger();
 
   let exitCode = 0;
 
-  const runCheck = (checkName: string, check: () => number) => {
+  const runCheck = async (checkName: string, check: () => number | Promise<number>) => {
     logger.logSection(`Starting check "${checkName}"...`);
-    if (check() !== 0) {
+    if (0 !== await toPromise(check())) {
       ++exitCode;
     }
     logger.logInfo("Done.");
   };
 
-  runCheck("Package.json Version", () => checkPackageJsonVersion(options.checkPackageJsonVersionOptions));
-  runCheck("No only() calls", () => checkForOnlyCalls(options.checkForOnlyCallsOptions));
-  runCheck("No skip() calls", () => checkForSkipCalls(options.checkForSkipCallsOptions));
+  await runCheck("Package.json Version", () => checkPackageJsonVersion(options.checkPackageJsonVersionOptions));
+  await runCheck("No only() calls", () => checkForOnlyCalls(options.checkForOnlyCallsOptions));
+  await runCheck("No skip() calls", () => checkForSkipCalls(options.checkForSkipCallsOptions));
   if (options.additionalChecks) {
     const additionalChecks: AdditionalCheck[] = Array.isArray(options.additionalChecks) ? options.additionalChecks : [options.additionalChecks];
     for (const additionalCheck of additionalChecks) {
-      runCheck(additionalCheck.name, additionalCheck.check);
+      if (additionalCheck) {
+        await runCheck(additionalCheck.name, additionalCheck.check);
+      }
     }
   }
 
