@@ -21,7 +21,7 @@ export interface CheckPackageJsonVersionOptions {
  * @returns The exit code for this function. Zero will be returned if the package version doesn't
  * exist in NPM.
  */
-export function checkPackageJsonVersion(options?: CheckPackageJsonVersionOptions): number {
+export async function checkPackageJsonVersion(options?: CheckPackageJsonVersionOptions): Promise<number> {
   options = options || {};
   const startPath: string = options.startPath || process.cwd();
   const logger: Logger = options.logger || getDefaultLogger();
@@ -35,7 +35,7 @@ export function checkPackageJsonVersion(options?: CheckPackageJsonVersionOptions
   } else {
     logger.logInfo(`Found a package.json file at "${packageJsonFilePath}".`);
     const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
-    if (isPackageJsonPublished(packageJson)) {
+    if (await isPackageJsonPublished(packageJson)) {
       logger.logError(`A package with the name "${packageJson.name}" and the version "${packageJson.version}" already exists in NPM.`);
       exitCode = 2;
     } else {

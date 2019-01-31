@@ -1,7 +1,7 @@
 import * as commonmark from "commonmark";
 import * as jsYaml from "js-yaml";
 import * as os from "os";
-import { RunOptions, RunResult, runSync } from "./run";
+import { RunOptions, RunResult, run } from "./run";
 
 /**
  * Options that can be passed to autorestExecutable().
@@ -223,7 +223,7 @@ export interface AutoRestOptions {
  * @param autorestOptions The options to pass to AutoRest.
  * @param runOptions The options to use when creating the AutoRest process.
  */
-export function autorest(readmeMdFileUrl: string | undefined, autorestOptions: AutoRestOptions | undefined, runOptions: RunOptions & AutoRestExecutableOptions): RunResult {
+export function autorest(readmeMdFileUrl: string | undefined, autorestOptions: AutoRestOptions | undefined, runOptions: RunOptions & AutoRestExecutableOptions): Promise<RunResult> {
   runOptions = runOptions || {};
   const autorestCommand: string = autorestExecutable(runOptions);
 
@@ -250,7 +250,7 @@ export function autorest(readmeMdFileUrl: string | undefined, autorestOptions: A
     args.push(readmeMdFileUrl);
   }
 
-  return runSync(autorestCommand, args, runOptions);
+  return run(autorestCommand, args, runOptions);
 }
 
 /**

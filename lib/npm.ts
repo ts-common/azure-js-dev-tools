@@ -1,6 +1,6 @@
 import * as os from "os";
 import { StringMap } from "./common";
-import { RunOptions, RunResult, runSync } from "./run";
+import { RunOptions, RunResult, run } from "./run";
 
 /**
  * Get the executable that will be used to run NPM commands.
@@ -19,9 +19,9 @@ export function npmExecutable(osPlatform?: string): string {
  * @param options The optional arguments that can be added to the NPM command.
  * @returns The result of running the NPM command.
  */
-export function npm(args: string | string[], options?: RunOptions): RunResult {
+export function npm(args: string | string[], options?: RunOptions): Promise<RunResult> {
   const npmCommand: string = npmExecutable();
-  return runSync(npmCommand, args, options);
+  return run(npmCommand, args, options);
 }
 
 /**
@@ -30,7 +30,7 @@ export function npm(args: string | string[], options?: RunOptions): RunResult {
  * @param options The optional arguments that can be added to the NPM command.
  * @returns The result of running the NPM command.
  */
-export function npmRun(args: string | string[], options?: RunOptions): RunResult {
+export function npmRun(args: string | string[], options?: RunOptions): Promise<RunResult> {
   if (typeof args === "string") {
     args = "run " + args;
   } else {
@@ -44,7 +44,7 @@ export function npmRun(args: string | string[], options?: RunOptions): RunResult
  * @param options The optional arguments that can be added to the NPM command.
  * @returns The result of running the NPM command.
  */
-export function npmPack(options?: RunOptions): RunResult {
+export function npmPack(options?: RunOptions): Promise<RunResult> {
   return npm("pack", options);
 }
 
@@ -73,7 +73,7 @@ export interface NPMInstallOptions extends RunOptions {
  * @param options The optional arguments that can be added to the NPM command.
  * @returns The result of running the NPM command.
  */
-export function npmInstall(options?: NPMInstallOptions): RunResult {
+export function npmInstall(options?: NPMInstallOptions): Promise<RunResult> {
   options = options || {};
   let command = "install";
   if (options.installSource) {
@@ -155,13 +155,13 @@ export interface NPMViewResult extends RunResult {
  * @param options The optional arguments that can be added to the NPM command.
  * @returns The result of running the NPM command.
  */
-export function npmView(options?: NPMViewOptions): NPMViewResult {
+export async function npmView(options?: NPMViewOptions): Promise<NPMViewResult> {
   const args: string[] = ["view"];
   if (options && options.packageName) {
     args.push(options.packageName);
   }
   args.push("--json");
-  const commandResult: RunResult = npm(args, options);
+  const commandResult: RunResult = await npm(args, options);
   const npmViewResponse: any = JSON.parse(commandResult.stdout!.trim());
   return {
     exitCode: commandResult.exitCode,
@@ -187,7 +187,7 @@ export class NPMScope {
    * @param options The optional arguments that can be added to the NPM command.
    * @returns The result of running the NPM command.
    */
-  public npm(args: string | string[], options?: RunOptions): RunResult {
+  public npm(args: string | string[], options?: RunOptions): Promise<RunResult> {
     return npm(args, {
       ...this.defaultOptions,
       ...options
@@ -200,7 +200,7 @@ export class NPMScope {
    * @param options The optional arguments that can be added to the NPM command.
    * @returns The result of running the NPM command.
    */
-  public run(args: string | string[], options?: RunOptions): RunResult {
+  public run(args: string | string[], options?: RunOptions): Promise<RunResult> {
     return npmRun(args, {
       ...this.defaultOptions,
       ...options,
@@ -213,7 +213,7 @@ export class NPMScope {
    * @param options The optional arguments that can be added to the NPM command.
    * @returns The result of running the NPM command.
    */
-  public install(options?: NPMInstallOptions): RunResult {
+  public install(options?: NPMInstallOptions): Promise<RunResult> {
     return npmInstall({
       ...this.defaultOptions,
       ...options,
@@ -226,7 +226,7 @@ export class NPMScope {
    * @param options The optional arguments that can be added to the NPM command.
    * @returns The result of running the NPM command.
    */
-  public view(options?: NPMViewOptions): NPMViewResult {
+  public view(options?: NPMViewOptions): Promise<NPMViewResult> {
     return npmView({
       ...this.defaultOptions,
       ...options,
@@ -238,7 +238,7 @@ export class NPMScope {
    * @param options The optional arguments that can be added to the NPM command.
    * @returns The result of running the NPM command.
    */
-  public pack(options?: RunOptions): RunResult {
+  public pack(options?: RunOptions): Promise<RunResult> {
     return npmPack({
       ...this.defaultOptions,
       ...options

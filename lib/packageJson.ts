@@ -91,13 +91,13 @@ export function incrementPackageJsonMinorVersion(packageJson: PackageJson): bool
  * @param packageJson The packageJson to check.
  * @returns Whether or not the provided packageJson has been published to NPM.
  */
-export function isPackageJsonPublished(packageJson: PackageJson): boolean {
+export async function isPackageJsonPublished(packageJson: PackageJson): Promise<boolean> {
   let result = false;
 
   const packageName: string | undefined = packageJson.name;
   const packageVersion: string | undefined = packageJson.version;
   if (packageName && packageVersion) {
-    const publishedVersions: string[] | undefined = npmView({ packageName }).versions;
+    const publishedVersions: string[] | undefined = (await npmView({ packageName })).versions;
     result = contains(publishedVersions, packageVersion);
   }
 

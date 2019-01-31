@@ -51,22 +51,16 @@ describe("autorest.ts", function () {
   });
 
   describe("autorest()", function () {
-    it("with non-existing autorest executable", function () {
-      const result: RunResult = autorest("fake readme.md file path", {}, { autorestPath: "./i'm/not/here" });
-      assertEx.defined(result, "result");
-      assertEx.defined(result.error, "result.error");
-      assert(result.error!.name, "Error");
-      assert(result.error!.message, "spawnSync ./i'm/not/here/autorest.cmd ENOENT");
-      assert.strictEqual(result.exitCode, undefined);
-      assertEx.defined(result.processId, "result.processId");
-      assert.strictEqual(result.stderr, undefined);
-      assert.strictEqual(result.stdout, undefined);
+    it("with non-existing autorest executable", async function () {
+      const error: Error = await assertEx.throwsAsync(autorest("fake readme.md file path", {}, { autorestPath: "./i'm/not/here" }));
+      assert(error.name, "Error");
+      assert(error.message, "spawn ./i'm/not/here/autorest.cmd ENOENT");
     });
 
-    it("with existing autorest executable and no arguments", function () {
+    it("with existing autorest executable and no arguments", async function () {
       this.timeout(10000);
 
-      const result: RunResult = autorest("", {}, { autorestPath: "./node_modules/.bin/autorest" });
+      const result: RunResult = await autorest("", {}, { autorestPath: "./node_modules/.bin/autorest" });
       assertEx.defined(result, "result");
       assert.strictEqual(result.error, undefined);
       assert.strictEqual(result.exitCode, 1);
