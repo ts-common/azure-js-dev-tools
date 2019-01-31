@@ -80,7 +80,7 @@ export interface ChangeClonedDependenciesToOptions {
  * Update the provided dependencies using the provided dependencyType then return the dependencies
  * that were changed.
  */
-function updateDependencies(clonedPackage: ClonedPackage, dependencies: StringMap<string> | undefined, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>, logger: Logger): string[] {
+async function updateDependencies(clonedPackage: ClonedPackage, dependencies: StringMap<string> | undefined, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>, logger: Logger): Promise<string[]> {
   const changed: string[] = [];
 
   if (dependencies) {
@@ -91,7 +91,7 @@ function updateDependencies(clonedPackage: ClonedPackage, dependencies: StringMa
         logger.logVerbose(`  Attempting to update dependency version for ${dependencyName}...`);
         const dependencyVersion: string = dependencies[dependencyName];
         logger.logVerbose(`    Current dependency version: ${dependencyVersion}`);
-        const dependencyTargetVersion: string | undefined = getDependencyTargetVersion(clonedPackage, dependencyName, dependencyType, clonedPackages, logger);
+        const dependencyTargetVersion: string | undefined = await getDependencyTargetVersion(clonedPackage, dependencyName, dependencyType, clonedPackages, logger);
         logger.logVerbose(`    Target dependency version: ${dependencyTargetVersion}`);
         if (!dependencyTargetVersion) {
           logger.logVerbose(`    No target dependency version found.`);
@@ -169,7 +169,7 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
   return result;
 }
 
-function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependencyName: string, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>, logger?: Logger): string | undefined {
+async function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependencyName: string, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>, logger?: Logger): Promise<string | undefined> {
   let result: string | undefined;
   const dependencyClonedPackage: ClonedPackage | undefined = findPackage(dependencyName, clonedPackage.path, clonedPackages, logger);
   if (!dependencyClonedPackage) {
@@ -179,7 +179,7 @@ function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependencyName
       if (dependencyType === "local") {
         dependencyClonedPackage.targetVersion = `file:${dependencyClonedPackage.path}`;
       } else if (dependencyType === "latest") {
-        const dependencyViewResult: NPMViewResult = npmView({ packageName: dependencyName });
+        const dependencyViewResult: NPMViewResult = await npmView({ packageName: dependencyName });
         const distTags: StringMap<string> | undefined = dependencyViewResult["dist-tags"];
         dependencyClonedPackage.targetVersion = distTags && distTags["latest"];
         if (dependencyClonedPackage.targetVersion) {
@@ -198,7 +198,7 @@ function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependencyName
  * Change all of the cloned dependencies in the package found at the provided package path to the
  * provided dependency type.
  */
-export function changeClonedDependenciesTo(packagePath: string, dependencyType: DepedencyType, options?: ChangeClonedDependenciesToOptions): number {
+export async function changeClonedDependenciesTo(packagePath: string, dependencyType: DepedencyType, options?: ChangeClonedDependenciesToOptions): Promise<number> {
   options = options || {};
 
   const logger: Logger = options.logger || getDefaultLogger();
@@ -271,8 +271,8 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
       clonedPackage.dependenciesToIgnore.push("@ts-common/azure-js-dev-tools");
     }
 
-    const dependenciesChanged: string[] = updateDependencies(clonedPackage, packageJson.dependencies, dependencyType, clonedPackages, logger);
-    const devDependenciesChanged: string[] = updateDependencies(clonedPackage, packageJson.devDependencies, dependencyType, clonedPackages, logger);
+    const dependenciesChanged: string[] = await updateDependencies(clonedPackage, packageJson.dependencies, dependencyType, clonedPackages, logger);
+    const devDependenciesChanged: string[] = await updateDependencies(clonedPackage, packageJson.devDependencies, dependencyType, clonedPackages, logger);
     if (!any(dependenciesChanged) && !any(devDependenciesChanged)) {
       logger.logInfo(`  No changes made.`);
       if (clonedPackage.runNPMInstall !== false && forceInstall) {
@@ -315,11 +315,11 @@ export function changeClonedDependenciesTo(packagePath: string, dependencyType: 
   }
 
   for (const folderPath of folderPathsToRunNPMInstallIn) {
-    exitCode = npmInstall({
+    exitCode = (await npmInstall({
       executionFolderPath: folderPath,
       log: logger.logSection,
       showCommand: true
-    }).exitCode;
+    })).exitCode;
 
     if (exitCode !== 0) {
       break;

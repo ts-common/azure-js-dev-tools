@@ -1,6 +1,6 @@
 import { getLines } from "./common";
 import { joinPath } from "./path";
-import { RunOptions, RunResult, runSync } from "./run";
+import { RunOptions, RunResult, run } from "./run";
 
 /**
  * The result of running a git operation.
@@ -12,8 +12,8 @@ export interface GitRunResult extends RunResult {
   error?: Error;
 }
 
-export function git(args: string | string[], options?: RunOptions): RunResult {
-  return runSync("git", args, options);
+export function git(args: string | string[], options?: RunOptions): Promise<GitRunResult> {
+  return run("git", args, options);
 }
 
 /**
@@ -35,7 +35,7 @@ export interface GitFetchOptions extends RunOptions {
  * Download objects and refs from another repository.
  * @param options The options that can be passed to `git fetch`.
  */
-export function gitFetch(options?: GitFetchOptions): RunResult {
+export function gitFetch(options?: GitFetchOptions): Promise<GitRunResult> {
   options = options || {};
   let command = "fetch";
   if (options.prune) {
@@ -44,7 +44,7 @@ export function gitFetch(options?: GitFetchOptions): RunResult {
   return git(command, options);
 }
 
-export function gitMergeOriginMaster(options?: RunOptions): RunResult {
+export function gitMergeOriginMaster(options?: RunOptions): Promise<GitRunResult> {
   return git("merge origin master", options);
 }
 
@@ -91,7 +91,7 @@ export interface GitCloneOptions extends RunOptions {
  * @param gitUri The repository URI to clone.
  * @param options The options that can be passed to "git clone".
  */
-export function gitClone(gitUri: string, options?: GitCloneOptions): RunResult {
+export function gitClone(gitUri: string, options?: GitCloneOptions): Promise<GitRunResult> {
   options = options || {};
   let command = `clone`;
   if (options.quiet) {
@@ -124,8 +124,8 @@ export interface GitCheckoutResult extends GitRunResult {
   filesThatWouldBeOverwritten?: string[];
 }
 
-export function gitCheckout(refId: string, options?: RunOptions): GitCheckoutResult {
-  const runResult: RunResult = git(`checkout ${refId}`, options);
+export async function gitCheckout(refId: string, options?: RunOptions): Promise<GitCheckoutResult> {
+  const runResult: GitRunResult = await git(`checkout ${refId}`, options);
   let filesThatWouldBeOverwritten: string[] | undefined;
   if (runResult.stderr) {
     const stderrLines: string[] = getLines(runResult.stderr);
@@ -149,23 +149,23 @@ export function gitCheckout(refId: string, options?: RunOptions): GitCheckoutRes
   };
 }
 
-export function gitPull(options?: RunOptions): RunResult {
+export function gitPull(options?: RunOptions): Promise<GitRunResult> {
   return git(`pull`, options);
 }
 
-export function gitPush(options?: RunOptions): RunResult {
+export function gitPush(options?: RunOptions): Promise<GitRunResult> {
   return git(`push`, options);
 }
 
-export function gitAddAll(options?: RunOptions): RunResult {
+export function gitAddAll(options?: RunOptions): Promise<GitRunResult> {
   return git("add *", options);
 }
 
-export function gitCommit(commitMessage: string, options?: RunOptions): RunResult {
+export function gitCommit(commitMessage: string, options?: RunOptions): Promise<GitRunResult> {
   return git(["commit", "-m", commitMessage], options);
 }
 
-export function gitDeleteLocalBranch(branchName: string, options?: RunOptions): RunResult {
+export function gitDeleteLocalBranch(branchName: string, options?: RunOptions): Promise<GitRunResult> {
   return git(`branch -D ${branchName}`, options);
 }
 
@@ -179,8 +179,8 @@ export interface GitDiffResult extends GitRunResult {
   filesChanged: string[];
 }
 
-export function gitDiff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): GitDiffResult {
-  const commandResult: RunResult = git(`diff --name-only ${baseCommitSha} ${headCommitSha}`, options);
+export async function gitDiff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): Promise<GitDiffResult> {
+  const commandResult: RunResult = await git(`diff --name-only ${baseCommitSha} ${headCommitSha}`, options);
   const filesChanged: string[] = [];
   const repositoryFolderPath: string | undefined = (options && options.executionFolderPath) || process.cwd();
   for (const fileChanged of getLines(commandResult.stdout)) {
@@ -200,8 +200,8 @@ export interface GitBranchResult extends GitRunResult {
 }
 
 const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.*)\)/;
-export function gitBranch(options?: RunOptions): GitBranchResult {
-  const commandResult: RunResult = git("branch", options);
+export async function gitBranch(options?: RunOptions): Promise<GitBranchResult> {
+  const commandResult: RunResult = await git("branch", options);
   let currentBranch = "";
   const localBranches: string[] = [];
   for (let branch of getLines(commandResult.stdout)) {
@@ -282,7 +282,7 @@ const onBranchRegExp: RegExp = /On branch (.*)/i;
 /**
  * Run "git status".
  */
-export function gitStatus(options?: RunOptions): GitStatusResult {
+export async function gitStatus(options?: RunOptions): Promise<GitStatusResult> {
   const folderPath: string = (options && options.executionFolderPath) || process.cwd();
 
   let parseState: StatusParseState = "CurrentBranch";
@@ -295,7 +295,7 @@ export function gitStatus(options?: RunOptions): GitStatusResult {
   const notStagedDeletedFiles: string[] = [];
   const untrackedFiles: string[] = [];
 
-  const runResult: RunResult = git("status", options);
+  const runResult: RunResult = await git("status", options);
   const lines: string[] = getLines(runResult.stdout);
   let lineIndex = 0;
   while (lineIndex < lines.length) {
@@ -420,84 +420,84 @@ export class GitScope {
   constructor(private options: RunOptions) {
   }
 
-  public run(args: string | string[], options?: RunOptions): RunResult {
+  public run(args: string | string[], options?: RunOptions): Promise<GitRunResult> {
     return git(args, {
       ...this.options,
       ...options,
     });
   }
 
-  public fetch(options?: RunOptions): RunResult {
+  public fetch(options?: RunOptions): Promise<GitRunResult> {
     return gitFetch({
       ...this.options,
       ...options,
     });
   }
 
-  public mergeOriginMaster(options?: RunOptions): RunResult {
+  public mergeOriginMaster(options?: RunOptions): Promise<GitRunResult> {
     return gitMergeOriginMaster({
       ...this.options,
       ...options
     });
   }
 
-  public checkout(refId: string, options?: RunOptions): GitCheckoutResult {
+  public checkout(refId: string, options?: RunOptions): Promise<GitCheckoutResult> {
     return gitCheckout(refId, {
       ...this.options,
       ...options
     });
   }
 
-  public pull(options?: RunOptions): RunResult {
+  public pull(options?: RunOptions): Promise<GitRunResult> {
     return gitPull({
       ...this.options,
       ...options
     });
   }
 
-  public push(options?: RunOptions): RunResult {
+  public push(options?: RunOptions): Promise<GitRunResult> {
     return gitPush({
       ...this.options,
       ...options
     });
   }
 
-  public addAll(options?: RunOptions): RunResult {
+  public addAll(options?: RunOptions): Promise<GitRunResult> {
     return gitAddAll({
       ...this.options,
       ...options
     });
   }
 
-  public commit(commitMessage: string, options?: RunOptions): RunResult {
+  public commit(commitMessage: string, options?: RunOptions): Promise<GitRunResult> {
     return gitCommit(commitMessage, {
       ...this.options,
       ...options
     });
   }
 
-  public deleteLocalBranch(branchName: string, options?: RunOptions): RunResult {
+  public deleteLocalBranch(branchName: string, options?: RunOptions): Promise<GitRunResult> {
     return gitDeleteLocalBranch(branchName, {
       ...this.options,
       ...options
     });
   }
 
-  public diff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): GitDiffResult {
+  public diff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): Promise<GitDiffResult> {
     return gitDiff(baseCommitSha, headCommitSha, {
       ...this.options,
       ...options,
     });
   }
 
-  public branch(options?: RunOptions): GitBranchResult {
+  public branch(options?: RunOptions): Promise<GitBranchResult> {
     return gitBranch({
       ...this.options,
       ...options,
     });
   }
 
-  public status(options?: RunOptions): GitStatusResult {
+  public status(options?: RunOptions): Promise<GitStatusResult> {
     return gitStatus({
       ...this.options,
       ...options,

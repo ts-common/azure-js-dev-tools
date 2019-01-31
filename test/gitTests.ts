@@ -5,8 +5,8 @@ import { FakeRunner, RunResult } from "../lib/run";
 
 describe("git.ts", function () {
   describe("git()", function () {
-    it("with unrecognized command", function () {
-      const result: RunResult = git("foo");
+    it("with unrecognized command", async function () {
+      const result: RunResult = await git("foo");
       assert(result);
       assert.strictEqual(result.exitCode, 1);
       assert.strictEqual(result.stdout, "");
@@ -16,49 +16,49 @@ describe("git.ts", function () {
   });
 
   describe("gitFetch()", function () {
-    it("with no options", function () {
+    it("with no options", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
       runner.set("git fetch", expectedResult);
-      assert.deepEqual(gitFetch({ runner }), expectedResult);
+      assert.deepEqual(await gitFetch({ runner }), expectedResult);
     });
 
-    it("with prune: true", function () {
+    it("with prune: true", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
       runner.set("git fetch --prune", () => expectedResult);
-      assert.deepEqual(gitFetch({ runner, prune: true }), expectedResult);
+      assert.deepEqual(await gitFetch({ runner, prune: true }), expectedResult);
     });
 
-    it("with prune: false", function () {
+    it("with prune: false", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
       runner.set("git fetch", () => expectedResult);
-      assert.deepEqual(gitFetch({ runner, prune: false }), expectedResult);
+      assert.deepEqual(await gitFetch({ runner, prune: false }), expectedResult);
     });
   });
 
-  it("gitMergeOriginMaster()", function () {
+  it("gitMergeOriginMaster()", async function () {
     const runner = new FakeRunner();
     const expectedResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
     runner.set("git merge origin master", expectedResult);
-    assert.deepEqual(gitMergeOriginMaster({ runner }), expectedResult);
+    assert.deepEqual(await gitMergeOriginMaster({ runner }), expectedResult);
   });
 
   describe("gitClone()", function () {
-    it("with no options", function () {
+    it("with no options", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
       runner.set("git clone https://my.fake.git/url", expectedResult);
-      assert.deepEqual(gitClone("https://my.fake.git/url", { runner }), expectedResult);
+      assert.deepEqual(await gitClone("https://my.fake.git/url", { runner }), expectedResult);
     });
 
-    it("with all options", function () {
+    it("with all options", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
       runner.set("git clone --quiet --verbose --origin foo --branch fake-branch --depth 5 https://my.fake.git/url fake-directory", expectedResult);
       assert.deepEqual(
-        gitClone("https://my.fake.git/url", {
+        await gitClone("https://my.fake.git/url", {
           runner,
           quiet: true,
           verbose: true,
@@ -72,12 +72,12 @@ describe("git.ts", function () {
   });
 
   describe("gitCheckout()", function () {
-    it("with no stderr", function () {
+    it("with no stderr", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "blah", stderr: "" };
       runner.set("git checkout master", expectedResult);
       assert.deepEqual(
-        gitCheckout("master", { runner }),
+        await gitCheckout("master", { runner }),
         {
           ...expectedResult,
           filesThatWouldBeOverwritten: undefined
@@ -86,7 +86,7 @@ describe("git.ts", function () {
   });
 
   describe("gitStatus()", function () {
-    it("with not staged modified file", function () {
+    it("with not staged modified file", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = {
         exitCode: 2,
@@ -102,7 +102,7 @@ Changes not staged for commit:
 no changes added to commit (use "git add" and/or "git commit -a")`
       };
       runner.set("git status", expectedResult);
-      const statusResult: GitStatusResult = gitStatus({
+      const statusResult: GitStatusResult = await gitStatus({
         executionFolderPath: "/mock/folder/",
         runner
       });
@@ -124,7 +124,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`
       });
     });
 
-    it("with detached head with no changes", function () {
+    it("with detached head with no changes", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = {
         exitCode: 0,
@@ -134,7 +134,7 @@ nothing to commit, working tree clean`,
         stderr: ""
       };
       runner.set("git status", expectedResult);
-      const statusResult: GitStatusResult = gitStatus({
+      const statusResult: GitStatusResult = await gitStatus({
         runner,
         executionFolderPath: "/mock/folder/"
       });

@@ -47,8 +47,8 @@ describe("npm.ts", function () {
   });
 
   describe("npm()", function () {
-    it("with unrecognized command", function () {
-      const result: RunResult = npm("foo");
+    it("with unrecognized command", async function () {
+      const result: RunResult = await npm("foo");
       assert(result);
       assert.strictEqual(result.exitCode, 1);
       assertEx.contains(result.stdout, "Usage: npm <command>");
