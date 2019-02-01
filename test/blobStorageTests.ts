@@ -494,8 +494,8 @@ describe("blobStorage.ts", function () {
     });
   }
 
-  describe("AzureBlobStorage", function () {
-    const blobStorageUrl = "https://autosdkstorage.blob.core.windows.net/?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2019-02-02T06:49:00Z&st=2019-02-01T22:49:00Z&spr=https&sig=wdTcR4jH6QAHq3fTsDjnYjKP%2BS8%2Bs8KUZAzpxf2t5B4%3D";
+  describe.skip("AzureBlobStorage", function () {
+    const blobStorageUrl = "azure storage account sas url";
 
     blobStorageTests(() => new AzureBlobStorage(blobStorageUrl));
 
