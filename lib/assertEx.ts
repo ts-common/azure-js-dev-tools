@@ -20,11 +20,11 @@ function getNode8AndBelowErrorObject(error: Error): Error {
 export namespace assertEx {
   /**
    * Check that the provided text contains the provided substring.
-   * @param text The text to look in.
+   * @param value The text to look in.
    * @param substring The substring to look for.
    */
-  export function contains(text: string | undefined, substring: string): void {
-    assert(text && substring && text.indexOf(substring) !== -1, `Expected ${JSON.stringify(text)} to contain "${substring}".`);
+  export function contains(value: string | string[] | undefined, substring: string): void {
+    assert(value && substring && value.indexOf(substring) !== -1, `Expected ${JSON.stringify(value)} to contain ${JSON.stringify(substring)}.`);
   }
 
   /**
@@ -40,7 +40,7 @@ export namespace assertEx {
       actualError = getNode8AndBelowErrorObject(actualError);
       expectedError = getNode8AndBelowErrorObject(expectedError);
     }
-    assert.deepStrictEqual(actualError, expectedError, message);
+    assert.deepEqual(actualError, expectedError, message);
   }
 
   function validateThrownError<TError extends Error>(thrownError: TError | undefined, expectedError: undefined | TError | ((error: TError) => void)): TError {
