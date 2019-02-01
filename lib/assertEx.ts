@@ -28,6 +28,19 @@ export namespace assertEx {
   }
 
   /**
+   * Check that the provided text contains the all of the provided substrings.
+   * @param value The text to look in.
+   * @param substrings The substring to look for.
+   */
+  export function containsAll(value: string | string[] | undefined, substrings: string[]): void {
+    if (substrings) {
+      for (const substring of substrings) {
+        contains(value, substring);
+      }
+    }
+  }
+
+  /**
    * Check that the two errors are equal (except for their stack property).
    * @param actualError The actual error.
    * @param expectedError The expected error.
