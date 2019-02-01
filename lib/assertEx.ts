@@ -24,7 +24,10 @@ export namespace assertEx {
    * @param substring The substring to look for.
    */
   export function contains(value: string | string[] | undefined, substring: string): void {
-    assert(value && substring && value.indexOf(substring) !== -1, `Expected ${JSON.stringify(value)} to contain ${JSON.stringify(substring)}.`);
+    const errorMessage: string = Array.isArray(value)
+      ? `Expected ${JSON.stringify(value, undefined, 2)} to contain\n  ${JSON.stringify(substring)}.`
+      : `Expected\n  ${JSON.stringify(value)}\nto contain\n  ${JSON.stringify(substring)}.`;
+    assert(value && substring && value.indexOf(substring) !== -1, errorMessage);
   }
 
   /**
