@@ -3,6 +3,58 @@ import { assert } from "chai";
 import { AssertionError } from "assert";
 
 describe("assertEx.ts", function () {
+  describe("contains()", function () {
+    it(`with undefined value and "test" substring`, function () {
+      const error: Error = assertEx.throws(() => assertEx.contains(undefined, "test"));
+      assert.strictEqual(error.message, `Expected undefined to contain "test".`);
+    });
+
+    it(`with null value and "test" substring`, function () {
+      // tslint:disable-next-line:no-null-keyword
+      const error: Error = assertEx.throws(() => assertEx.contains(null as any, "test"));
+      assert.strictEqual(error.message, `Expected null to contain "test".`);
+    });
+
+    it(`with "" value and "test" substring`, function () {
+      const error: Error = assertEx.throws(() => assertEx.contains("", "test"));
+      assert.strictEqual(error.message, `Expected "" to contain "test".`);
+    });
+
+    it(`with "abc" value and undefined substring`, function () {
+      const error: Error = assertEx.throws(() => assertEx.contains("abc", undefined as any));
+      assert.strictEqual(error.message, `Expected "abc" to contain undefined.`);
+    });
+
+    it(`with "abc" value and null substring`, function () {
+      // tslint:disable-next-line:no-null-keyword
+      const error: Error = assertEx.throws(() => assertEx.contains("abc", null as any));
+      assert.strictEqual(error.message, `Expected "abc" to contain null.`);
+    });
+
+    it(`with "abc" value and "" substring`, function () {
+      const error: Error = assertEx.throws(() => assertEx.contains("abc", ""));
+      assert.strictEqual(error.message, `Expected "abc" to contain "".`);
+    });
+
+    it(`with "abc" value and "test" substring`, function () {
+      const error: Error = assertEx.throws(() => assertEx.contains("abc", "test"));
+      assert.strictEqual(error.message, `Expected "abc" to contain "test".`);
+    });
+
+    it(`with "abtestc" value and "test" substring`, function () {
+      assertEx.contains("abtestc", "test");
+    });
+
+    it(`with ["abtestc"] value and "test" substring`, function () {
+      const error: Error = assertEx.throws(() => assertEx.contains(["abtestc"], "test"));
+      assert.strictEqual(error.message, `Expected ["abtestc"] to contain "test".`);
+    });
+
+    it(`with ["abtestc"] value and "abtestc" substring`, function () {
+      assertEx.contains(["abtestc"], "abtestc");
+    });
+  });
+
   describe("equalErrors()", function () {
     it("with different errors", function () {
       assertEx.throws(() => assertEx.equalErrors(new Error("a"), new Error("b")), (error: AssertionError) => {
