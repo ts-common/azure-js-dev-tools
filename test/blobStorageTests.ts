@@ -1,6 +1,7 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
 import { AzureBlobStorage, BlobStorage, BlobStorageContainer, BlobPath, BlobStorageBlob, InMemoryBlobStorage, BlobStoragePrefix } from "../lib/blobStorage";
+import { joinPath } from "../lib";
 
 describe("blobStorage.ts", function () {
   function blobStorageTests(createBlobStorage: () => BlobStorage): Mocha.Suite {
@@ -560,6 +561,137 @@ describe("blobStorage.ts", function () {
 
             await blobStorage.setBlobContentsFromString(new BlobPath(containerName, blobName), "hello", { contentType: "xyz" });
             assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "hello");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "xyz");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+      });
+
+      describe("setBlobContentsFromFile()", function () {
+        it("when container doesn't exist", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          const blobName: string = getBlobName();
+          const error: Error = await assertEx.throwsAsync(blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), __filename));
+          assertEx.contains(error.message, "ContainerNotFound");
+          assertEx.contains(error.message, "The specified container does not exist.");
+        });
+
+        it("when container doesn't exist and file doesn't exist", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          const blobName: string = getBlobName();
+          const error: Error = await assertEx.throwsAsync(blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), joinPath(__dirname, "idontexist.txt")));
+          assertEx.contains(error.message, "ContainerNotFound");
+          assertEx.contains(error.message, "The specified container does not exist.");
+        });
+
+        it("when blob doesn't exist", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName: string = getBlobName();
+            await blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), __filename);
+            assertEx.contains(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), `describe("setBlobContentsFromFile()"`);
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when blob doesn't exist and file doesn't exist", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName: string = getBlobName();
+            const error: Error = await assertEx.throwsAsync(blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), joinPath(__dirname, "idontexist.txt")));
+            assertEx.contains(error.message, "ENOENT: no such file or directory");
+            assertEx.contains(error.message, "idontexist.txt");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when blob doesn't exist and with content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName: string = getBlobName();
+            await blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), __filename, { contentType: "apples" });
+            assertEx.contains(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), `describe("setBlobContentsFromFile()"`);
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "apples");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when blob exists", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName: string = getBlobName();
+            await blobStorage.createBlob(new BlobPath(containerName, blobName));
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "");
+
+            await blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), __filename);
+            assertEx.contains(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), `describe("setBlobContentsFromFile()"`);
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when blob exists with no content type and the request has content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName: string = getBlobName();
+            await blobStorage.createBlob(new BlobPath(containerName, blobName));
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "application/octet-stream");
+
+            await blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), __filename, { contentType: "text" });
+            assertEx.contains(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), `describe("setBlobContentsFromFile()"`);
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "text");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when blob exists with content type and the request has no content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName: string = getBlobName();
+            await blobStorage.createBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+
+            await blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), __filename);
+            assertEx.contains(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), `describe("setBlobContentsFromFile()"`);
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "application/octet-stream");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when blob exists with content type and the request has content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName: string = getBlobName();
+            await blobStorage.createBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+
+            await blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), __filename, { contentType: "xyz" });
+            assertEx.contains(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), `describe("setBlobContentsFromFile()"`);
             assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "xyz");
           } finally {
             await blobStorage.deleteContainer(containerName);
