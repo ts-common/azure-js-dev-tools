@@ -8,6 +8,7 @@ export * from "./checkForSkipCalls";
 export * from "./checkPackageJsonVersion";
 export * from "./commandLine";
 export { StringMap } from "./common";
+export * from "./compressor";
 export * from "./dependencies";
 export * from "./fileSystem2";
 export * from "./git";
