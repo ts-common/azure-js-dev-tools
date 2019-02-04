@@ -1,6 +1,6 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "5.2.1",
+  "version": "6.0.0",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",

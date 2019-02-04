@@ -4,6 +4,33 @@ import { map } from "./arrays";
 import { readEntireString, StringMap } from "./common";
 
 /**
+ * The type of anonymous access allowed for a container. "blob" means that individual blobs are
+ * accessible from anonymous requests, but the container and container-level operations (such as
+ * list blobs) are not allowed. "container" means that the container and all of its contents
+ * and settings are publicly readable. If no value is provided then the container and its blobs are
+ * not accessible from anonymous requests.
+ * See https://docs.microsoft.com/en-us/azure/storage/blobs/storage-manage-access-to-resources for
+ * more information.
+ */
+export type ContainerAccessPolicy = "private" | "blob" | "container";
+
+/**
+ * The options that can be used when creating a container.
+ */
+export interface CreateContainerOptions {
+  /**
+   * The type of anonymous access allowed for a container. "blob" means that individual blobs are
+   * accessible from anonymous requests, but the container and container-level operations (such as
+   * list blobs) are not allowed. "container" means that the container and all of its contents
+   * and settings are publicly readable. If no value is provided then the container and its blobs are
+   * not accessible from anonymous requests.
+   * See https://docs.microsoft.com/en-us/azure/storage/blobs/storage-manage-access-to-resources for
+   * more information.
+   */
+  accessPolicy?: ContainerAccessPolicy;
+}
+
+/**
  * A path to a blob.
  */
 export class BlobPath {
@@ -84,8 +111,8 @@ export class BlobStorageContainer {
   /**
    * Create this container. This method will return false when the container already exists.
    */
-  public create(): Promise<boolean> {
-    return this.storage.createContainer(this.name);
+  public create(options?: CreateContainerOptions): Promise<boolean> {
+    return this.storage.createContainer(this.name, options);
   }
 
   /**
@@ -93,6 +120,21 @@ export class BlobStorageContainer {
    */
   public exists(): Promise<boolean> {
     return this.storage.containerExists(this.name);
+  }
+
+  /**
+   * Get the access policy for this container.
+   */
+  public getAccessPolicy(): Promise<ContainerAccessPolicy> {
+    return this.storage.getContainerAccessPolicy(this.name);
+  }
+
+  /**
+   * Set the access policy for this container.
+   * @param policy The new access policy for this container.
+   */
+  public setAccessPolicy(policy: ContainerAccessPolicy): Promise<void> {
+    return this.storage.setContainerAccessPolicy(this.name, policy);
   }
 
   /**
@@ -310,7 +352,7 @@ export class BlobStorageBlob {
   /**
    * Get the content type that has been assigned to this blob.
    */
-  public getBlobContentType(): Promise<string | undefined> {
+  public getContentType(): Promise<string | undefined> {
     return this.storage.getBlobContentType(this.path);
   }
 
@@ -318,7 +360,7 @@ export class BlobStorageBlob {
    * Assign the provided content type to this blob.
    * @param contentType The content type to assign to this blob.
    */
-  public setBlobContentType(contentType: string): Promise<void> {
+  public setContentType(contentType: string): Promise<void> {
     return this.storage.setBlobContentType(this.path, contentType);
   }
 }
@@ -403,13 +445,25 @@ export abstract class BlobStorage {
    * Create a container with the provided name.
    * @param containerName The name of the container to create.
    */
-  public abstract createContainer(containerName: string): Promise<boolean>;
+  public abstract createContainer(containerName: string, options?: CreateContainerOptions): Promise<boolean>;
 
   /**
    * Get whether or not a container with the provided name exists.
    * @param containerName The name of the container.
    */
   public abstract containerExists(containerName: string): Promise<boolean>;
+
+  /**
+   * Get the access policy for the provided container.
+   * @param containerName The name of the container.
+   */
+  public abstract getContainerAccessPolicy(containerName: string): Promise<ContainerAccessPolicy>;
+
+  /**
+   * Set the access permissions for the provided container.
+   * @param containerName The name of the container.
+   */
+  public abstract setContainerAccessPolicy(containerName: string, policy: ContainerAccessPolicy): Promise<void>;
 
   /**
    * Delete the container with the provided name. This method returns whether or not the container
@@ -428,6 +482,7 @@ export abstract class BlobStorage {
 interface InMemoryContainer {
   name: string;
   blobs: StringMap<InMemoryBlob>;
+  accessPolicy: ContainerAccessPolicy;
 }
 
 interface InMemoryBlob {
@@ -547,7 +602,7 @@ export class InMemoryBlobStorage extends BlobStorage {
       });
   }
 
-  public createContainer(containerName: string): Promise<boolean> {
+  public createContainer(containerName: string, options?: CreateContainerOptions): Promise<boolean> {
     return this.getInMemoryContainer(containerName)
       .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerNotFound", undefined))
       .then(() => {
@@ -555,7 +610,8 @@ export class InMemoryBlobStorage extends BlobStorage {
         if (result) {
           this.containers[containerName] = {
             name: containerName,
-            blobs: {}
+            blobs: {},
+            accessPolicy: (options && options.accessPolicy) || "private"
           };
         }
         return result;
@@ -566,6 +622,18 @@ export class InMemoryBlobStorage extends BlobStorage {
     return this.getInMemoryContainer(containerName)
       .then(() => true)
       .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerNotFound", false));
+  }
+
+  public getContainerAccessPolicy(containerName: string): Promise<ContainerAccessPolicy> {
+    return this.getInMemoryContainer(containerName)
+      .then((container: InMemoryContainer) => container.accessPolicy);
+  }
+
+  public setContainerAccessPolicy(containerName: string, permissions: ContainerAccessPolicy): Promise<void> {
+    return this.getInMemoryContainer(containerName)
+      .then((container: InMemoryContainer) => {
+        container.accessPolicy = permissions;
+      });
   }
 
   public deleteContainer(containerName: string): Promise<boolean> {
@@ -584,6 +652,10 @@ export class InMemoryBlobStorage extends BlobStorage {
     }
     return Promise.resolve(result);
   }
+}
+
+export function getAzureContainerAccessPermissions(permissions?: ContainerAccessPolicy): "container" | "blob" | undefined {
+  return permissions && permissions !== "private" ? permissions : undefined;
 }
 
 /**
@@ -652,10 +724,10 @@ export class AzureBlobStorage extends BlobStorage {
         return (error as any).statusCode !== 404
           ? Promise.reject(error)
           : this.containerExists(containerName)
-              .then((exists: boolean) =>
-                Promise.reject(new Error(!exists
-                  ? "ContainerNotFound: The specified container does not exist."
-                  : "BlobNotFound: The specified blob does not exist.")));
+            .then((exists: boolean) =>
+              Promise.reject(new Error(!exists
+                ? "ContainerNotFound: The specified container does not exist."
+                : "BlobNotFound: The specified blob does not exist.")));
       });
   }
 
@@ -664,7 +736,7 @@ export class AzureBlobStorage extends BlobStorage {
       .setHTTPHeaders(azure.Aborter.none, {
         blobContentType: contentType
       })
-      .then(() => {});
+      .then(() => { });
   }
 
   public containerExists(containerName: string): Promise<boolean> {
@@ -672,6 +744,18 @@ export class AzureBlobStorage extends BlobStorage {
       .getProperties(azure.Aborter.none)
       .then(() => true)
       .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerNotFound", false));
+  }
+
+  public getContainerAccessPolicy(containerName: string): Promise<ContainerAccessPolicy> {
+    return this.getContainerURL(containerName)
+      .getAccessPolicy(azure.Aborter.none)
+      .then((accessPolicy: azure.ContainerGetAccessPolicyResponse) => accessPolicy.blobPublicAccess || "private");
+  }
+
+  public setContainerAccessPolicy(containerName: string, permissions: ContainerAccessPolicy): Promise<void> {
+    return this.getContainerURL(containerName)
+      .setAccessPolicy(azure.Aborter.none, getAzureContainerAccessPermissions(permissions))
+      .then(() => {});
   }
 
   public createBlob(blobPath: string | BlobPath, options?: BlobContentOptions): Promise<boolean> {
@@ -697,9 +781,11 @@ export class AzureBlobStorage extends BlobStorage {
       .catch((error: Error) => resolveIfErrorMessageContains(error, "BlobNotFound", false));
   }
 
-  public createContainer(containerName: string): Promise<boolean> {
+  public createContainer(containerName: string, options?: CreateContainerOptions): Promise<boolean> {
     return this.getContainerURL(containerName)
-      .create(azure.Aborter.none)
+      .create(azure.Aborter.none, {
+        access: getAzureContainerAccessPermissions(options && options.accessPolicy)
+      })
       .then(() => true)
       .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerAlreadyExists", false));
   }
