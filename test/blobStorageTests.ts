@@ -5,7 +5,7 @@ import { AzureBlobStorage, BlobStorage, BlobStorageContainer, BlobPath, BlobStor
 describe("blobStorage.ts", function () {
   function blobStorageTests(createBlobStorage: () => BlobStorage): Mocha.Suite {
     return describe("BlobStorage", function () {
-      const defaultContainerNamePrefix = "abc";
+      const defaultContainerNamePrefix = "frog";
       let containerCount = 0;
       const defaultBlobNamePrefix = "xyz";
       let blobCount = 0;
@@ -67,6 +67,75 @@ describe("blobStorage.ts", function () {
           await blobStorage.createContainer(containerName);
           try {
             assert.strictEqual(await blobStorage.containerExists(containerName), true);
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+      });
+
+      describe("getContainerAccessPolicy()", function () {
+        it("with empty container name", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          if (blobStorage instanceof AzureBlobStorage) {
+            // getContainerAccessPolicy() fails for Azure Storage Accounts, even when the SAS url
+            // gives permissions for everything. Not sure what this is about.
+            this.skip();
+          } else {
+            const error: Error = await assertEx.throwsAsync(blobStorage.getContainerAccessPolicy(""));
+            assertEx.contains(error.message, "InvalidResourceName");
+            assertEx.contains(error.message, "The specifed resource name contains invalid characters.");
+          }
+        });
+
+        it("with container name with uppercased letters", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          if (blobStorage instanceof AzureBlobStorage) {
+            // getContainerAccessPolicy() fails for Azure Storage Accounts, even when the SAS url
+            // gives permissions for everything. Not sure what this is about.
+            this.skip();
+          } else {
+            const error: Error = await assertEx.throwsAsync(blobStorage.getContainerAccessPolicy("ABCDEF"));
+            assertEx.contains(error.message, "InvalidResourceName");
+            assertEx.contains(error.message, "The specifed resource name contains invalid characters.");
+          }
+        });
+
+        it("with container name that doesn't exist", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          if (blobStorage instanceof AzureBlobStorage) {
+            // getContainerAccessPolicy() fails for Azure Storage Accounts, even when the SAS url
+            // gives permissions for everything. Not sure what this is about.
+            this.skip();
+          } else {
+            const error: Error = await assertEx.throwsAsync(blobStorage.getContainerAccessPolicy(getContainerName()));
+            assertEx.contains(error.message, "ContainerNotFound");
+            assertEx.contains(error.message, "The specified container does not exist.");
+          }
+        });
+
+        it("with container name that exists but doesn't have an access policy explicitly set", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          if (blobStorage instanceof AzureBlobStorage) {
+            // getContainerAccessPolicy() fails for Azure Storage Accounts, even when the SAS url
+            // gives permissions for everything. Not sure what this is about.
+            this.skip();
+          } else {
+            const containerName: string = getContainerName();
+            await blobStorage.createContainer(containerName);
+            try {
+              assert.strictEqual(await blobStorage.getContainerAccessPolicy(containerName), "private");
+            } finally {
+              await blobStorage.deleteContainer(containerName);
+            }
+          }
+        });
+
+        it("with container name that exists and has an access policy explicitly set", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName, { accessPolicy: "blob" });
+          try {
+            assert.strictEqual(await blobStorage.getContainerAccessPolicy(containerName), "blob");
           } finally {
             await blobStorage.deleteContainer(containerName);
           }
