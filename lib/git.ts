@@ -382,7 +382,9 @@ export async function gitStatus(options?: RunOptions): Promise<GitStatusResult> 
           break;
 
         case "UntrackedFiles":
-          if (!line.match(/\(use "git add <file>..." to include in what will be committed\)/i) && !line.match(/nothing added to commit but untracked files present \(use "git add" to track\)/i)) {
+          if (!line.match(/\(use "git add <file>..." to include in what will be committed\)/i) &&
+              !line.match(/nothing added to commit but untracked files present \(use "git add" to track\)/i) &&
+              !line.match(/no changes added to commit \(use \"git add\" and\/or \"git commit -a\"\)/i)) {
             const resolveUntrackedFilePath: string = joinPath(folderPath, line);
             untrackedFiles.push(resolveUntrackedFilePath);
           }
