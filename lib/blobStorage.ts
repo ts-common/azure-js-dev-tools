@@ -1,5 +1,6 @@
 import { URLBuilder } from "@azure/ms-rest-js";
 import * as azure from "@azure/storage-blob";
+import * as fs from "fs";
 import { map } from "./arrays";
 import { readEntireString, StringMap } from "./common";
 
@@ -28,6 +29,18 @@ export interface CreateContainerOptions {
    * more information.
    */
   accessPolicy?: ContainerAccessPolicy;
+}
+
+function getFileLengthInBytes(filePath: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    fs.lstat(filePath, (error: NodeJS.ErrnoException, stats: fs.Stats) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(stats.size);
+      }
+    });
+  });
 }
 
 /**
@@ -90,6 +103,13 @@ export class BlobStorageContainer {
   constructor(storage: BlobStorage, name: string) {
     this.storage = storage;
     this.name = name;
+  }
+
+  /**
+   * Get the URL for this container.
+   */
+  public getURL(): string {
+    return this.storage.getContainerURL(this.name);
   }
 
   /**
@@ -213,6 +233,13 @@ export class BlobStoragePrefix {
   }
 
   /**
+   * Get the URL for this prefix.
+   */
+  public getURL(): string {
+    return this.storage.getBlobURL(this.path);
+  }
+
+  /**
    * Get the container that this prefix belongs to.
    */
   public getContainer(): BlobStorageContainer {
@@ -313,6 +340,13 @@ export class BlobStorageBlob {
   }
 
   /**
+   * Get the URL for this blob.
+   */
+  public getURL(): string {
+    return this.storage.getBlobURL(this.path);
+  }
+
+  /**
    * Create this blob. This method will return false when the blob already exists.
    */
   public create(options?: BlobContentOptions): Promise<boolean> {
@@ -347,6 +381,15 @@ export class BlobStorageBlob {
    */
   public setContentsFromString(blobContents: string, options?: BlobContentOptions): Promise<void> {
     return this.storage.setBlobContentsFromString(this.path, blobContents, options);
+  }
+
+  /**
+   * Upload the file at the provided path to this blob.
+   * @param filePath The path to the file that contains the blob's contents.
+   * @param options Options that will be applied to the blob.
+   */
+  public setBlobContentsFromFile(filePath: string, options?: BlobContentOptions): Promise<void> {
+    return this.storage.setBlobContentsFromFile(this.path, filePath, options);
   }
 
   /**
@@ -396,6 +439,18 @@ export abstract class BlobStorage {
   }
 
   /**
+   * Get the URL to the provided container.
+   * @param containerName The name of the container.
+   */
+  public abstract getContainerURL(containerName: string): string;
+
+  /**
+   * Get the URL to the provided blob.
+   * @param blobPath The path to the blob.
+   */
+  public abstract getBlobURL(blobPath: string | BlobPath): string;
+
+  /**
    * Create a blob at the provided blobPath. This method will return false when the blob already
    * exists.
    * @param blobPath The path to the blob to create.
@@ -420,6 +475,14 @@ export abstract class BlobStorage {
    * @param blobContents The contents to set. This will be UTF-8 encoded.
    */
   public abstract setBlobContentsFromString(blobPath: string | BlobPath, blobContents: string, options?: BlobContentOptions): Promise<void>;
+
+  /**
+   * Upload the file at the provided path to the provided blob path.
+   * @param blobPath The path to the blob.
+   * @param filePath The path to the file that contains the blob's contents.
+   * @param options Options that will be applied to the blob.
+   */
+  public abstract setBlobContentsFromFile(blobPath: string | BlobPath, filePath: string, options?: BlobContentOptions): Promise<void>;
 
   /**
    * Get the content type that has been assigned to the provided blob.
@@ -486,7 +549,7 @@ interface InMemoryContainer {
 }
 
 interface InMemoryBlob {
-  contents?: string;
+  contents: Buffer;
   contentType?: string;
 }
 
@@ -524,6 +587,15 @@ export class InMemoryBlobStorage extends BlobStorage {
       });
   }
 
+  public getContainerURL(containerName: string): string {
+    return `https://fake.storage.com/${containerName}`;
+  }
+
+  public getBlobURL(blobPath: string | BlobPath): string {
+    blobPath = BlobPath.parse(blobPath);
+    return `${this.getContainerURL(blobPath.containerName)}/${blobPath.blobName}`;
+  }
+
   public createBlob(blobPath: string | BlobPath, options?: BlobContentOptions): Promise<boolean> {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
@@ -533,7 +605,7 @@ export class InMemoryBlobStorage extends BlobStorage {
         if (!(blobName in container.blobs)) {
           result = true;
           container.blobs[blobName] = {
-            contents: "",
+            contents: new Buffer(0),
             contentType: (options && options.contentType) || "application/octet-stream"
           };
         }
@@ -553,7 +625,7 @@ export class InMemoryBlobStorage extends BlobStorage {
 
   public getBlobContentsAsString(blobPath: string | BlobPath): Promise<string | undefined> {
     return this.getInMemoryBlob(blobPath)
-      .then((blob: InMemoryBlob) => blob.contents);
+      .then((blob: InMemoryBlob) => blob.contents.toString());
   }
 
   public setBlobContentsFromString(blobPath: string | BlobPath, blobContents: string, options?: BlobContentOptions): Promise<void> {
@@ -565,11 +637,30 @@ export class InMemoryBlobStorage extends BlobStorage {
         const blob: InMemoryBlob | undefined = container.blobs[blobName];
         if (!blob) {
           container.blobs[blobName] = {
-            contents: blobContents,
-            contentType: (options && options.contentType) || ""
+            contents: new Buffer(blobContents),
+            contentType: (options && options.contentType) || "application/octet-stream"
           };
         } else {
-          blob.contents = blobContents;
+          blob.contents = new Buffer(blobContents);
+          blob.contentType = (options && options.contentType) || "application/octet-stream";
+        }
+      });
+  }
+
+  public setBlobContentsFromFile(blobPath: string | BlobPath, filePath: string, options?: BlobContentOptions | undefined): Promise<void> {
+    blobPath = BlobPath.parse(blobPath);
+    const blobName: string = blobPath.blobName;
+
+    return this.getInMemoryContainer(blobPath)
+      .then((container: InMemoryContainer) => {
+        const blob: InMemoryBlob | undefined = container.blobs[blobName];
+        if (!blob) {
+          container.blobs[blobName] = {
+            contents: fs.readFileSync(filePath),
+            contentType: (options && options.contentType) || "application/octet-stream"
+          };
+        } else {
+          blob.contents = fs.readFileSync(filePath);
           blob.contentType = (options && options.contentType) || "application/octet-stream";
         }
       });
@@ -678,14 +769,22 @@ export class AzureBlobStorage extends BlobStorage {
     this.serviceUrl = new azure.ServiceURL(this.url, pipeline);
   }
 
-  private getContainerURL(containerName: string): azure.ContainerURL {
+  private getAzureContainerURL(containerName: string): azure.ContainerURL {
     return azure.ContainerURL.fromServiceURL(this.serviceUrl, containerName);
   }
 
   private getBlockBlobURL(blobPath: string | BlobPath): azure.BlockBlobURL {
     blobPath = BlobPath.parse(blobPath);
-    const containerUrl: azure.ContainerURL = this.getContainerURL(blobPath.containerName);
+    const containerUrl: azure.ContainerURL = this.getAzureContainerURL(blobPath.containerName);
     return azure.BlockBlobURL.fromContainerURL(containerUrl, blobPath.blobName);
+  }
+
+  public getContainerURL(containerName: string): string {
+    return this.getAzureContainerURL(containerName).url;
+  }
+
+  public getBlobURL(blobPath: string | BlobPath): string {
+    return this.getBlockBlobURL(blobPath).url;
   }
 
   public blobExists(blobPath: string | BlobPath): Promise<boolean> {
@@ -714,6 +813,19 @@ export class AzureBlobStorage extends BlobStorage {
       .then(() => { });
   }
 
+  public setBlobContentsFromFile(blobPath: string | BlobPath, filePath: string, options?: BlobContentOptions | undefined): Promise<void> {
+    return getFileLengthInBytes(filePath)
+      .then((fileLengthInBytes: number) => {
+        return this.getBlockBlobURL(blobPath)
+          .upload(azure.Aborter.none, (() => fs.createReadStream(filePath)), fileLengthInBytes, {
+            blobHTTPHeaders: {
+              blobContentType: options && options.contentType
+            }
+          })
+          .then(() => {});
+      });
+  }
+
   public getBlobContentType(blobPath: string | BlobPath): Promise<string | undefined> {
     blobPath = BlobPath.parse(blobPath);
     const containerName: string = blobPath.containerName;
@@ -740,22 +852,22 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public containerExists(containerName: string): Promise<boolean> {
-    return this.getContainerURL(containerName)
+    return this.getAzureContainerURL(containerName)
       .getProperties(azure.Aborter.none)
       .then(() => true)
       .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerNotFound", false));
   }
 
   public getContainerAccessPolicy(containerName: string): Promise<ContainerAccessPolicy> {
-    return this.getContainerURL(containerName)
+    return this.getAzureContainerURL(containerName)
       .getAccessPolicy(azure.Aborter.none)
       .then((accessPolicy: azure.ContainerGetAccessPolicyResponse) => accessPolicy.blobPublicAccess || "private");
   }
 
   public setContainerAccessPolicy(containerName: string, permissions: ContainerAccessPolicy): Promise<void> {
-    return this.getContainerURL(containerName)
+    return this.getAzureContainerURL(containerName)
       .setAccessPolicy(azure.Aborter.none, getAzureContainerAccessPermissions(permissions))
-      .then(() => {});
+      .then(() => { });
   }
 
   public createBlob(blobPath: string | BlobPath, options?: BlobContentOptions): Promise<boolean> {
@@ -782,7 +894,7 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public createContainer(containerName: string, options?: CreateContainerOptions): Promise<boolean> {
-    return this.getContainerURL(containerName)
+    return this.getAzureContainerURL(containerName)
       .create(azure.Aborter.none, {
         access: getAzureContainerAccessPermissions(options && options.accessPolicy)
       })
@@ -791,7 +903,7 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public deleteContainer(containerName: string): Promise<boolean> {
-    return this.getContainerURL(containerName)
+    return this.getAzureContainerURL(containerName)
       .delete(azure.Aborter.none)
       .then(() => true)
       .catch((error: Error) => resolveIfErrorStatusCodeEquals(error, 404, false));
