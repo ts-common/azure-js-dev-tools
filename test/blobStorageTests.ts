@@ -578,15 +578,6 @@ describe("blobStorage.ts", function () {
           assertEx.contains(error.message, "The specified container does not exist.");
         });
 
-        it("when container doesn't exist and file doesn't exist", async function () {
-          const blobStorage: BlobStorage = createBlobStorage();
-          const containerName: string = getContainerName();
-          const blobName: string = getBlobName();
-          const error: Error = await assertEx.throwsAsync(blobStorage.setBlobContentsFromFile(new BlobPath(containerName, blobName), joinPath(__dirname, "idontexist.txt")));
-          assertEx.contains(error.message, "ContainerNotFound");
-          assertEx.contains(error.message, "The specified container does not exist.");
-        });
-
         it("when blob doesn't exist", async function () {
           const blobStorage: BlobStorage = createBlobStorage();
           const containerName: string = getContainerName();
