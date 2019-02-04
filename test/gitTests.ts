@@ -151,5 +151,59 @@ nothing to commit, working tree clean`,
         untrackedFiles: []
       });
     });
+
+    it("with untracked files but no files staged for commit", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: RunResult = {
+        exitCode: 0,
+        stdout:
+          `On branch master
+Your branch is up to date with 'origin/master'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+  modified:   a/b.xml
+  modified:   a/b/c.txt
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+  a.html
+  a/b.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")`,
+        stderr: ""
+      };
+      runner.set("git status", expectedResult);
+      const statusResult: GitStatusResult = await gitStatus({
+        runner,
+        executionFolderPath: "/mock/folder/"
+      });
+      assert.deepEqual(statusResult, {
+        ...expectedResult,
+        localBranch: "master",
+        remoteBranch: "origin/master",
+        hasUncommittedChanges: true,
+        modifiedFiles: [
+          "/mock/folder/a/b.xml",
+          "/mock/folder/a/b/c.txt",
+          "/mock/folder/a.html",
+          "/mock/folder/a/b.txt"
+        ],
+        notStagedDeletedFiles: [],
+        notStagedModifiedFiles: [
+          "/mock/folder/a/b.xml",
+          "/mock/folder/a/b/c.txt"
+        ],
+        stagedDeletedFiles: [],
+        stagedModifiedFiles: [],
+        untrackedFiles: [
+          "/mock/folder/a.html",
+          "/mock/folder/a/b.txt"
+        ]
+      });
+    });
   });
 });
