@@ -388,7 +388,7 @@ export class BlobStorageBlob {
    * @param filePath The path to the file that contains the blob's contents.
    * @param options Options that will be applied to the blob.
    */
-  public setBlobContentsFromFile(filePath: string, options?: BlobContentOptions): Promise<void> {
+  public setContentsFromFile(filePath: string, options?: BlobContentOptions): Promise<void> {
     return this.storage.setBlobContentsFromFile(this.path, filePath, options);
   }
 
