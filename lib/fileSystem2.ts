@@ -208,6 +208,23 @@ export function readFileContents(filePath: string): string | undefined {
   return fs.readFileSync(filePath, { encoding: "utf8" });
 }
 
+/**
+ * Write the provided contents to the file at the provided filePath.
+ * @param filePath The path to the file to write.
+ * @param contents The contents to write to the file.
+ */
+export function writeFileContents(filePath: string, contents: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    fs.writeFile(filePath, contents, (error: NodeJS.ErrnoException) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
 export function deleteEntry(path: string): void {
   if (folderExistsSync(path)) {
     deleteFolder(path);
