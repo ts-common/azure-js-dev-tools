@@ -87,7 +87,22 @@ export class RealRunner implements Runner {
  * A fake command runner.
  */
 export class FakeRunner implements Runner {
-  private readonly results: StringMap<(() => RunResult | Promise<RunResult>)> = {};
+  private readonly innerRunner: Runner;
+  private readonly passthroughs: StringMap<true> = {};
+  private readonly fakeResults: StringMap<(() => RunResult | Promise<RunResult>)> = {};
+
+  constructor(innerRunner?: Runner) {
+    this.innerRunner = innerRunner || new RealRunner();
+  }
+
+  /**
+   * Indicate that when this Runner attempts to run the provided commandString it should just pass
+   * the commandString through to the inner runner.
+   * @param commandString The commandString to pass through to the inner runner.
+   */
+  public passthrough(commandString: string): void {
+    this.passthroughs[commandString] = true;
+  }
 
   /**
    * Set the fake result to return when the provided command is run.
@@ -95,20 +110,25 @@ export class FakeRunner implements Runner {
    * @param result The result to return when the provided command is run.
    */
   public set(commandString: string, result: RunResult | Promise<RunResult> | (() => RunResult | Promise<RunResult>)): void {
-    this.results[commandString] = typeof result === "function" ? result : () => result;
+    this.fakeResults[commandString] = typeof result === "function" ? result : () => result;
   }
 
-  private get(command: string, args: string | string[] | undefined): Promise<() => RunResult | Promise<RunResult>> {
+  private get(command: string, args: string | string[] | undefined, options: RunOptions | undefined): Promise<() => RunResult | Promise<RunResult>> {
     const commandString: string = getCommandString(command, args);
 
-    const result: (() => RunResult | Promise<RunResult>) | undefined = this.results[commandString];
-    return result
-      ? Promise.resolve(result)
-      : Promise.reject(new Error(`No FakeRunner result has been registered for the command "${commandString}".`));
+    let result: (() => RunResult | Promise<RunResult>) | undefined = this.fakeResults[commandString];
+    if (!result) {
+      if (this.passthroughs[commandString]) {
+        result = () => this.innerRunner.run(command, args, options);
+      } else {
+        result = () => Promise.reject(new Error(`No FakeRunner result has been registered for the command "${commandString}".`));
+      }
+    }
+    return Promise.resolve(result);
   }
 
-  public async run(command: string, args: string | string[] | undefined): Promise<RunResult> {
-    const resultFunction: (() => RunResult | Promise<RunResult>) = await this.get(command, args);
+  public async run(command: string, args: string | string[] | undefined, options?: RunOptions): Promise<RunResult> {
+    const resultFunction: (() => RunResult | Promise<RunResult>) = await this.get(command, args, options);
     return toPromise(resultFunction());
   }
 }

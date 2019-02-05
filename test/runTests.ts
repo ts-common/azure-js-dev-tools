@@ -12,10 +12,22 @@ describe("run.ts", function () {
       });
 
       it("with registered result and args array", async function () {
-        const git = new FakeRunner();
+        const runner = new FakeRunner();
         const registeredResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
-        git.set("git fetch --prune", registeredResult);
-        const result: RunResult = await git.run("git", ["fetch", "--prune"]);
+        runner.set("git fetch --prune", registeredResult);
+        const result: RunResult = await runner.run("git", ["fetch", "--prune"]);
+        assert.deepEqual(result, registeredResult);
+      });
+
+      it("with passthrough command", async function () {
+        const innerRunner = new FakeRunner();
+        const registeredResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
+        innerRunner.set("git fetch --prune", registeredResult);
+
+        const runner = new FakeRunner(innerRunner);
+        runner.passthrough("git fetch --prune");
+
+        const result: RunResult = await runner.run("git", ["fetch", "--prune"]);
         assert.deepEqual(result, registeredResult);
       });
     });
