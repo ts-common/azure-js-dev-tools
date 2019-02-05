@@ -79,6 +79,11 @@ export class RealRunner implements Runner {
           stderr: childProcessError,
           processId: childProcess.pid,
         };
+      })
+      .catch((error: Error) => {
+        return {
+          error
+        };
       });
   }
 }
