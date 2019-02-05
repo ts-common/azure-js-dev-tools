@@ -52,9 +52,14 @@ describe("autorest.ts", function () {
 
   describe("autorest()", function () {
     it("with non-existing autorest executable", async function () {
-      const error: Error = await assertEx.throwsAsync(autorest("fake readme.md file path", {}, { autorestPath: "./i'm/not/here" }));
-      assert(error.name, "Error");
-      assert(error.message, "spawn ./i'm/not/here/autorest.cmd ENOENT");
+      const result: RunResult = await autorest("fake readme.md file path", {}, { autorestPath: "./i'm/not/here" });
+      assertEx.defined(result, "result");
+      const error: Error = result.error!;
+      assertEx.defined(error, "result.error");
+      assert.strictEqual(error.name, "Error");
+      assertEx.contains(error.message, "spawn ");
+      assertEx.contains(error.message, "autorest");
+      assertEx.contains(error.message, "ENOENT");
     });
 
     it("with existing autorest executable and no arguments", async function () {

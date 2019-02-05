@@ -106,5 +106,16 @@ describe("run.ts", function () {
       assertEx.contains(capturedOutput, "Output:");
       assertEx.contains(capturedOutput, "README.md");
     });
+
+    it("with non-existing executionFolderPath", async function () {
+      const result: RunResult = await run("dir", [], { executionFolderPath: "/i/dont/exist" });
+      assertEx.defined(result);
+      assert.strictEqual(result.exitCode, undefined);
+      assert.strictEqual(result.stdout, undefined);
+      assert.strictEqual(result.stderr, undefined);
+      assert.strictEqual(result.processId, undefined);
+      assertEx.defined(result.error);
+      assert.strictEqual(result.error!.message, "spawn dir ENOENT");
+    });
   });
 });
