@@ -48,11 +48,14 @@ export class RealRunner implements Runner {
 
     let childProcessError: string | undefined;
     let stderrCaptured: Promise<void> = Promise.resolve();
+    let captureErrorFunction: ((text: string) => void) | undefined;
     if (runOptions.captureError !== false) {
       let captureError = runOptions.captureError;
       if (captureError === undefined || captureError === true) {
         childProcessError = "";
         captureError = (text: string) => childProcessError += text;
+      } else {
+        captureErrorFunction = captureError;
       }
       const captureFunction: ((text: string) => void) = captureError;
       stderrCaptured = new Promise((resolve, reject) => {
@@ -81,6 +84,9 @@ export class RealRunner implements Runner {
         };
       })
       .catch((error: Error) => {
+        if (captureErrorFunction) {
+          captureErrorFunction(JSON.stringify(error, undefined, 2));
+        }
         return {
           error
         };
@@ -290,6 +296,10 @@ export async function logResult(result: RunResult, options: RunOptions | undefin
       if (result.stderr && (options.captureError === true || options.captureError === undefined)) {
         await toPromise(options.log(`Error:`));
         await toPromise(options.log(result.stderr));
+      }
+      if (result.error && (options.captureError === true || options.captureError === undefined)) {
+        await toPromise(options.log(`Error:`));
+        await toPromise(options.log(JSON.stringify(result.error, undefined, 2)));
       }
     }
   }
