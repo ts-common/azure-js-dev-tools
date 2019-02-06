@@ -63,7 +63,7 @@ describe("autorest.ts", function () {
     });
 
     it("with existing autorest executable and no arguments", async function () {
-      this.timeout(10000);
+      this.timeout(20000);
 
       const result: RunResult = await autorest("", {}, { autorestPath: "./node_modules/.bin/autorest" });
       assertEx.defined(result, "result");
