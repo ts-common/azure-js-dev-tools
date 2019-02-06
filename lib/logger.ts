@@ -36,6 +36,40 @@ export interface Logger {
 }
 
 /**
+ * Add the provided prefix to each message logged through the resulting Logger.
+ * @param toWrap The Logger to wrap.
+ * @param prefix The prefix to add to each log message.
+ */
+export function prefix(toWrap: Logger, prefix: string | (() => string)): Logger {
+  const prefixFunction: (() => string) = typeof prefix === "string" ? () => prefix : prefix;
+  return {
+    logInfo: (text: string) => toWrap.logInfo(`${prefixFunction()}${text}`),
+    logError: (text: string) => toWrap.logError(`${prefixFunction()}${text}`),
+    logWarning: (text: string) => toWrap.logWarning(`${prefixFunction()}${text}`),
+    logSection: (text: string) => toWrap.logSection(`${prefixFunction()}${text}`),
+    logVerbose: (text: string) => toWrap.logVerbose(`${prefixFunction()}${text}`),
+  };
+}
+
+/**
+ * Indent the messages logged by the resulting Logger.
+ * @param toWrap The Logger to wrap.
+ * @param indentation The indentation to add to the Logger's messages.
+ */
+export function indent(toWrap: Logger, indentation?: string | number): Logger {
+  if (indentation == undefined) {
+    indentation = "  ";
+  } else if (typeof indentation === "number") {
+    const spaceCount: number = indentation;
+    indentation = "";
+    for (let i = 0; i < spaceCount; ++i) {
+      indentation += " ";
+    }
+  }
+  return prefix(toWrap, indentation);
+}
+
+/**
  * Get a logger that will log to each of the provided loggers when it is logged to.
  * @param loggers The loggers to log to.
  */
