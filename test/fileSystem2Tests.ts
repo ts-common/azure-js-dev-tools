@@ -1,6 +1,6 @@
 import { joinPath } from "../lib/path";
 import { assert } from "chai";
-import { createFolder, deleteFolder } from "../lib";
+import { createFolder, deleteFolder, findFileInPathSync, assertEx } from "../lib";
 
 describe("fileSystem2.ts", function () {
   describe("createFolder()", function () {
@@ -19,6 +19,19 @@ describe("fileSystem2.ts", function () {
       } finally {
         deleteFolder(folderPath);
       }
+    });
+  });
+
+  describe("findFileInPathSync()", function () {
+    it("with file that exists", function () {
+      const filePath: string | undefined = findFileInPathSync("package.json");
+      assertEx.defined(filePath, "packageJsonFilePath");
+      assertEx.contains(filePath, "package.json");
+    });
+
+    it("with file that doesn't exist", function () {
+      const filePath: string | undefined = findFileInPathSync("packages.jsdon");
+      assert.strictEqual(filePath, undefined);
     });
   });
 });

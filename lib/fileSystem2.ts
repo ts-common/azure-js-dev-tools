@@ -66,7 +66,12 @@ function findEntryInPathSync(entryName: string, startFolderPath: string | undefi
       result = possibleResult;
       break;
     } else {
-      folderPath = getParentFolderPath(folderPath);
+      const parentFolderPath: string = getParentFolderPath(folderPath);
+      if (!parentFolderPath || folderPath === parentFolderPath) {
+        break;
+      } else {
+        folderPath = parentFolderPath;
+      }
     }
   }
   return result;
