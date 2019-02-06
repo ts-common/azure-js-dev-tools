@@ -1,6 +1,6 @@
 import { joinPath } from "../lib/path";
 import { assert } from "chai";
-import { createFolder, deleteFolder, findFileInPathSync, assertEx } from "../lib";
+import { createFolder, deleteFolder, findFileInPathSync, assertEx, folderExistsSync } from "../lib";
 
 describe("fileSystem2.ts", function () {
   describe("createFolder()", function () {
@@ -8,6 +8,16 @@ describe("fileSystem2.ts", function () {
       const folderPath: string = joinPath(process.cwd(), "folderthatwontexistbeforethis");
       assert.strictEqual(await createFolder(folderPath), true);
       deleteFolder(folderPath);
+    });
+
+    it("with deep folder that doesn't exist", async function () {
+      const folderPath: string = joinPath(process.cwd(), "a/b/c/d");
+      assert.strictEqual(await createFolder(folderPath), true);
+      try {
+        assert.strictEqual(folderExistsSync(folderPath), true);
+      } finally {
+        deleteFolder(joinPath(process.cwd(), "a"));
+      }
     });
 
     it("with folder that already exists", async function () {

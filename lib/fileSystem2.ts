@@ -45,13 +45,27 @@ export function folderExistsSync(folderPath: string): boolean {
  */
 export function createFolder(folderPath: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    fs.mkdir(folderPath, (error: Error) => {
-      if (!error) {
+    fs.mkdir(folderPath, (createFolderError1: Error) => {
+      if (!createFolderError1) {
         resolve(true);
-      } else if (error.message.indexOf("EEXIST: file already exists") !== -1) {
+      } else if (createFolderError1.message.indexOf("EEXIST: file already exists") !== -1) {
         resolve(false);
       } else {
-        reject(error);
+        createFolder(getParentFolderPath(folderPath))
+          .then(() => {
+            fs.mkdir(folderPath, (createFolderError2: Error) => {
+              if (!createFolderError2) {
+                resolve(true);
+              } else if (createFolderError2.message.indexOf("EEXIST: file already exists") !== -1) {
+                resolve(false);
+              } else {
+                reject(createFolderError2);
+              }
+            });
+          })
+          .catch((createParentFolderError: Error) => {
+            reject(createParentFolderError);
+          });
       }
     });
   });
