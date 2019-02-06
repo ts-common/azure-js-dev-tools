@@ -8,13 +8,13 @@ describe("run.ts", function () {
       it("with no registered result and single string arg", async function () {
         const runner = new FakeRunner();
         const error: Error = await assertEx.throwsAsync(runner.run("git", "status"));
-        assert.strictEqual(error.message, `No FakeRunner result has been registered for the command "git status".`);
+        assert.strictEqual(error.message, `No FakeRunner result has been registered for the command "git status" at "${process.cwd()}".`);
       });
 
       it("with registered result and args array", async function () {
         const runner = new FakeRunner();
         const registeredResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
-        runner.set("git fetch --prune", registeredResult);
+        runner.set({ command: "git fetch --prune", result: registeredResult });
         const result: RunResult = await runner.run("git", ["fetch", "--prune"]);
         assert.deepEqual(result, registeredResult);
       });
@@ -22,13 +22,29 @@ describe("run.ts", function () {
       it("with passthrough command", async function () {
         const innerRunner = new FakeRunner();
         const registeredResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
-        innerRunner.set("git fetch --prune", registeredResult);
+        innerRunner.set({ command: "git fetch --prune", result: registeredResult });
 
         const runner = new FakeRunner(innerRunner);
         runner.passthrough("git fetch --prune");
 
         const result: RunResult = await runner.run("git", ["fetch", "--prune"]);
         assert.deepEqual(result, registeredResult);
+      });
+
+      it("with registered command with different executionFolderPath", async function () {
+        const runner = new FakeRunner();
+        runner.set({ command: "fake-command", executionFolderPath: "/a/b/c" });
+        const error: Error = await assertEx.throwsAsync(runner.run("fake-command", []));
+        assert.strictEqual(error.message, `No FakeRunner result has been registered for the command "fake-command" at "${process.cwd()}".`);
+      });
+
+      it("with registered command with same executionFolderPath", async function () {
+        const runner = new FakeRunner();
+        runner.set({ command: "fake-command", executionFolderPath: "/a/b/c", result: { exitCode: 2 } });
+        const result: RunResult = await runner.run("fake-command", [], { executionFolderPath: "/a/b/c" });
+        assert.deepEqual(result, {
+          exitCode: 2
+        });
       });
     });
   });
