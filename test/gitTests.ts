@@ -19,21 +19,21 @@ describe("git.ts", function () {
     it("with no options", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
-      runner.set("git fetch", expectedResult);
+      runner.set({ command: "git", args: ["fetch"], result: expectedResult });
       assert.deepEqual(await gitFetch({ runner }), expectedResult);
     });
 
     it("with prune: true", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
-      runner.set("git fetch --prune", () => expectedResult);
+      runner.set({ command: "git", args: ["fetch", "--prune"], result: () => expectedResult });
       assert.deepEqual(await gitFetch({ runner, prune: true }), expectedResult);
     });
 
     it("with prune: false", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
-      runner.set("git fetch", () => expectedResult);
+      runner.set({ command: "git", args: ["fetch"], result: () => expectedResult });
       assert.deepEqual(await gitFetch({ runner, prune: false }), expectedResult);
     });
   });
@@ -41,7 +41,7 @@ describe("git.ts", function () {
   it("gitMergeOriginMaster()", async function () {
     const runner = new FakeRunner();
     const expectedResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
-    runner.set("git merge origin master", expectedResult);
+    runner.set({ command: "git", args: ["merge", "origin", "master"], result: expectedResult });
     assert.deepEqual(await gitMergeOriginMaster({ runner }), expectedResult);
   });
 
@@ -49,14 +49,14 @@ describe("git.ts", function () {
     it("with no options", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
-      runner.set("git clone https://my.fake.git/url", expectedResult);
+      runner.set({ command: "git", args: ["clone", "https://my.fake.git/url"], result: expectedResult });
       assert.deepEqual(await gitClone("https://my.fake.git/url", { runner }), expectedResult);
     });
 
     it("with all options", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
-      runner.set("git clone --quiet --verbose --origin foo --branch fake-branch --depth 5 https://my.fake.git/url fake-directory", expectedResult);
+      runner.set({ command: "git", args: ["clone", "--quiet", "--verbose", "--origin", "foo", "--branch", "fake-branch", "--depth", "5", "https://my.fake.git/url", "fake-directory"], result: expectedResult });
       assert.deepEqual(
         await gitClone("https://my.fake.git/url", {
           runner,
@@ -75,7 +75,7 @@ describe("git.ts", function () {
     it("with no stderr", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "blah", stderr: "" };
-      runner.set("git checkout master", expectedResult);
+      runner.set({ command: "git", args: ["checkout", "master"], result: expectedResult });
       assert.deepEqual(
         await gitCheckout("master", { runner }),
         {
@@ -101,7 +101,7 @@ Changes not staged for commit:
 
 no changes added to commit (use "git add" and/or "git commit -a")`
       };
-      runner.set("git status", expectedResult);
+      runner.set({ command: "git", args: ["status"], result: expectedResult });
       const statusResult: GitStatusResult = await gitStatus({
         executionFolderPath: "/mock/folder/",
         runner
@@ -133,7 +133,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`
 nothing to commit, working tree clean`,
         stderr: ""
       };
-      runner.set("git status", expectedResult);
+      runner.set({ command: "git status", result: expectedResult });
       const statusResult: GitStatusResult = await gitStatus({
         runner,
         executionFolderPath: "/mock/folder/"
@@ -176,7 +176,7 @@ Untracked files:
 no changes added to commit (use "git add" and/or "git commit -a")`,
         stderr: ""
       };
-      runner.set("git status", expectedResult);
+      runner.set({ command: "git", args: ["status"], result: expectedResult });
       const statusResult: GitStatusResult = await gitStatus({
         runner,
         executionFolderPath: "/mock/folder/"

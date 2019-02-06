@@ -1,6 +1,6 @@
 import { ChildProcess, spawn, StdioOptions } from "child_process";
 import * as os from "os";
-import { StringMap, toPromise } from "./common";
+import { toPromise } from "./common";
 import { normalize } from "./path";
 
 /**
@@ -88,16 +88,33 @@ export class RealRunner implements Runner {
   }
 }
 
+export interface FakeCommand {
+  command: string;
+  args?: string[];
+  executionFolderPath?: string;
+  result?: RunResult | Promise<RunResult> | (() => RunResult | Promise<RunResult>);
+}
+
 /**
  * A fake command runner.
  */
 export class FakeRunner implements Runner {
   private readonly innerRunner: Runner;
-  private readonly passthroughs: StringMap<true> = {};
-  private readonly fakeResults: StringMap<(() => RunResult | Promise<RunResult>)> = {};
+  private readonly fakeCommands: FakeCommand[] = [];
 
   constructor(innerRunner?: Runner) {
     this.innerRunner = innerRunner || new RealRunner();
+  }
+
+  /**
+   * Set the fake result to return when the provided command is run.
+   * @param command The command to fake.
+   */
+  public set(command: FakeCommand): void {
+    if (!command.result) {
+      command.result = { exitCode: 0 };
+    }
+    this.fakeCommands.push(command);
   }
 
   /**
@@ -105,36 +122,42 @@ export class FakeRunner implements Runner {
    * the commandString through to the inner runner.
    * @param commandString The commandString to pass through to the inner runner.
    */
-  public passthrough(commandString: string): void {
-    this.passthroughs[commandString] = true;
-  }
-
-  /**
-   * Set the fake result to return when the provided command is run.
-   * @param commandString The command to set the result for.
-   * @param result The result to return when the provided command is run.
-   */
-  public set(commandString: string, result: RunResult | Promise<RunResult> | (() => RunResult | Promise<RunResult>)): void {
-    this.fakeResults[commandString] = typeof result === "function" ? result : () => result;
-  }
-
-  private get(command: string, args: string | string[] | undefined, options: RunOptions | undefined): Promise<() => RunResult | Promise<RunResult>> {
-    const commandString: string = getCommandString(command, args);
-
-    let result: (() => RunResult | Promise<RunResult>) | undefined = this.fakeResults[commandString];
-    if (!result) {
-      if (this.passthroughs[commandString]) {
-        result = () => this.innerRunner.run(command, args, options);
-      } else {
-        result = () => Promise.reject(new Error(`No FakeRunner result has been registered for the command "${commandString}".`));
-      }
-    }
-    return Promise.resolve(result);
+  public passthrough(command: string, args?: string[], executionFolderPath?: string): void {
+    this.set({
+      command,
+      args,
+      executionFolderPath,
+      result: () => this.innerRunner.run(command, args, { executionFolderPath })
+    });
   }
 
   public async run(command: string, args: string | string[] | undefined, options?: RunOptions): Promise<RunResult> {
-    const resultFunction: (() => RunResult | Promise<RunResult>) = await this.get(command, args, options);
-    return toPromise(resultFunction());
+    const commandString: string = getCommandString(command, args);
+
+    let fakeCommand: FakeCommand | undefined;
+    const executionFolderPath: string = (options && options.executionFolderPath) || process.cwd();
+    for (const registeredFakeCommand of this.fakeCommands) {
+      if (commandString === getCommandString(registeredFakeCommand.command, registeredFakeCommand.args) &&
+        (!registeredFakeCommand.executionFolderPath || executionFolderPath === registeredFakeCommand.executionFolderPath)) {
+        fakeCommand = registeredFakeCommand;
+        break;
+      }
+    }
+
+    let result: Promise<RunResult>;
+    if (!fakeCommand) {
+      result = Promise.reject(new Error(`No FakeRunner result has been registered for the command "${commandString}"${executionFolderPath ? ` at "${executionFolderPath}"` : ""}.`));
+    } else {
+      let runResult: RunResult | Promise<RunResult> | (() => RunResult | Promise<RunResult>) | undefined = fakeCommand.result;
+      if (!runResult) {
+        runResult = { exitCode: 0 };
+      } else if (typeof runResult === "function") {
+        runResult = runResult();
+      }
+      result = Promise.resolve(runResult);
+    }
+
+    return result;
   }
 }
 
