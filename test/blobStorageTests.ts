@@ -1,7 +1,8 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
-import { AzureBlobStorage, BlobStorage, BlobStorageContainer, BlobPath, BlobStorageBlob, InMemoryBlobStorage, BlobStoragePrefix } from "../lib/blobStorage";
-import { joinPath } from "../lib";
+import { AzureBlobStorage, BlobPath, BlobStorage, BlobStorageBlob, BlobStorageContainer, BlobStoragePrefix, InMemoryBlobStorage } from "../lib/blobStorage";
+import { joinPath } from "../lib/path";
+import { URLBuilder } from "../lib/url";
 
 describe("blobStorage.ts", function () {
   function blobStorageTests(createBlobStorage: () => BlobStorage): Mocha.Suite {
@@ -693,24 +694,63 @@ describe("blobStorage.ts", function () {
   }
 
   describe.skip("AzureBlobStorage", function () {
-    const blobStorageUrl = "azure storage account sas url";
+    const blobStorageUrl = "https://autosdkstorage.blob.core.windows.net/";
+    const createBlobStorage = () => new AzureBlobStorage(blobStorageUrl);
 
-    blobStorageTests(() => new AzureBlobStorage(blobStorageUrl));
+    blobStorageTests(createBlobStorage);
 
     describe("constructor()", function () {
       it("with empty storageAccountUrl", function () {
         const blobStorage = new AzureBlobStorage("");
-        assert.strictEqual(blobStorage.url, "");
+        assert.strictEqual(blobStorage.getURL(), "");
       });
 
       it("with valid storageAccountUrl", function () {
         const blobStorage = new AzureBlobStorage(blobStorageUrl);
-        assert.strictEqual(blobStorage.url, blobStorageUrl);
+        assert.strictEqual(blobStorage.getURL(), blobStorageUrl);
       });
+    });
+
+    it("getURL()", function () {
+      const blobStorage: BlobStorage = createBlobStorage();
+      assert.strictEqual(blobStorage.getURL(), blobStorageUrl);
+    });
+
+    it("getContainerURL()", function () {
+      const blobStorage: BlobStorage = createBlobStorage();
+      const url: URLBuilder = URLBuilder.parse(blobStorageUrl);
+      url.setPath("spam");
+      assert.strictEqual(blobStorage.getContainerURL("spam"), url.toString());
+    });
+
+    it("getBlobURL()", function () {
+      const blobStorage: BlobStorage = createBlobStorage();
+      const url: URLBuilder = URLBuilder.parse(blobStorageUrl);
+      url.setPath("spam/apples/tomatoes");
+      const actualBlobUrl: string = blobStorage.getBlobURL("spam/apples/tomatoes");
+      const expectedBlobUrl: string = url.toString();
+      assert.strictEqual(actualBlobUrl, expectedBlobUrl);
     });
   });
 
   describe("InMemoryBlobStorage", function () {
-    blobStorageTests(() => new InMemoryBlobStorage());
+    const createBlobStorage = () => new InMemoryBlobStorage();
+
+    blobStorageTests(createBlobStorage);
+
+    it("getURL()", function () {
+      const blobStorage: BlobStorage = createBlobStorage();
+      assert.strictEqual(blobStorage.getURL(), "https://fake.storage.com/");
+    });
+
+    it("getContainerURL()", function () {
+      const blobStorage: BlobStorage = createBlobStorage();
+      assert.strictEqual(blobStorage.getContainerURL("spam"), "https://fake.storage.com/spam");
+    });
+
+    it("getBlobURL()", function () {
+      const blobStorage: BlobStorage = createBlobStorage();
+      assert.strictEqual(blobStorage.getBlobURL("spam/apples/tomatoes"), "https://fake.storage.com/spam/apples/tomatoes");
+    });
   });
 });

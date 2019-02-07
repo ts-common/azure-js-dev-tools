@@ -1,8 +1,8 @@
-import { URLBuilder } from "@azure/ms-rest-js";
 import * as azure from "@azure/storage-blob";
 import * as fs from "fs";
 import { map } from "./arrays";
-import { readEntireString, StringMap } from "./common";
+import { readEntireString, StringMap, replaceAll } from "./common";
+import { URLBuilder } from "./url";
 
 /**
  * The type of anonymous access allowed for a container. "blob" means that individual blobs are
@@ -439,6 +439,11 @@ export abstract class BlobStorage {
   }
 
   /**
+   * Get the URL to this storage account.
+   */
+  public abstract getURL(): string;
+
+  /**
    * Get the URL to the provided container.
    * @param containerName The name of the container.
    */
@@ -587,8 +592,12 @@ export class InMemoryBlobStorage extends BlobStorage {
       });
   }
 
+  public getURL(): string {
+    return "https://fake.storage.com/";
+  }
+
   public getContainerURL(containerName: string): string {
-    return `https://fake.storage.com/${containerName}`;
+    return `${this.getURL()}${containerName}`;
   }
 
   public getBlobURL(blobPath: string | BlobPath): string {
@@ -753,7 +762,7 @@ export function getAzureContainerAccessPermissions(permissions?: ContainerAccess
  * A BlobStorage system that uses Azure Blob Storage to store data.
  */
 export class AzureBlobStorage extends BlobStorage {
-  public readonly url: string;
+  private readonly url: string;
   private readonly serviceUrl: azure.ServiceURL;
 
   constructor(storageAccountUrl: string | URLBuilder, credentials?: azure.Credential) {
@@ -779,12 +788,31 @@ export class AzureBlobStorage extends BlobStorage {
     return azure.BlockBlobURL.fromContainerURL(containerUrl, blobPath.blobName);
   }
 
+  public getURL(): string {
+    return this.url;
+  }
+
   public getContainerURL(containerName: string): string {
-    return this.getAzureContainerURL(containerName).url;
+    const containerUrl: azure.ContainerURL = this.getAzureContainerURL(containerName);
+    const url: URLBuilder = URLBuilder.parse(containerUrl.url);
+    const path: string | undefined = url.getPath();
+    if (path) {
+      url.setPath(replaceAll(path, "%2F", "/"));
+    }
+    return url.toString();
   }
 
   public getBlobURL(blobPath: string | BlobPath): string {
-    return this.getBlockBlobURL(blobPath).url;
+    const blobUrl: azure.BlockBlobURL = this.getBlockBlobURL(blobPath);
+    const url: URLBuilder = URLBuilder.parse(blobUrl.url);
+    console.log(`url: ${url}`);
+    const path: string | undefined = url.getPath();
+    console.log(`path: ${path}`);
+    if (path) {
+      url.setPath(replaceAll(path, "%2F", "/"));
+    }
+    console.log(`url: ${url}`);
+    return url.toString();
   }
 
   public blobExists(blobPath: string | BlobPath): Promise<boolean> {
@@ -822,7 +850,7 @@ export class AzureBlobStorage extends BlobStorage {
               blobContentType: options && options.contentType
             }
           })
-          .then(() => {});
+          .then(() => { });
       });
   }
 
