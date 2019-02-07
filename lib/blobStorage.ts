@@ -805,13 +805,10 @@ export class AzureBlobStorage extends BlobStorage {
   public getBlobURL(blobPath: string | BlobPath): string {
     const blobUrl: azure.BlockBlobURL = this.getBlockBlobURL(blobPath);
     const url: URLBuilder = URLBuilder.parse(blobUrl.url);
-    console.log(`url: ${url}`);
     const path: string | undefined = url.getPath();
-    console.log(`path: ${path}`);
     if (path) {
       url.setPath(replaceAll(path, "%2F", "/"));
     }
-    console.log(`url: ${url}`);
     return url.toString();
   }
 
