@@ -18,7 +18,7 @@ export class URLQuery {
    * empty, then this will attempt to remove an existing query parameter with the provided
    * parameterName.
    */
-  public set(parameterName: string, parameterValue: any): void {
+  public set(parameterName: string, parameterValue: any): URLQuery {
     if (parameterName) {
       if (parameterValue != undefined) {
         const newValue = Array.isArray(parameterValue) ? parameterValue : parameterValue.toString();
@@ -27,6 +27,7 @@ export class URLQuery {
         delete this._rawQuery[parameterName];
       }
     }
+    return this;
   }
 
   /**
@@ -149,12 +150,13 @@ export class URLBuilder {
    * Set the scheme/protocol for this URL. If the provided scheme contains other parts of a URL
    * (such as a host, port, path, or query), those parts will be added to this URL as well.
    */
-  public setScheme(scheme: string | undefined): void {
+  public setScheme(scheme: string | undefined): URLBuilder {
     if (!scheme) {
       this._scheme = undefined;
     } else {
       this.set(scheme, "SCHEME");
     }
+    return this;
   }
 
   /**
@@ -168,12 +170,13 @@ export class URLBuilder {
    * Set the host for this URL. If the provided host contains other parts of a URL (such as a
    * port, path, or query), those parts will be added to this URL as well.
    */
-  public setHost(host: string | undefined): void {
+  public setHost(host: string | undefined): URLBuilder {
     if (!host) {
       this._host = undefined;
     } else {
       this.set(host, "SCHEME_OR_HOST");
     }
+    return this;
   }
 
   /**
@@ -187,12 +190,13 @@ export class URLBuilder {
    * Set the port for this URL. If the provided port contains other parts of a URL (such as a
    * path or query), those parts will be added to this URL as well.
    */
-  public setPort(port: number | string | undefined): void {
+  public setPort(port: number | string | undefined): URLBuilder {
     if (port == undefined || port === "") {
       this._port = undefined;
     } else {
       this.set(port.toString(), "PORT");
     }
+    return this;
   }
 
   /**
@@ -206,7 +210,7 @@ export class URLBuilder {
    * Set the path for this URL. If the provided path contains a query, then it will be added to
    * this URL as well.
    */
-  public setPath(path: string | undefined): void {
+  public setPath(path: string | undefined): URLBuilder {
     if (!path) {
       this._path = undefined;
     } else {
@@ -216,13 +220,14 @@ export class URLBuilder {
         this.set(path, "PATH");
       }
     }
+    return this;
   }
 
   /**
    * Append the provided path to this URL's existing path. If the provided path contains a query,
    * then it will be added to this URL as well.
    */
-  public appendPath(path: string | undefined): void {
+  public appendPath(path: string | undefined): URLBuilder {
     if (path) {
       let currentPath: string | undefined = this.getPath();
       if (currentPath) {
@@ -238,6 +243,7 @@ export class URLBuilder {
       }
       this.set(path, "PATH");
     }
+    return this;
   }
 
   /**
@@ -250,12 +256,13 @@ export class URLBuilder {
   /**
    * Set the query in this URL.
    */
-  public setQuery(query: string | undefined): void {
+  public setQuery(query: string | undefined): URLBuilder {
     if (!query) {
       this._query = undefined;
     } else {
       this._query = URLQuery.parse(query);
     }
+    return this;
   }
 
   /**
@@ -263,13 +270,14 @@ export class URLBuilder {
    * query parameter value is undefined or empty, then the query parameter will be removed if it
    * existed.
    */
-  public setQueryParameter(queryParameterName: string, queryParameterValue: any): void {
+  public setQueryParameter(queryParameterName: string, queryParameterValue: any): URLBuilder {
     if (queryParameterName) {
       if (!this._query) {
         this._query = new URLQuery();
       }
       this._query.set(queryParameterName, queryParameterValue);
     }
+    return this;
   }
 
   /**
@@ -290,7 +298,7 @@ export class URLBuilder {
   /**
    * Set the parts of this URL by parsing the provided text using the provided startState.
    */
-  private set(text: string, startState: URLTokenizerState): void {
+  private set(text: string, startState: URLTokenizerState): URLBuilder {
     const tokenizer = new URLTokenizer(text, startState);
 
     while (tokenizer.next()) {
@@ -325,6 +333,7 @@ export class URLBuilder {
         }
       }
     }
+    return this;
   }
 
   public toString(): string {
