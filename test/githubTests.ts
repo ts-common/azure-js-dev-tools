@@ -1,6 +1,6 @@
 import { assert } from "chai";
 import { assertEx, findPackageJsonFileSync, getParentFolderPath, joinPath } from "../lib";
-import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubUser, RealGitHub, GitHubSprintLabel } from "../lib/github";
+import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub } from "../lib/github";
 
 describe("github.ts", async function () {
   describe("getGitHubRepository(string)", function () {
@@ -400,6 +400,135 @@ describe("github.ts", async function () {
           assert.strictEqual(pullRequest.state, "closed");
           assert.strictEqual(pullRequest.title, "Add GitHubPullRequest.diff_url property");
           assert.strictEqual(pullRequest.url, "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/60");
+        });
+      });
+
+      describe("getPullRequestComments()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.getPullRequestComments(undefined as any, 50));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.getPullRequestComments(null as any, 50));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.getPullRequestComments("", 50));
+        });
+
+        it("with repository that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.getPullRequestComments("ImARepositoryThatDoesntExist", 50));
+        });
+
+        it("with pull request number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.getPullRequestComments("ts-common/azure-js-dev-tools", 1325097123));
+        });
+
+        it("with pull request number that exists", async function () {
+          const comments: GitHubComment[] = await github.getPullRequestComments("ts-common/azure-js-dev-tools", 60);
+          assertEx.defined(comments, "comments");
+          assert.deepEqual(comments, []);
+        });
+      });
+
+      describe("createPullRequestComment()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.createPullRequestComment(undefined as any, 50, "Fake Comment Body"));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.createPullRequestComment(null as any, 50, "Fake Comment Body"));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.createPullRequestComment("", 50, "Fake Comment Body"));
+        });
+
+        it("with repository that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.createPullRequestComment("ImARepositoryThatDoesntExist", 50, "Fake Comment Body"));
+        });
+
+        it("with pull request number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.createPullRequestComment("ts-common/azure-js-dev-tools", 1325097123, "Fake Comment Body"));
+        });
+
+        it("with pull request number that exists", async function () {
+          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 60, "Fake Comment Body");
+          try {
+            assertEx.defined(createdComment, "createdComment");
+            assertEx.defined(createdComment.id, "createdComment.id");
+            assert.strictEqual(createdComment.body, "Fake Comment Body");
+          } finally {
+            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 60, createdComment);
+          }
+        });
+      });
+
+      describe("updatePullRequestComment()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.updatePullRequestComment(undefined as any, 50, 12, "Fake Comment Body"));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.updatePullRequestComment(null as any, 50, 12, "Fake Comment Body"));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.updatePullRequestComment("", 50, 12, "Fake Comment Body"));
+        });
+
+        it("with repository that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.updatePullRequestComment("ImARepositoryThatDoesntExist", 50, 12, "Fake Comment Body"));
+        });
+
+        it("with pull request number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.updatePullRequestComment("ts-common/azure-js-dev-tools", 1325097123, 198761876234, "Fake Comment Body"));
+        });
+
+        it("with comment number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.updatePullRequestComment("ts-common/azure-js-dev-tools", 60, 13925876, "New Fake Comment Body"));
+        });
+
+        it("with comment that exists", async function () {
+          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 60, "Fake Comment Body");
+          try {
+            const updatedComment: GitHubComment = await github.updatePullRequestComment("ts-common/azure-js-dev-tools", 60, createdComment, "New Fake Comment Body");
+            assertEx.defined(updatedComment, "createdComment");
+            assert.strictEqual(updatedComment.id, createdComment.id);
+            assert.strictEqual(updatedComment.body, "New Fake Comment Body");
+          } finally {
+            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 60, createdComment);
+          }
+        });
+      });
+
+      describe("deletePullRequestComment()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.deletePullRequestComment(undefined as any, 50, 12));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.deletePullRequestComment(null as any, 50, 12));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.deletePullRequestComment("", 50, 12));
+        });
+
+        it("with repository that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.deletePullRequestComment("ImARepositoryThatDoesntExist", 50, 12));
+        });
+
+        it("with pull request number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.deletePullRequestComment("ts-common/azure-js-dev-tools", 1325097123, 198761876234));
+        });
+
+        it("with comment number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.deletePullRequestComment("ts-common/azure-js-dev-tools", 60, 1392581235476));
         });
       });
     });
