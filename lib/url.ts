@@ -224,6 +224,13 @@ export class URLBuilder {
   }
 
   /**
+   * Remove the path from this URLBuilder.
+   */
+  public removePath(): URLBuilder {
+    return this.setPath(undefined);
+  }
+
+  /**
    * Append the provided path to this URL's existing path. If the provided path contains a query,
    * then it will be added to this URL as well.
    */
@@ -263,6 +270,13 @@ export class URLBuilder {
       this._query = URLQuery.parse(query);
     }
     return this;
+  }
+
+  /**
+   * Remove the query from this URLBuilder.
+   */
+  public removeQuery(): URLBuilder {
+    return this.setQuery(undefined);
   }
 
   /**
@@ -369,6 +383,22 @@ export class URLBuilder {
     const result = new URLBuilder();
     result.set(text, "SCHEME_OR_HOST");
     return result;
+  }
+
+  /**
+   * Remove the query from the provided URL.
+   * @param url The URL to remove the query from.
+   */
+  public static removeQuery(url: string): URLBuilder {
+    return URLBuilder.parse(url).removeQuery();
+  }
+
+  /**
+   * Remove the path from the provided URL.
+   * @param url The URL to remove the path from.
+   */
+  public static removePath(url: string): URLBuilder {
+    return URLBuilder.parse(url).removePath();
   }
 }
 

@@ -1,8 +1,25 @@
 import { assert } from "chai";
 import { getAzureDevOpsLogger, getCompositeLogger, getConsoleLogger, getInMemoryLogger, InMemoryLogger, Logger, prefix, wrapLogger, indent } from "../lib/logger";
+import { assertEx } from "../lib";
 
 describe("logger.ts", function () {
   describe("getCompositeLogger()", function () {
+    it("with no arguments", function () {
+      const logger: Logger = getCompositeLogger();
+      assertEx.defined(logger, "logger");
+    });
+
+    it("with no defined arguments", function () {
+      const logger: Logger = getCompositeLogger(undefined, undefined);
+      assertEx.defined(logger, "logger");
+    });
+
+    it("with one defined argument", function () {
+      const inMemoryLogger: InMemoryLogger = getInMemoryLogger();
+      const logger: Logger = getCompositeLogger(undefined, undefined, inMemoryLogger);
+      assert.strictEqual(logger, inMemoryLogger);
+    });
+
     it("logInfo()", async function () {
       const logger1: InMemoryLogger = getInMemoryLogger();
       const logger2: InMemoryLogger = getInMemoryLogger();

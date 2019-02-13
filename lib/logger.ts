@@ -8,31 +8,31 @@ export interface Logger {
    * Log the provided text as informational.
    * @param text The text to log.
    */
-  logInfo(text: string): Promise<void>;
+  logInfo(text: string): Promise<unknown>;
 
   /**
    * Log the provided text as an error.
    * @param text The text to log.
    */
-  logError(text: string): Promise<void>;
+  logError(text: string): Promise<unknown>;
 
   /**
    * Log the provided text as a warning.
    * @param text The text to log.
    */
-  logWarning(text: string): Promise<void>;
+  logWarning(text: string): Promise<unknown>;
 
   /**
    * Log the provided text as a section header.
    * @param text The text to log.
    */
-  logSection(text: string): Promise<void>;
+  logSection(text: string): Promise<unknown>;
 
   /**
    * Log the provided text as a verbose log.
    * @param text The text to log.
    */
-  logVerbose(text: string): Promise<void>;
+  logVerbose(text: string): Promise<unknown>;
 }
 
 /**
@@ -73,14 +73,21 @@ export function indent(toWrap: Logger, indentation?: string | number): Logger {
  * Get a logger that will log to each of the provided loggers when it is logged to.
  * @param loggers The loggers to log to.
  */
-export function getCompositeLogger(...loggers: Logger[]): Logger {
-  return {
-    logInfo: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logInfo(text))).then(() => {}),
-    logError: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logError(text))).then(() => {}),
-    logWarning: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logWarning(text))).then(() => {}),
-    logSection: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logSection(text))).then(() => {}),
-    logVerbose: (text: string) => Promise.all(loggers.map((logger: Logger) => logger.logVerbose(text))).then(() => {})
-  };
+export function getCompositeLogger(...loggers: (Logger | undefined)[]): Logger {
+  let result: Logger;
+  const definedLoggers: Logger[] = loggers.filter((logger: Logger | undefined) => !!logger) as Logger[];
+  if (definedLoggers.length === 1) {
+    result = definedLoggers[0];
+  } else {
+    result = {
+      logInfo: (text: string) => Promise.all(definedLoggers.map((logger: Logger) => logger.logInfo(text))),
+      logError: (text: string) => Promise.all(definedLoggers.map((logger: Logger) => logger.logError(text))),
+      logWarning: (text: string) => Promise.all(definedLoggers.map((logger: Logger) => logger.logWarning(text))),
+      logSection: (text: string) => Promise.all(definedLoggers.map((logger: Logger) => logger.logSection(text))),
+      logVerbose: (text: string) => Promise.all(definedLoggers.map((logger: Logger) => logger.logVerbose(text)))
+    };
+  }
+  return result;
 }
 
 /**
@@ -91,35 +98,35 @@ export interface LoggerOptions {
    * Log the provided text as informational.
    * @param text The text to log.
    */
-  logInfo?: boolean | ((text: string) => Promise<void>);
+  logInfo?: boolean | ((text: string) => Promise<unknown>);
 
   /**
    * Log the provided text as an error.
    * @param text The text to log.
    */
-  logError?: boolean | ((text: string) => Promise<void>);
+  logError?: boolean | ((text: string) => Promise<unknown>);
 
   /**
    * Log the provided text as a warning.
    * @param text The text to log.
    */
-  logWarning?: boolean | ((text: string) => Promise<void>);
+  logWarning?: boolean | ((text: string) => Promise<unknown>);
 
   /**
    * Log the provided text as a section header.
    * @param text The text to log.
    */
-  logSection?: boolean | ((text: string) => Promise<void>);
+  logSection?: boolean | ((text: string) => Promise<unknown>);
 
   /**
    * Log the provided text as a verbose log.
    * @param text The text to log.
    */
-  logVerbose?: boolean | ((text: string) => Promise<void>);
+  logVerbose?: boolean | ((text: string) => Promise<unknown>);
 }
 
-function getLogFunction(optionsFunction: undefined | boolean | ((text: string) => Promise<void>), normalFunction: (text: string) => Promise<void>, undefinedUsesNormalFunction = true): (text: string) => Promise<void> {
-  let result: ((text: string) => Promise<void>) = () => Promise.resolve();
+function getLogFunction(optionsFunction: undefined | boolean | ((text: string) => Promise<unknown>), normalFunction: (text: string) => Promise<unknown>, undefinedUsesNormalFunction = true): (text: string) => Promise<unknown> {
+  let result: ((text: string) => Promise<unknown>) = () => Promise.resolve();
   if (optionsFunction !== false) {
     if (typeof optionsFunction === "function") {
       result = optionsFunction;

@@ -2,7 +2,7 @@ import { assert } from "chai";
 import { assertEx, findPackageJsonFileSync, getParentFolderPath, joinPath } from "../lib";
 import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub } from "../lib/github";
 
-describe("github.ts", async function () {
+describe("github.ts", function () {
   describe("getGitHubRepository(string)", function () {
     it(`with null`, function () {
       // tslint:disable-next-line:no-null-keyword
@@ -533,19 +533,20 @@ describe("github.ts", async function () {
       });
     });
   }
-  githubTests("FakeGitHub", await createFakeGitHub());
+  githubTests("FakeGitHub", createFakeGitHub());
   githubTests("RealGitHub", createRealGitHub());
 });
 
-async function createFakeGitHub(): Promise<FakeGitHub> {
+function createFakeGitHub(): FakeGitHub {
   const fakeGitHub = new FakeGitHub();
 
-  const fakeUser: GitHubUser = await fakeGitHub.createUser("fakeUser");
-  fakeGitHub.setCurrentUser(fakeUser.login);
+  const fakeUserLogin = "fakeUser";
+  fakeGitHub.createUser(fakeUserLogin);
+  fakeGitHub.setCurrentUser(fakeUserLogin);
 
-  await fakeGitHub.createFakeRepository("ts-common/azure-js-dev-tools");
-  await fakeGitHub.createLabel("ts-common/azure-js-dev-tools", "Planned-Sprint-130", "fake label color");
-  await fakeGitHub.createPullRequest("ts-common/azure-js-dev-tools", createFakeGitHubPullRequest({
+  fakeGitHub.createFakeRepository("ts-common/azure-js-dev-tools");
+  fakeGitHub.createLabel("ts-common/azure-js-dev-tools", "Planned-Sprint-130", "fake label color");
+  fakeGitHub.createPullRequest("ts-common/azure-js-dev-tools", createFakeGitHubPullRequest({
     base: {
       label: "ts-common:master",
       ref: "master",
