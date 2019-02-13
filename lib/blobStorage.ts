@@ -108,8 +108,8 @@ export class BlobStorageContainer {
   /**
    * Get the URL for this container.
    */
-  public getURL(): string {
-    return this.storage.getContainerURL(this.name);
+  public getURL(options?: GetURLOptions): string {
+    return this.storage.getContainerURL(this.name, options);
   }
 
   /**
@@ -235,8 +235,8 @@ export class BlobStoragePrefix {
   /**
    * Get the URL for this prefix.
    */
-  public getURL(): string {
-    return this.storage.getBlobURL(this.path);
+  public getURL(options?: GetURLOptions): string {
+    return this.storage.getBlobURL(this.path, options);
   }
 
   /**
@@ -342,8 +342,8 @@ export class BlobStorageBlob {
   /**
    * Get the URL for this blob.
    */
-  public getURL(): string {
-    return this.storage.getBlobURL(this.path);
+  public getURL(options?: GetURLOptions): string {
+    return this.storage.getBlobURL(this.path, options);
   }
 
   /**
@@ -408,6 +408,13 @@ export class BlobStorageBlob {
   }
 }
 
+export interface GetURLOptions {
+  /**
+   * Whether or not to include the SAS token when getting the URL.
+   */
+  sasToken?: boolean;
+}
+
 /**
  * A class for interacting with a blob storage system.
  */
@@ -441,19 +448,19 @@ export abstract class BlobStorage {
   /**
    * Get the URL to this storage account.
    */
-  public abstract getURL(): string;
+  public abstract getURL(options?: GetURLOptions): string;
 
   /**
    * Get the URL to the provided container.
    * @param containerName The name of the container.
    */
-  public abstract getContainerURL(containerName: string): string;
+  public abstract getContainerURL(containerName: string, options?: GetURLOptions): string;
 
   /**
    * Get the URL to the provided blob.
    * @param blobPath The path to the blob.
    */
-  public abstract getBlobURL(blobPath: string | BlobPath): string;
+  public abstract getBlobURL(blobPath: string | BlobPath, options?: GetURLOptions): string;
 
   /**
    * Create a blob at the provided blobPath. This method will return false when the blob already
@@ -788,26 +795,36 @@ export class AzureBlobStorage extends BlobStorage {
     return azure.BlockBlobURL.fromContainerURL(containerUrl, blobPath.blobName);
   }
 
-  public getURL(): string {
+  public getURL(options?: GetURLOptions): string {
+    let result: string = this.url;
+    if (options && !options.sasToken) {
+      result = URLBuilder.removeQuery(result).toString();
+    }
     return this.url;
   }
 
-  public getContainerURL(containerName: string): string {
+  public getContainerURL(containerName: string, options?: GetURLOptions): string {
     const containerUrl: azure.ContainerURL = this.getAzureContainerURL(containerName);
     const url: URLBuilder = URLBuilder.parse(containerUrl.url);
     const path: string | undefined = url.getPath();
     if (path) {
       url.setPath(replaceAll(path, "%2F", "/"));
     }
+    if (options && !options.sasToken) {
+      url.removeQuery();
+    }
     return url.toString();
   }
 
-  public getBlobURL(blobPath: string | BlobPath): string {
+  public getBlobURL(blobPath: string | BlobPath, options?: GetURLOptions): string {
     const blobUrl: azure.BlockBlobURL = this.getBlockBlobURL(blobPath);
     const url: URLBuilder = URLBuilder.parse(blobUrl.url);
     const path: string | undefined = url.getPath();
     if (path) {
       url.setPath(replaceAll(path, "%2F", "/"));
+    }
+    if (options && !options.sasToken) {
+      url.removeQuery();
     }
     return url.toString();
   }
