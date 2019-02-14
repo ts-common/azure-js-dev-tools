@@ -21,8 +21,7 @@ export interface CheckPackageJsonVersionOptions {
  * @returns The exit code for this function. Zero will be returned if the package version doesn't
  * exist in NPM.
  */
-export async function checkPackageJsonVersion(options?: CheckPackageJsonVersionOptions): Promise<number> {
-  options = options || {};
+export async function checkPackageJsonVersion(options: CheckPackageJsonVersionOptions = {}): Promise<number> {
   const startPath: string = options.startPath || process.cwd();
   const logger: Logger = options.logger || getDefaultLogger();
 

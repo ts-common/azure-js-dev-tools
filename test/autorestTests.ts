@@ -5,6 +5,16 @@ import { autorest, autorestExecutable } from "../lib/autorest";
 describe("autorest.ts", function () {
   describe("autorestExecutable()", function () {
     it("with no arguments", function () {
+      const autorestCommand: string = autorestExecutable();
+      assertEx.startsWith(autorestCommand, "autorest");
+    });
+
+    it("with undefined", function () {
+      const autorestCommand: string = autorestExecutable(undefined);
+      assertEx.startsWith(autorestCommand, "autorest");
+    });
+
+    it("with empty object", function () {
       const autorestCommand: string = autorestExecutable({});
       assertEx.startsWith(autorestCommand, "autorest");
     });

@@ -125,7 +125,7 @@ export interface LoggerOptions {
   logVerbose?: boolean | ((text: string) => Promise<unknown>);
 }
 
-function getLogFunction(optionsFunction: undefined | boolean | ((text: string) => Promise<unknown>), normalFunction: (text: string) => Promise<unknown>, undefinedUsesNormalFunction = true): (text: string) => Promise<unknown> {
+export function getLogFunction(optionsFunction: undefined | boolean | ((text: string) => Promise<unknown>), normalFunction: (text: string) => Promise<unknown>, undefinedUsesNormalFunction = true): (text: string) => Promise<unknown> {
   let result: ((text: string) => Promise<unknown>) = () => Promise.resolve();
   if (optionsFunction !== false) {
     if (typeof optionsFunction === "function") {
@@ -144,7 +144,6 @@ function getLogFunction(optionsFunction: undefined | boolean | ((text: string) =
  * @returns The newly created Logger that wraps the provided Logger using the provided options.
  */
 export function wrapLogger(toWrap: Logger, options: LoggerOptions): Logger {
-  options = options || {};
   return {
     logInfo: getLogFunction(options.logInfo, toWrap.logInfo),
     logError: getLogFunction(options.logError, toWrap.logError),
@@ -157,8 +156,7 @@ export function wrapLogger(toWrap: Logger, options: LoggerOptions): Logger {
 /**
  * Get a Logger that will send its logs to the console.
  */
-export function getConsoleLogger(options?: LoggerOptions): Logger {
-  options = options || {};
+export function getConsoleLogger(options: LoggerOptions = {}): Logger {
   return wrapLogger(
     {
       logInfo: (text: string) => Promise.resolve(console.log(text)),
@@ -203,8 +201,7 @@ export interface InMemoryLogger extends Logger {
 /**
  * Get a Logger that will store its logs in memory.
  */
-export function getInMemoryLogger(options?: LoggerOptions): InMemoryLogger {
-  options = options || {};
+export function getInMemoryLogger(options: LoggerOptions = {}): InMemoryLogger {
   const allLogs: string[] = [];
   const infoLogs: string[] = [];
   const errorLogs: string[] = [];
@@ -253,8 +250,7 @@ export interface AzureDevOpsLoggerOptions extends LoggerOptions {
 /**
  * Get a Logger that will output prefixes for certain types of logs in the Azure DevOps environment.
  */
-export function getAzureDevOpsLogger(options?: AzureDevOpsLoggerOptions): Logger {
-  options = options || {};
+export function getAzureDevOpsLogger(options: AzureDevOpsLoggerOptions = {}): Logger {
   const innerLogger: Logger = options.toWrap || getConsoleLogger({
     ...options,
     logError: ("logError" in options ? options.logError : (text: string) => Promise.resolve(console.log(text))),
@@ -272,8 +268,7 @@ export function getAzureDevOpsLogger(options?: AzureDevOpsLoggerOptions): Logger
  * Get the default Logger based on the command line arguments.
  * @returns The default Logger based on the command line arguments.
  */
-export function getDefaultLogger(options?: LoggerOptions): Logger {
-  options = options || {};
+export function getDefaultLogger(options: LoggerOptions = {}): Logger {
   if (options.logVerbose == undefined) {
     options.logVerbose = getBooleanArgument("verbose");
   }
