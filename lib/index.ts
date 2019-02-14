@@ -15,6 +15,7 @@ export * from "./git";
 export * from "./github";
 export * from "./http";
 export * from "./logger";
+export * from "./mvn";
 export * from "./node";
 export * from "./npm";
 export * from "./packageJson";
