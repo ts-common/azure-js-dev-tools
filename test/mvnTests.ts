@@ -5,6 +5,16 @@ import { mvnExecutable } from "../lib/mvn";
 describe("mvn.ts", function () {
   describe("mvnExecutable()", function () {
     it("with no arguments", function () {
+      const mvnCommand: string = mvnExecutable();
+      assertEx.startsWith(mvnCommand, "mvn");
+    });
+
+    it("with undefined", function () {
+      const mvnCommand: string = mvnExecutable(undefined);
+      assertEx.startsWith(mvnCommand, "mvn");
+    });
+
+    it("with empty object", function () {
       const mvnCommand: string = mvnExecutable({});
       assertEx.startsWith(mvnCommand, "mvn");
     });

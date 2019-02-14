@@ -20,20 +20,19 @@ export interface Runner {
  * A command runner that runs commands using a spawned process.
  */
 export class RealRunner implements Runner {
-  run(command: string, args: string | string[] | undefined, options: RunOptions | undefined): Promise<RunResult> {
-    const runOptions: RunOptions = options || {};
+  run(command: string, args: string | string[] | undefined, options: RunOptions = {}): Promise<RunResult> {
     command = normalize(command, os.platform());
     const argsArray: string[] = getArgsArray(args);
 
     const childProcess: ChildProcess = spawn(command, argsArray, {
-      cwd: runOptions.executionFolderPath,
-      stdio: getChildProcessStdio(runOptions)
+      cwd: options.executionFolderPath,
+      stdio: getChildProcessStdio(options)
     });
 
     let childProcessOutput: string | undefined;
     let stdoutCaptured: Promise<void> = Promise.resolve();
-    if (runOptions.captureOutput !== false) {
-      let captureOutput = runOptions.captureOutput;
+    if (options.captureOutput !== false) {
+      let captureOutput = options.captureOutput;
       if (captureOutput === undefined || captureOutput === true) {
         childProcessOutput = "";
         captureOutput = (text: string) => childProcessOutput += text;
@@ -49,8 +48,8 @@ export class RealRunner implements Runner {
     let childProcessError: string | undefined;
     let stderrCaptured: Promise<void> = Promise.resolve();
     let captureErrorFunction: ((text: string) => void) | undefined;
-    if (runOptions.captureError !== false) {
-      let captureError = runOptions.captureError;
+    if (options.captureError !== false) {
+      let captureError = options.captureError;
       if (captureError === undefined || captureError === true) {
         childProcessError = "";
         captureError = (text: string) => childProcessError += text;
@@ -318,8 +317,7 @@ export function getChildProcessStdio(options: RunOptions): StdioOptions {
  * @param command The command to run.
  * @param args The arguments to provide to the command.
  */
-export async function run(command: string, args?: string | string[], options?: RunOptions): Promise<RunResult> {
-  options = options || {};
+export async function run(command: string, args?: string | string[], options: RunOptions = {}): Promise<RunResult> {
   const runner: Runner = options.runner || new RealRunner();
 
   await logCommand(command, args, options);

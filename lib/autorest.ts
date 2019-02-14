@@ -22,7 +22,7 @@ export interface AutoRestExecutableOptions {
  * Get the executable that will be used to run AutoRest.
  * @param options The options for specifying which executable to use.
  */
-export function autorestExecutable(options: AutoRestExecutableOptions): string {
+export function autorestExecutable(options: AutoRestExecutableOptions = {}): string {
   if (!options.osPlatform) {
     options.osPlatform = os.platform();
   }

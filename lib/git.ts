@@ -35,8 +35,7 @@ export interface GitFetchOptions extends RunOptions {
  * Download objects and refs from another repository.
  * @param options The options that can be passed to `git fetch`.
  */
-export function gitFetch(options?: GitFetchOptions): Promise<GitRunResult> {
-  options = options || {};
+export function gitFetch(options: GitFetchOptions = {}): Promise<GitRunResult> {
   let command = "fetch";
   if (options.prune) {
     command += " --prune";
@@ -91,8 +90,7 @@ export interface GitCloneOptions extends RunOptions {
  * @param gitUri The repository URI to clone.
  * @param options The options that can be passed to "git clone".
  */
-export function gitClone(gitUri: string, options?: GitCloneOptions): Promise<GitRunResult> {
-  options = options || {};
+export function gitClone(gitUri: string, options: GitCloneOptions = {}): Promise<GitRunResult> {
   let command = `clone`;
   if (options.quiet) {
     command += ` --quiet`;

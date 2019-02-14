@@ -19,7 +19,7 @@ export interface MvnExecutableOptions {
  * Get the executable that will be used to run mvn (Maven).
  * @param options The options for specifying which executable to use.
  */
-export function mvnExecutable(options: MvnExecutableOptions): string {
+export function mvnExecutable(options: MvnExecutableOptions = {}): string {
   if (!options.osPlatform) {
     options.osPlatform = os.platform();
   }

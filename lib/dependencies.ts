@@ -198,9 +198,7 @@ async function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependen
  * Change all of the cloned dependencies in the package found at the provided package path to the
  * provided dependency type.
  */
-export async function changeClonedDependenciesTo(packagePath: string, dependencyType: DepedencyType, options?: ChangeClonedDependenciesToOptions): Promise<number> {
-  options = options || {};
-
+export async function changeClonedDependenciesTo(packagePath: string, dependencyType: DepedencyType, options: ChangeClonedDependenciesToOptions = {}): Promise<number> {
   const logger: Logger = options.logger || getDefaultLogger();
 
   const recursive: boolean | undefined = getBooleanArgument("recursive", { defaultValue: true });

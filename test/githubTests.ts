@@ -597,8 +597,7 @@ interface GitHubPullRequestOptions {
   assignees?: GitHubUser[];
 }
 
-function createFakeGitHubPullRequest(options?: GitHubPullRequestOptions): GitHubPullRequest {
-  options = options || {};
+function createFakeGitHubPullRequest(options: GitHubPullRequestOptions = {}): GitHubPullRequest {
   const url: string = options.url != undefined ? options.url : "Fake URL";
   return {
     base: options.base || createFakeGitHubCommit("Base"),
@@ -626,8 +625,7 @@ interface GitHubLabelOptions {
   default?: boolean;
 }
 
-function createFakeGitHubLabel(options?: GitHubLabelOptions): GitHubLabel {
-  options = options || {};
+function createFakeGitHubLabel(options: GitHubLabelOptions = {}): GitHubLabel {
   return {
     name: options.name != undefined ? options.name : "Fake Label Name",
     color: options.color != undefined ? options.color : "Fake Label Color",
@@ -655,8 +653,7 @@ export interface GitHubUserOptions {
   site_admin?: boolean;
 }
 
-function createFakeGitHubUser(options?: GitHubUserOptions): GitHubUser {
-  options = options || {};
+function createFakeGitHubUser(options: GitHubUserOptions = {}): GitHubUser {
   return {
     id: options.id != undefined ? options.id : 0,
     login: options.login != undefined ? options.login : "Fake User Login",

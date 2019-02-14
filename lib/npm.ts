@@ -73,8 +73,7 @@ export interface NPMInstallOptions extends RunOptions {
  * @param options The optional arguments that can be added to the NPM command.
  * @returns The result of running the NPM command.
  */
-export function npmInstall(options?: NPMInstallOptions): Promise<RunResult> {
-  options = options || {};
+export function npmInstall(options: NPMInstallOptions = {}): Promise<RunResult> {
   let command = "install";
   if (options.installSource) {
     command += ` ${options.installSource}`;

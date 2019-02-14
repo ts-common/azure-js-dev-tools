@@ -304,8 +304,7 @@ export interface NodeHttpClientOptions {
 export class NodeHttpClient implements HttpClient {
   private readonly handleRedirects: boolean;
 
-  constructor(options?: NodeHttpClientOptions) {
-    options = options || {};
+  constructor(options: NodeHttpClientOptions = {}) {
     this.handleRedirects = options.handleRedirects == undefined ? true : options.handleRedirects;
   }
 

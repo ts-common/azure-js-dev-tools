@@ -6,9 +6,7 @@ export interface GetArgumentOptions {
   defaultValue?: string;
 }
 
-export function getArgument(argumentName: string, options?: GetArgumentOptions): string | undefined {
-  options = options || {};
-
+export function getArgument(argumentName: string, options: GetArgumentOptions = {}): string | undefined {
   let result: string | undefined;
 
   let rawArgument: unknown = yargs.argv[argumentName];
@@ -39,9 +37,7 @@ export interface GetBooleanArgumentOptions {
   defaultValue?: boolean;
 }
 
-export function getBooleanArgument(argumentName: string, options?: GetBooleanArgumentOptions): boolean | undefined {
-  options = options || {};
-
+export function getBooleanArgument(argumentName: string, options: GetBooleanArgumentOptions = {}): boolean | undefined {
   const rawArgument: string | undefined = getArgument(argumentName, {
     checkEnvironmentVariables: options.checkEnvironmentVariables,
     environmentVariableName: options.environmentVariableName

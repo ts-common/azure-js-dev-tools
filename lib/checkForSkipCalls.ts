@@ -30,8 +30,7 @@ export interface SkipLine {
  * @param logger The logger to use. If no logger is specified, then a console logger will be used.
  * @returns The number of source files found that contain only() function calls.
  */
-export function checkForSkipCalls(options?: CheckForSkipCallsOptions): number {
-  options = options || {};
+export function checkForSkipCalls(options: CheckForSkipCallsOptions = {}): number {
   const startPathArray: string[] = !options.startPaths ? [process.cwd()] : typeof options.startPaths === "string" ? [options.startPaths] : options.startPaths;
   const logger: Logger = options.logger || getDefaultLogger();
 
