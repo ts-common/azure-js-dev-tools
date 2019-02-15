@@ -26,7 +26,7 @@ export class RealRunner implements Runner {
 
     const childProcess: ChildProcess = spawn(command, argsArray, {
       cwd: options.executionFolderPath,
-      stdio: getChildProcessStdio(options)
+      stdio: getChildProcessStdio(options),
     });
 
     let childProcessOutput: string | undefined;
@@ -39,7 +39,12 @@ export class RealRunner implements Runner {
       }
       const captureFunction: ((text: string) => void) = captureOutput;
       stdoutCaptured = new Promise((resolve, reject) => {
-        childProcess.stdout.addListener("data", captureFunction);
+        childProcess.stdout.addListener("data", (chunk: any) => {
+          if (Buffer.isBuffer(chunk)) {
+            chunk = chunk.toString("utf8");
+          }
+          captureFunction(chunk.toString());
+        });
         childProcess.stdout.addListener("error", reject);
         childProcess.stdout.addListener("end", resolve);
       });
@@ -58,7 +63,12 @@ export class RealRunner implements Runner {
       }
       const captureFunction: ((text: string) => void) = captureError;
       stderrCaptured = new Promise((resolve, reject) => {
-        childProcess.stderr.addListener("data", captureFunction);
+        childProcess.stdout.addListener("data", (chunk: any) => {
+          if (Buffer.isBuffer(chunk)) {
+            chunk = chunk.toString("utf8");
+          }
+          captureFunction(chunk.toString());
+        });
         childProcess.stderr.addListener("error", reject);
         childProcess.stderr.addListener("end", resolve);
       });
