@@ -16,6 +16,13 @@ export interface Runner {
   run(command: string, args: string | string[] | undefined, options: RunOptions | undefined): Promise<RunResult>;
 }
 
+export function chunkToString(chunk: any): string {
+  if (Buffer.isBuffer(chunk)) {
+    chunk = chunk.toString("utf8");
+  }
+  return chunk;
+}
+
 /**
  * A command runner that runs commands using a spawned process.
  */
@@ -32,18 +39,16 @@ export class RealRunner implements Runner {
     let childProcessOutput: string | undefined;
     let stdoutCaptured: Promise<void> = Promise.resolve();
     if (options.captureOutput !== false) {
-      let captureOutput = options.captureOutput;
-      if (captureOutput === undefined || captureOutput === true) {
+      let captureOutputFunction: ((text: string) => void);
+      if (options.captureOutput === undefined || options.captureOutput === true) {
         childProcessOutput = "";
-        captureOutput = (text: string) => childProcessOutput += text;
+        captureOutputFunction = (text: string) => childProcessOutput += text;
+      } else {
+        captureOutputFunction = options.captureOutput;
       }
-      const captureFunction: ((text: string) => void) = captureOutput;
       stdoutCaptured = new Promise((resolve, reject) => {
         childProcess.stdout.addListener("data", (chunk: any) => {
-          if (Buffer.isBuffer(chunk)) {
-            chunk = chunk.toString("utf8");
-          }
-          captureFunction(chunk.toString());
+          captureOutputFunction(chunkToString(chunk));
         });
         childProcess.stdout.addListener("error", reject);
         childProcess.stdout.addListener("end", resolve);
@@ -52,22 +57,17 @@ export class RealRunner implements Runner {
 
     let childProcessError: string | undefined;
     let stderrCaptured: Promise<void> = Promise.resolve();
-    let captureErrorFunction: ((text: string) => void) | undefined;
+    let captureErrorFunction: ((text: string) => void);
     if (options.captureError !== false) {
-      let captureError = options.captureError;
-      if (captureError === undefined || captureError === true) {
+      if (options.captureError === undefined || options.captureError === true) {
         childProcessError = "";
-        captureError = (text: string) => childProcessError += text;
+        captureErrorFunction = (text: string) => childProcessError += text;
       } else {
-        captureErrorFunction = captureError;
+        captureErrorFunction = options.captureError;
       }
-      const captureFunction: ((text: string) => void) = captureError;
       stderrCaptured = new Promise((resolve, reject) => {
-        childProcess.stdout.addListener("data", (chunk: any) => {
-          if (Buffer.isBuffer(chunk)) {
-            chunk = chunk.toString("utf8");
-          }
-          captureFunction(chunk.toString());
+        childProcess.stderr.addListener("data", (chunk: any) => {
+          captureErrorFunction(chunkToString(chunk));
         });
         childProcess.stderr.addListener("error", reject);
         childProcess.stderr.addListener("end", resolve);
@@ -94,7 +94,7 @@ export class RealRunner implements Runner {
       })
       .catch((error: Error) => {
         if (captureErrorFunction) {
-          captureErrorFunction(JSON.stringify(error, undefined, 2));
+          captureErrorFunction(error.toString());
         }
         return {
           error
