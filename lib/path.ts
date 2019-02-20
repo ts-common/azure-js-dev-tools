@@ -68,6 +68,15 @@ export function isRooted(pathString: string): boolean {
  * @returns The name/last segment of the provided path string.
  */
 export function getName(pathString: string): string {
+  return getPathName(pathString);
+}
+
+/**
+ * Get the name/last segment of the provided path string.
+ * @param pathString The path to get the name/last segment of.
+ * @returns The name/last segment of the provided path string.
+ */
+export function getPathName(pathString: string): string {
   return path.basename(pathString);
 }
 

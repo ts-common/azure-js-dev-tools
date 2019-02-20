@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import { getRootPath, isRooted, joinPath, normalize, resolvePath } from "../lib/path";
+import { getRootPath, isRooted, joinPath, normalize, resolvePath, getName, getPathName } from "../lib/path";
 
 describe("path.ts", function () {
   describe("joinPath(...string[])", function () {
@@ -171,6 +171,58 @@ describe("path.ts", function () {
 
     it(`with "/folder/a"`, function () {
       assert(isRooted("/folder/a"));
+    });
+  });
+
+  describe("getName()", function () {
+    it(`with "some/path.txt"`, function () {
+      assert.strictEqual(getName("some/path.txt"), "path.txt");
+    });
+
+    it(`with "path.txt"`, function () {
+      assert.strictEqual(getName("path.txt"), "path.txt");
+    });
+
+    it(`with "./path.txt"`, function () {
+      assert.strictEqual(getName("./path.txt"), "path.txt");
+    });
+
+    it(`with "/path.txt"`, function () {
+      assert.strictEqual(getName("/path.txt"), "path.txt");
+    });
+
+    it(`with "C:/path.txt"`, function () {
+      assert.strictEqual(getName("C:/path.txt"), "path.txt");
+    });
+
+    it(`with "C:\\path.txt"`, function () {
+      assert.strictEqual(getName("C:\\path.txt"), "path.txt");
+    });
+  });
+
+  describe("getPathName()", function () {
+    it(`with "some/path.txt"`, function () {
+      assert.strictEqual(getPathName("some/path.txt"), "path.txt");
+    });
+
+    it(`with "path.txt"`, function () {
+      assert.strictEqual(getPathName("path.txt"), "path.txt");
+    });
+
+    it(`with "./path.txt"`, function () {
+      assert.strictEqual(getPathName("./path.txt"), "path.txt");
+    });
+
+    it(`with "/path.txt"`, function () {
+      assert.strictEqual(getPathName("/path.txt"), "path.txt");
+    });
+
+    it(`with "C:/path.txt"`, function () {
+      assert.strictEqual(getPathName("C:/path.txt"), "path.txt");
+    });
+
+    it(`with "C:\\path.txt"`, function () {
+      assert.strictEqual(getPathName("C:\\path.txt"), "path.txt");
     });
   });
 });

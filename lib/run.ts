@@ -1,6 +1,5 @@
 import { ChildProcess, spawn, StdioOptions } from "child_process";
 import * as os from "os";
-import { toPromise } from "./common";
 import { normalize } from "./path";
 
 /**
@@ -327,7 +326,7 @@ export async function logCommand(command: string, args: string | string[] | unde
     if (options.executionFolderPath) {
       commandString = `${options.executionFolderPath}: ${commandString}`;
     }
-    await toPromise(options.log(commandString));
+    await Promise.resolve(options.log(commandString));
   }
 }
 
@@ -335,18 +334,18 @@ export async function logResult(result: RunResult, options: RunOptions | undefin
   if (options && options.log) {
     const showResult: (result: RunResult) => boolean = getShowResultFunction(options.showResult);
     if (showResult(result)) {
-      await toPromise(options.log(`Exit Code: ${result.exitCode}`));
+      await Promise.resolve(options.log(`Exit Code: ${result.exitCode}`));
       if (result.stdout && (options.captureOutput === true || options.captureOutput === undefined)) {
-        await toPromise(options.log(`Output:`));
-        await toPromise(options.log(result.stdout));
+        await Promise.resolve(options.log(`Output:`));
+        await Promise.resolve(options.log(result.stdout));
       }
       if (result.stderr && (options.captureError === true || options.captureError === undefined)) {
-        await toPromise(options.log(`Error:`));
-        await toPromise(options.log(result.stderr));
+        await Promise.resolve(options.log(`Error:`));
+        await Promise.resolve(options.log(result.stderr));
       }
       if (result.error && (options.captureError === true || options.captureError === undefined)) {
-        await toPromise(options.log(`Error:`));
-        await toPromise(options.log(JSON.stringify(result.error, undefined, 2)));
+        await Promise.resolve(options.log(`Error:`));
+        await Promise.resolve(options.log(JSON.stringify(result.error, undefined, 2)));
       }
     }
   }

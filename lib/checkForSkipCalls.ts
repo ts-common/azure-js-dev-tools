@@ -30,7 +30,7 @@ export interface SkipLine {
  * @param logger The logger to use. If no logger is specified, then a console logger will be used.
  * @returns The number of source files found that contain only() function calls.
  */
-export function checkForSkipCalls(options: CheckForSkipCallsOptions = {}): number {
+export async function checkForSkipCalls(options: CheckForSkipCallsOptions = {}): Promise<number> {
   const startPathArray: string[] = !options.startPaths ? [process.cwd()] : typeof options.startPaths === "string" ? [options.startPaths] : options.startPaths;
   const logger: Logger = options.logger || getDefaultLogger();
 
@@ -41,7 +41,7 @@ export function checkForSkipCalls(options: CheckForSkipCallsOptions = {}): numbe
 
   for (const startPath of startPathArray) {
     logger.logSection(`Looking for *.skip(...) function calls in files starting at "${startPath}"...`);
-    const sourceFilePaths: string[] | undefined = getChildFilePaths(startPath, {
+    const sourceFilePaths: string[] | undefined = await getChildFilePaths(startPath, {
       recursive: true,
       folderCondition: (folderPath: string) => getName(folderPath) !== "node_modules",
       fileCondition: (filePath: string) => filePath.endsWith(".ts") || filePath.endsWith(".js")
@@ -51,7 +51,7 @@ export function checkForSkipCalls(options: CheckForSkipCallsOptions = {}): numbe
       logger.logError(`  No source files (*.ts, *.js) found.`);
     } else {
       for (const sourceFilePath of sourceFilePaths) {
-        const sourceFileContents: string = readFileContents(sourceFilePath)!;
+        const sourceFileContents: string = (await readFileContents(sourceFilePath))!;
         const sourceFileLines: string[] = getLines(sourceFileContents);
         const skipLines: SkipLine[] = [];
         for (let i = 0; i < sourceFileLines.length; ++i) {

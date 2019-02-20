@@ -3,20 +3,20 @@ import { getParentFolderPath, findPackageJsonFileSync, findPackage, ClonedPackag
 
 describe("dependencies.ts", function () {
   describe("findPackage()", function () {
-    it(`with "@ts-common/azure-js-dev-tools" and this file path`, function () {
+    it(`with "@ts-common/azure-js-dev-tools" and this file path`, async function () {
       const expectedPackageFolderPath: ClonedPackage = { path: getParentFolderPath(findPackageJsonFileSync(__dirname)!) };
-      const actualPackageFolderPath: ClonedPackage = findPackage("@ts-common/azure-js-dev-tools", __filename)!;
+      const actualPackageFolderPath: ClonedPackage = (await findPackage("@ts-common/azure-js-dev-tools", __filename))!;
       assert.deepEqual(actualPackageFolderPath, expectedPackageFolderPath);
     });
 
-    it(`with "@ts-common/azure-js-dev-tools" and this folder path`, function () {
+    it(`with "@ts-common/azure-js-dev-tools" and this folder path`, async function () {
       const expectedPackageFolderPath: ClonedPackage = { path: getParentFolderPath(findPackageJsonFileSync(__dirname)!) };
-      const actualPackageFolderPath: ClonedPackage = findPackage("@ts-common/azure-js-dev-tools", __dirname)!;
+      const actualPackageFolderPath: ClonedPackage = (await findPackage("@ts-common/azure-js-dev-tools", __dirname))!;
       assert.deepEqual(actualPackageFolderPath, expectedPackageFolderPath);
     });
 
-    it(`with "@ts-common/azure-js-dev-tools" and non-existing folder path`, function () {
-      assert.strictEqual(findPackage("@ts-common/azure-js-dev-tools", joinPath(__dirname, "fake", "folder")), undefined);
+    it(`with "@ts-common/azure-js-dev-tools" and non-existing folder path`, async function () {
+      assert.strictEqual(await findPackage("@ts-common/azure-js-dev-tools", joinPath(__dirname, "fake", "folder")), undefined);
     });
   });
 });

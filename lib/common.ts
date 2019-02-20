@@ -82,12 +82,8 @@ export function readEntireString(readableStream?: NodeJS.ReadableStream): Promis
   });
 }
 
-export function toPromise<T>(value: T | Promise<T>): Promise<T> {
-  return Promise.resolve(value);
-}
-
-export function main(mainFunction: any | Promise<any> | (() => (any | Promise<any>))): Promise<any> {
-  return toPromise(typeof mainFunction === "function" ? mainFunction() : mainFunction);
+export function main(mainFunction: Promise<any> | (() => (any | Promise<any>))): Promise<any> {
+  return Promise.resolve(typeof mainFunction === "function" ? mainFunction() : mainFunction);
 }
 
 /**

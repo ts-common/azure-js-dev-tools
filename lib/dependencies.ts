@@ -1,8 +1,7 @@
-import { readFileSync, writeFileSync } from "fs";
 import { any, contains, first } from "./arrays";
 import { getBooleanArgument } from "./commandLine";
 import { StringMap } from "./common";
-import { fileExistsSync, folderExistsSync, getChildFolderPaths } from "./fileSystem2";
+import { fileExists, folderExists, getChildFolderPaths, readFileContents, writeFileContents } from "./fileSystem2";
 import { getDefaultLogger, Logger } from "./logger";
 import { npmInstall, npmView, NPMViewResult } from "./npm";
 import { findPackageJsonFileSync, PackageJson, PackageLockJson, readPackageJsonFileSync, readPackageLockJsonFileSync, removePackageLockJsonDependencies, writePackageJsonFileSync, writePackageLockJsonFileSync } from "./packageJson";
@@ -112,7 +111,7 @@ async function updateDependencies(clonedPackage: ClonedPackage, dependencies: St
 /**
  * Find the path to the folder that contains a package.json file with the provided package name.
  */
-export function findPackage(packageName: string, startPath: string, clonedPackages?: StringMap<ClonedPackage | undefined>, logger?: Logger): ClonedPackage | undefined {
+export async function findPackage(packageName: string, startPath: string, clonedPackages?: StringMap<ClonedPackage | undefined>, logger?: Logger): Promise<ClonedPackage | undefined> {
   let result: ClonedPackage | undefined;
   if (clonedPackages && packageName in clonedPackages) {
     result = clonedPackages[packageName];
@@ -128,9 +127,9 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
       }
     };
 
-    if (fileExistsSync(normalizedStartPath)) {
+    if (await fileExists(normalizedStartPath)) {
       foldersToVisit.push(getParentFolderPath(normalizedStartPath));
-    } else if (folderExistsSync(normalizedStartPath)) {
+    } else if (await folderExists(normalizedStartPath)) {
       foldersToVisit.push(normalizedStartPath);
     }
 
@@ -140,7 +139,7 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
 
       const packageJsonFilePath: string = joinPath(folderPath, "package.json");
       logger && logger.logVerbose(`Looking for package "${packageName}" at "${packageJsonFilePath}"...`);
-      if (fileExistsSync(packageJsonFilePath)) {
+      if (await fileExists(packageJsonFilePath)) {
         logger && logger.logVerbose(`"${packageJsonFilePath}" file exists. Comparing package names...`);
         const packageJson: PackageJson = readPackageJsonFileSync(packageJsonFilePath);
         if (packageJson.name) {
@@ -155,8 +154,9 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
         const parentFolderPath: string = getParentFolderPath(folderPath);
         if (parentFolderPath) {
           addFolderToVisit(parentFolderPath);
-          getChildFolderPaths(parentFolderPath)!
-            .forEach(addFolderToVisit);
+          for (const childFolderPath of (await getChildFolderPaths(parentFolderPath))!) {
+            addFolderToVisit(childFolderPath);
+          }
         }
       }
     }
@@ -171,7 +171,7 @@ export function findPackage(packageName: string, startPath: string, clonedPackag
 
 async function getDependencyTargetVersion(clonedPackage: ClonedPackage, dependencyName: string, dependencyType: DepedencyType, clonedPackages: StringMap<ClonedPackage | undefined>, logger?: Logger): Promise<string | undefined> {
   let result: string | undefined;
-  const dependencyClonedPackage: ClonedPackage | undefined = findPackage(dependencyName, clonedPackage.path, clonedPackages, logger);
+  const dependencyClonedPackage: ClonedPackage | undefined = await findPackage(dependencyName, clonedPackage.path, clonedPackages, logger);
   if (!dependencyClonedPackage) {
     logger && logger.logVerbose(`    No cloned package found named ${dependencyName}.`);
   } else {
@@ -280,7 +280,7 @@ export async function changeClonedDependenciesTo(packagePath: string, dependency
       writePackageJsonFileSync(packageJson, packageJsonFilePath);
 
       const packageLockJsonFilePath: string = joinPath(packageFolderPath, "package-lock.json");
-      if (fileExistsSync(packageLockJsonFilePath)) {
+      if (await fileExists(packageLockJsonFilePath)) {
         const packageLockJson: PackageLockJson = readPackageLockJsonFileSync(packageLockJsonFilePath);
         removePackageLockJsonDependencies(packageLockJson, ...dependenciesChanged, ...devDependenciesChanged);
         writePackageLockJsonFileSync(packageLockJson, packageLockJsonFilePath);
@@ -326,13 +326,13 @@ export async function changeClonedDependenciesTo(packagePath: string, dependency
 
   if (exitCode === 0 && options.extraFilesToUpdate) {
     for (const extraFileToUpdate of options.extraFilesToUpdate) {
-      if (!fileExistsSync(extraFileToUpdate)) {
+      if (!await fileExists(extraFileToUpdate)) {
         logger.logError(`The extra file to update "${extraFileToUpdate}" doesn't exist.`);
         exitCode = 2;
         break;
       } else {
         logger.logSection(`Updating extra file "${extraFileToUpdate}"...`);
-        const originalFileContents: string = readFileSync(extraFileToUpdate, { encoding: "utf8" });
+        const originalFileContents: string = (await readFileContents(extraFileToUpdate))!;
         let updatedFileContents: string = originalFileContents;
 
         for (const clonedPackageName of Object.keys(clonedPackages)) {
@@ -351,7 +351,7 @@ export async function changeClonedDependenciesTo(packagePath: string, dependency
           logger.logInfo(`  No changes made.`);
         } else {
           logger.logInfo(`  Writing changes back to file...`);
-          writeFileSync(extraFileToUpdate, updatedFileContents);
+          await writeFileContents(extraFileToUpdate, updatedFileContents);
         }
       }
     }
