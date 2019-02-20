@@ -1,6 +1,6 @@
 import { ChildProcess, spawn, StdioOptions } from "child_process";
 import * as os from "os";
-import { normalize } from "./path";
+import { normalizePath } from "./path";
 
 /**
  * An object that runs a provided command.
@@ -27,7 +27,7 @@ export function chunkToString(chunk: any): string {
  */
 export class RealRunner implements Runner {
   run(command: string, args: string | string[] | undefined, options: RunOptions = {}): Promise<RunResult> {
-    command = normalize(command, os.platform());
+    command = normalizePath(command, os.platform());
     const argsArray: string[] = getArgsArray(args);
 
     const childProcess: ChildProcess = spawn(command, argsArray, {

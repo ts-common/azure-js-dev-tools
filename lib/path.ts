@@ -6,7 +6,7 @@ import * as path from "path";
  * @returns The resolved path.
  */
 export function joinPath(...pathSegments: string[]): string {
-  return normalize(path.posix.join(...pathSegments));
+  return normalizePath(path.posix.join(...pathSegments));
 }
 
 /**
@@ -15,7 +15,15 @@ export function joinPath(...pathSegments: string[]): string {
  * @returns The resolved path.
  */
 export function resolvePath(...pathSegments: string[]): string {
-  return normalize(path.posix.resolve(...pathSegments));
+  return normalizePath(path.posix.resolve(...pathSegments));
+}
+
+/**
+ * Get the relative path from the provided basePath to the provided absolutePath. For example,
+ * pathRelativeTo("/my/path", "/") will return "my/path".
+ */
+export function pathRelativeTo(absolutePath: string, basePath: string): string {
+  return normalizePath(path.relative(basePath, absolutePath));
 }
 
 /**
@@ -25,7 +33,7 @@ export function resolvePath(...pathSegments: string[]): string {
  * @param pathString The path to normalize.
  * @returns The normalized path.
  */
-export function normalize(pathString: string, osPlatform?: string): string {
+export function normalizePath(pathString: string, osPlatform?: string): string {
   let result: string;
   if (!pathString) {
     result = pathString;
@@ -35,6 +43,15 @@ export function normalize(pathString: string, osPlatform?: string): string {
     result = pathString.replace(/\\/g, "/");
   }
   return result;
+}
+
+/**
+ * Return the provided path without its file extension.
+ * @param path The path.
+ */
+export function pathWithoutFileExtension(path: string): string {
+  const lastDot: number = path.lastIndexOf(".");
+  return lastDot === -1 ? path : path.substring(0, lastDot);
 }
 
 /**

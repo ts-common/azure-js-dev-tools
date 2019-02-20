@@ -4,6 +4,8 @@ import { AzureBlobStorage, BlobPath, BlobStorage, BlobStorageBlob, BlobStorageCo
 import { joinPath } from "../lib/path";
 import { URLBuilder } from "../lib/url";
 
+const realStorageUrl = "https://autosdkstorage.blob.core.windows.net/";
+
 describe("blobStorage.ts", function () {
   function blobStorageTests(createBlobStorage: () => BlobStorage): Mocha.Suite {
     return describe("BlobStorage", function () {
@@ -693,9 +695,8 @@ describe("blobStorage.ts", function () {
     });
   }
 
-  describe.skip("AzureBlobStorage", function () {
-    const blobStorageUrl = "https://autosdkstorage.blob.core.windows.net/";
-    const createBlobStorage = () => new AzureBlobStorage(blobStorageUrl);
+  (URLBuilder.parse(realStorageUrl).getQuery() ? describe : describe.skip)("AzureBlobStorage", function () {
+    const createBlobStorage = () => new AzureBlobStorage(realStorageUrl);
 
     blobStorageTests(createBlobStorage);
 
@@ -706,26 +707,26 @@ describe("blobStorage.ts", function () {
       });
 
       it("with valid storageAccountUrl", function () {
-        const blobStorage = new AzureBlobStorage(blobStorageUrl);
-        assert.strictEqual(blobStorage.getURL(), blobStorageUrl);
+        const blobStorage = new AzureBlobStorage(realStorageUrl);
+        assert.strictEqual(blobStorage.getURL(), realStorageUrl);
       });
     });
 
     it("getURL()", function () {
       const blobStorage: BlobStorage = createBlobStorage();
-      assert.strictEqual(blobStorage.getURL(), blobStorageUrl);
+      assert.strictEqual(blobStorage.getURL(), realStorageUrl);
     });
 
     it("getContainerURL()", function () {
       const blobStorage: BlobStorage = createBlobStorage();
-      const url: URLBuilder = URLBuilder.parse(blobStorageUrl);
+      const url: URLBuilder = URLBuilder.parse(realStorageUrl);
       url.setPath("spam");
       assert.strictEqual(blobStorage.getContainerURL("spam"), url.toString());
     });
 
     it("getBlobURL()", function () {
       const blobStorage: BlobStorage = createBlobStorage();
-      const url: URLBuilder = URLBuilder.parse(blobStorageUrl);
+      const url: URLBuilder = URLBuilder.parse(realStorageUrl);
       url.setPath("spam/apples/tomatoes");
       const actualBlobUrl: string = blobStorage.getBlobURL("spam/apples/tomatoes");
       const expectedBlobUrl: string = url.toString();

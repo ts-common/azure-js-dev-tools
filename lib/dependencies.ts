@@ -5,7 +5,7 @@ import { fileExists, folderExists, getChildFolderPaths, readFileContents, writeF
 import { getDefaultLogger, Logger } from "./logger";
 import { npmInstall, npmView, NPMViewResult } from "./npm";
 import { findPackageJsonFileSync, PackageJson, PackageLockJson, readPackageJsonFileSync, readPackageLockJsonFileSync, removePackageLockJsonDependencies, writePackageJsonFileSync, writePackageLockJsonFileSync } from "./packageJson";
-import { getParentFolderPath, joinPath, normalize } from "./path";
+import { getParentFolderPath, joinPath, normalizePath } from "./path";
 
 export type DepedencyType = "local" | "latest";
 
@@ -116,7 +116,7 @@ export async function findPackage(packageName: string, startPath: string, cloned
   if (clonedPackages && packageName in clonedPackages) {
     result = clonedPackages[packageName];
   } else {
-    const normalizedStartPath: string = normalize(startPath);
+    const normalizedStartPath: string = normalizePath(startPath);
 
     const visitedFolders: string[] = [];
     const foldersToVisit: string[] = [];

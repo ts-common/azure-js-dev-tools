@@ -7,6 +7,8 @@ checkEverything({
   },
   checkForSkipCallsOptions: {
     startPaths: testFolderPath,
-    skipIsWarning: true
+    allowedSkips: {
+      "blobStorageTests": "all"
+    }
   }
 });
