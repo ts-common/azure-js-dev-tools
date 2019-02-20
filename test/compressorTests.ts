@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import { deleteFile, joinPath, readFileContents, fileExistsSync } from "../lib";
+import { deleteFile, fileExists, joinPath, readFileContents } from "../lib";
 import { ArchiverCompressor, CompressionResult, FakeCompressor } from "../lib/compressor";
 
 describe("compressor.ts", function () {
@@ -13,7 +13,7 @@ describe("compressor.ts", function () {
         errors: [],
         warnings: []
       });
-      assert.strictEqual(readFileContents(zipFilePath), `folder: ${folderPath}`);
+      assert.strictEqual(await readFileContents(zipFilePath), `folder: ${folderPath}`);
     } finally {
       deleteFile(zipFilePath);
     }
@@ -29,7 +29,7 @@ describe("compressor.ts", function () {
         errors: [],
         warnings: []
       });
-      assert.strictEqual(fileExistsSync(zipFilePath), true);
+      assert.strictEqual(await fileExists(zipFilePath), true);
     } finally {
       deleteFile(zipFilePath);
     }

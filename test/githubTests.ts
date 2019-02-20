@@ -382,24 +382,24 @@ describe("github.ts", function () {
         });
 
         it("with pull request number that exists", async function () {
-          const pullRequest: GitHubPullRequest = await github.getPullRequest("ts-common/azure-js-dev-tools", 60);
+          const pullRequest: GitHubPullRequest = await github.getPullRequest("ts-common/azure-js-dev-tools", 113);
           assert(pullRequest);
           assert(pullRequest.base);
           assert.strictEqual(pullRequest.base.label, "ts-common:master");
           assert.strictEqual(pullRequest.base.ref, "master");
-          assert.strictEqual(pullRequest.base.sha, "7f562c0a9104d8463641da2db1cb0630d059fa34");
-          assert.strictEqual(pullRequest.diff_url, "https://github.com/ts-common/azure-js-dev-tools/pull/60.diff");
+          assert.strictEqual(pullRequest.base.sha, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
+          assert.strictEqual(pullRequest.diff_url, "https://github.com/ts-common/azure-js-dev-tools/pull/113.diff");
           assert(pullRequest.head);
-          assert.strictEqual(pullRequest.head.label, "ts-common:daschult/diffurl");
-          assert.strictEqual(pullRequest.head.ref, "daschult/diffurl");
-          assert.strictEqual(pullRequest.head.sha, "994dbf73048b85d55adba83fb21360b7cb1b7a94");
-          assert.strictEqual(pullRequest.html_url, "https://github.com/ts-common/azure-js-dev-tools/pull/60");
-          assert.strictEqual(pullRequest.id, 244965069);
-          assert.strictEqual(pullRequest.merge_commit_sha, "c4a1fde1575f1604a6a53651bdf3361c118bf560");
-          assert.strictEqual(pullRequest.number, 60);
+          assert.strictEqual(pullRequest.head.label, "ts-common:daschult/capturedLines");
+          assert.strictEqual(pullRequest.head.ref, "daschult/capturedLines");
+          assert.strictEqual(pullRequest.head.sha, "bc0488dbe9ba7b2dd32c094c826cf799c55ca67d");
+          assert.strictEqual(pullRequest.html_url, "https://github.com/ts-common/azure-js-dev-tools/pull/113");
+          assert.strictEqual(pullRequest.id, 253577251);
+          assert.strictEqual(pullRequest.merge_commit_sha, "17581a5c96422bf4feb5e67edf9920cd62671ccc");
+          assert.strictEqual(pullRequest.number, 113);
           assert.strictEqual(pullRequest.state, "closed");
-          assert.strictEqual(pullRequest.title, "Add GitHubPullRequest.diff_url property");
-          assert.strictEqual(pullRequest.url, "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/60");
+          assert.strictEqual(pullRequest.title, "Buffer external process output and error until newline character");
+          assert.strictEqual(pullRequest.url, "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/113");
         });
       });
 
@@ -426,7 +426,7 @@ describe("github.ts", function () {
         });
 
         it("with pull request number that exists", async function () {
-          const comments: GitHubComment[] = await github.getPullRequestComments("ts-common/azure-js-dev-tools", 60);
+          const comments: GitHubComment[] = await github.getPullRequestComments("ts-common/azure-js-dev-tools", 113);
           assertEx.defined(comments, "comments");
           assert.deepEqual(comments, []);
         });
@@ -455,13 +455,13 @@ describe("github.ts", function () {
         });
 
         it("with pull request number that exists", async function () {
-          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 60, "Fake Comment Body");
+          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 113, "Fake Comment Body");
           try {
             assertEx.defined(createdComment, "createdComment");
             assertEx.defined(createdComment.id, "createdComment.id");
             assert.strictEqual(createdComment.body, "Fake Comment Body");
           } finally {
-            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 60, createdComment);
+            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
           }
         });
       });
@@ -489,18 +489,18 @@ describe("github.ts", function () {
         });
 
         it("with comment number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.updatePullRequestComment("ts-common/azure-js-dev-tools", 60, 13925876, "New Fake Comment Body"));
+          await assertEx.throwsAsync(github.updatePullRequestComment("ts-common/azure-js-dev-tools", 113, 13925876, "New Fake Comment Body"));
         });
 
         it("with comment that exists", async function () {
-          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 60, "Fake Comment Body");
+          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 113, "Fake Comment Body");
           try {
-            const updatedComment: GitHubComment = await github.updatePullRequestComment("ts-common/azure-js-dev-tools", 60, createdComment, "New Fake Comment Body");
+            const updatedComment: GitHubComment = await github.updatePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment, "New Fake Comment Body");
             assertEx.defined(updatedComment, "createdComment");
             assert.strictEqual(updatedComment.id, createdComment.id);
             assert.strictEqual(updatedComment.body, "New Fake Comment Body");
           } finally {
-            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 60, createdComment);
+            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
           }
         });
       });
@@ -528,7 +528,7 @@ describe("github.ts", function () {
         });
 
         it("with comment number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.deletePullRequestComment("ts-common/azure-js-dev-tools", 60, 1392581235476));
+          await assertEx.throwsAsync(github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, 1392581235476));
         });
       });
     });
@@ -550,21 +550,21 @@ function createFakeGitHub(): FakeGitHub {
     base: {
       label: "ts-common:master",
       ref: "master",
-      sha: "7f562c0a9104d8463641da2db1cb0630d059fa34"
+      sha: "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"
     },
-    diff_url: "https://github.com/ts-common/azure-js-dev-tools/pull/60.diff",
+    diff_url: "https://github.com/ts-common/azure-js-dev-tools/pull/113.diff",
     head: {
-      label: "ts-common:daschult/diffurl",
-      ref: "daschult/diffurl",
-      sha: "994dbf73048b85d55adba83fb21360b7cb1b7a94"
+      label: "ts-common:daschult/capturedLines",
+      ref: "daschult/capturedLines",
+      sha: "bc0488dbe9ba7b2dd32c094c826cf799c55ca67d"
     },
-    html_url: "https://github.com/ts-common/azure-js-dev-tools/pull/60",
-    id: 244965069,
-    merge_commit_sha: "c4a1fde1575f1604a6a53651bdf3361c118bf560",
-    number: 60,
+    html_url: "https://github.com/ts-common/azure-js-dev-tools/pull/113",
+    id: 253577251,
+    merge_commit_sha: "17581a5c96422bf4feb5e67edf9920cd62671ccc",
+    number: 113,
     state: "closed",
-    title: "Add GitHubPullRequest.diff_url property",
-    url: "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/60"
+    title: "Buffer external process output and error until newline character",
+    url: "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/113"
   }));
 
   return fakeGitHub;

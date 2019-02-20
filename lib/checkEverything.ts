@@ -2,7 +2,6 @@ import { checkForOnlyCalls, CheckForOnlyCallsOptions } from "./checkForOnlyCalls
 import { checkForSkipCalls, CheckForSkipCallsOptions } from "./checkForSkipCalls";
 import { checkPackageJsonVersion, CheckPackageJsonVersionOptions } from "./checkPackageJsonVersion";
 import { getDefaultLogger, Logger } from "./logger";
-import { toPromise } from "./common";
 
 /**
  * An additional check that can be run.
@@ -54,7 +53,7 @@ export async function checkEverything(checkEverythingOptions?: CheckEverythingOp
 
   const runCheck = async (checkName: string, check: () => number | Promise<number>) => {
     logger.logSection(`Starting check "${checkName}"...`);
-    if (0 !== await toPromise(check())) {
+    if (0 !== await Promise.resolve(check())) {
       ++exitCode;
     }
     logger.logInfo("Done.");
