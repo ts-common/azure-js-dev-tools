@@ -94,7 +94,8 @@ export function getName(pathString: string): string {
  * @returns The name/last segment of the provided path string.
  */
 export function getPathName(pathString: string): string {
-  return path.basename(pathString);
+  const lastSlashIndex: number = Math.max(pathString.lastIndexOf("/"), pathString.lastIndexOf("\\"));
+  return lastSlashIndex === -1 ? pathString : pathString.substring(lastSlashIndex + 1);
 }
 
 /**
