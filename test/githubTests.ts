@@ -381,7 +381,7 @@ describe("github.ts", function () {
           await assertEx.throwsAsync(github.getPullRequest("ts-common/azure-js-dev-tools", 1325097123));
         });
 
-        it.only("with pull request number that exists", async function () {
+        it("with pull request number that exists", async function () {
           const pullRequest: GitHubPullRequest = await github.getPullRequest("ts-common/azure-js-dev-tools", 113);
           assert(pullRequest);
           assert(pullRequest.base);
