@@ -1,17 +1,29 @@
 import * as fs from "fs";
 import { getParentFolderPath, getPathName, joinPath } from "./path";
 
+async function _entryExists(entryPath: string, condition?: (stats: fs.Stats) => (boolean | Promise<boolean>)): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    fs.lstat(entryPath, (error: NodeJS.ErrnoException, stats: fs.Stats) => {
+      if (error) {
+        if (error.code === "ENOENT") {
+          resolve(false);
+        } else {
+          reject(error);
+        }
+      } else {
+        resolve(!condition || condition(stats));
+      }
+    });
+  });
+}
+
 /**
  * Get whether or not a file entry (file or folder) exists at the provided entryPath.
  * @param entryPath The path to the file entry to check.
  * @returns Whether or not a file entry (file or folder) exists at the provided entryPath.
  */
 export function entryExists(entryPath: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    fs.exists(entryPath, (exists: boolean) => {
-      resolve(exists);
-    });
-  });
+  return _entryExists(entryPath);
 }
 
 /**
@@ -20,24 +32,7 @@ export function entryExists(entryPath: string): Promise<boolean> {
  * @returns Whether or not a symbolic link exists at the provided path.
  */
 export function symbolicLinkExists(symbolicLinkPath: string): Promise<boolean> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const entryExistsResult: boolean = await entryExists(symbolicLinkPath);
-      if (!entryExistsResult) {
-        resolve(false);
-      } else {
-        fs.lstat(symbolicLinkPath, (error: NodeJS.ErrnoException, stats: fs.Stats) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(stats.isSymbolicLink());
-          }
-        });
-      }
-    } catch (error) {
-      reject(error);
-    }
-  });
+  return _entryExists(symbolicLinkPath, (stats: fs.Stats) => stats.isSymbolicLink());
 }
 
 
@@ -47,24 +42,7 @@ export function symbolicLinkExists(symbolicLinkPath: string): Promise<boolean> {
  * @returns Whether or not a file exists at the provided filePath.
  */
 export function fileExists(filePath: string): Promise<boolean> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const entryExistsResult: boolean = await entryExists(filePath);
-      if (!entryExistsResult) {
-        resolve(false);
-      } else {
-        fs.lstat(filePath, (error: NodeJS.ErrnoException, stats: fs.Stats) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(stats.isFile());
-          }
-        });
-      }
-    } catch (error) {
-      reject(error);
-    }
-  });
+  return _entryExists(filePath, (stats: fs.Stats) => stats.isFile());
 }
 
 /**
@@ -73,23 +51,22 @@ export function fileExists(filePath: string): Promise<boolean> {
  * @returns Whether or not a folder exists at the provided folderPath.
  */
 export function folderExists(folderPath: string): Promise<boolean> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const entryExistsResult: boolean = await entryExists(folderPath);
-      if (!entryExistsResult) {
-        resolve(false);
+  return _entryExists(folderPath, (stats: fs.Stats) => stats.isDirectory());
+}
+
+export function _createFolder(folderPath: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    fs.mkdir(folderPath, (error: NodeJS.ErrnoException) => {
+      if (error) {
+        if (error.code === "EEXIST") {
+          resolve(false);
+        } else {
+          reject(error);
+        }
       } else {
-        fs.lstat(folderPath, (error: NodeJS.ErrnoException, stats: fs.Stats) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(stats.isDirectory());
-          }
-        });
+        resolve(true);
       }
-    } catch (error) {
-      reject(error);
-    }
+    });
   });
 }
 
@@ -98,32 +75,27 @@ export function folderExists(folderPath: string): Promise<boolean> {
  * be returned. If the folder already exists, then false will be returned.
  * @param folderPath The path to create a folder at.
  */
-export function createFolder(folderPath: string): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    fs.mkdir(folderPath, (createFolderError1: Error) => {
-      if (!createFolderError1) {
-        resolve(true);
-      } else if (createFolderError1.message.indexOf("EEXIST: file already exists") !== -1) {
-        resolve(false);
-      } else {
-        createFolder(getParentFolderPath(folderPath))
-          .then(() => {
-            fs.mkdir(folderPath, (createFolderError2: Error) => {
-              if (!createFolderError2) {
-                resolve(true);
-              } else if (createFolderError2.message.indexOf("EEXIST: file already exists") !== -1) {
-                resolve(false);
-              } else {
-                reject(createFolderError2);
-              }
-            });
-          })
-          .catch((createParentFolderError: Error) => {
-            reject(createParentFolderError);
-          });
+export async function createFolder(folderPath: string): Promise<boolean> {
+  let result: boolean | Promise<boolean> | undefined;
+  try {
+    result = await _createFolder(folderPath);
+  } catch (createFolderError) {
+    if (createFolderError.code !== "ENOENT") {
+      result = Promise.reject(createFolderError);
+    } else {
+      try {
+        await createFolder(getParentFolderPath(folderPath));
+        try {
+          result = await _createFolder(folderPath);
+        } catch (createFolderError2) {
+          result = Promise.reject(createFolderError2);
+        }
+      } catch (createParentFolderError) {
+        result = Promise.reject(createFolderError);
       }
-    });
-  });
+    }
+  }
+  return result;
 }
 
 /**
@@ -132,13 +104,18 @@ export function createFolder(folderPath: string): Promise<boolean> {
  * @param destinationEntryPath The path to entry to copy to.
  */
 export async function copyEntry(sourceEntryPath: string, destinationEntryPath: string): Promise<void> {
+  let result: Promise<void>;
   if (await fileExists(sourceEntryPath)) {
-    await copyFile(sourceEntryPath, destinationEntryPath);
+    result = copyFile(sourceEntryPath, destinationEntryPath);
   } else if (await folderExists(sourceEntryPath)) {
-    await copyFolder(sourceEntryPath, destinationEntryPath);
+    result = copyFolder(sourceEntryPath, destinationEntryPath);
   } else {
-    throw new Error(`Entry not found: ${sourceEntryPath}`);
+    const error: NodeJS.ErrnoException = new Error(`ENOENT: no such file or directory: ${sourceEntryPath}`);
+    error.code = "ENOENT";
+    error.path = sourceEntryPath;
+    result = Promise.reject(error);
   }
+  return result;
 }
 
 /**
@@ -180,15 +157,21 @@ export async function copyFile(sourceFilePath: string, destinationFilePath: stri
  * folders will be created if they don't already exist.
  */
 export async function copyFolder(sourceFolderPath: string, destinationFolderPath: string): Promise<void> {
+  let result: Promise<void>;
   const childEntryPaths: string[] | undefined = await getChildEntryPaths(sourceFolderPath);
   if (!childEntryPaths) {
-    throw new Error(`Folder not found: ${sourceFolderPath}`);
+    const error: NodeJS.ErrnoException = new Error(`ENOENT: no such file or directory: ${sourceFolderPath}`);
+    error.code = "ENOENT";
+    error.path = sourceFolderPath;
+    result = Promise.reject(error);
   } else {
     for (const childEntryPath of childEntryPaths) {
       const childEntryName: string = getPathName(childEntryPath);
       await copyEntry(childEntryPath, joinPath(destinationFolderPath, childEntryName));
     }
+    result = Promise.resolve();
   }
+  return result;
 }
 
 
@@ -424,48 +407,52 @@ export async function deleteFiles(...filePaths: string[]): Promise<void> {
   }
 }
 
+function _deleteFolder(folderPath: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    fs.rmdir(folderPath, (error: NodeJS.ErrnoException) => {
+      if (error) {
+        if (error.code === "ENOENT") {
+          resolve(false);
+        } else {
+          reject(error);
+        }
+      } else {
+        resolve(true);
+      }
+    });
+  });
+}
+
 /**
  * Delete the folder at the provided folder path.
  * @param {string} folderPath The path to the folder to delete.
  */
 export async function deleteFolder(folderPath: string): Promise<boolean> {
-  return new Promise(async (resolve, reject) => {
-    let result: boolean | Error | undefined;
-    let attempt = 1;
-    const maxAttempts = 3;
-    while (attempt <= maxAttempts && result === undefined) {
-      try {
-        const childEntryPaths: string[] | undefined = await getChildEntryPaths(folderPath);
-        if (!childEntryPaths) {
-          result = false;
-          break;
-        } else {
-          for (const childEntryPath of childEntryPaths) {
-            await deleteEntry(childEntryPath);
-          }
-          fs.rmdir(folderPath, (error: NodeJS.ErrnoException) => {
-            if (error) {
-              if (error.code === "ENOENT") {
-                result = false;
-              } else if (attempt === maxAttempts) {
-                result = error;
-              }
-            } else {
-              result = true;
-            }
-          });
-        }
-      } catch (error) {
-        if (attempt === maxAttempts) {
-          result = error;
-        }
-      }
-      ++attempt;
-    }
-    if (typeof result === "boolean") {
-      resolve(result);
+  let result: boolean | Error;
+  try {
+    result = await _deleteFolder(folderPath);
+  } catch (deleteFolderError) {
+    if (deleteFolderError.code === "ENOENT") {
+      result = false;
+    } else if (deleteFolderError.code !== "ENOTEMPTY") {
+      result = deleteFolderError;
     } else {
-      reject(result);
+      try {
+        const childEntryPaths: string[] = (await getChildEntryPaths(folderPath))!;
+        for (const childEntryPath of childEntryPaths) {
+          await deleteEntry(childEntryPath);
+        }
+        try {
+          result = await _deleteFolder(folderPath);
+        } catch (deleteFolderError2) {
+          result = deleteFolderError2;
+        }
+      } catch (deleteChildEntryError) {
+        result = deleteChildEntryError;
+      }
     }
-  });
+  }
+  return typeof result === "boolean"
+    ? Promise.resolve(result)
+    : Promise.reject(result);
 }
