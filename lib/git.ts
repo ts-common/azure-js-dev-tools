@@ -151,8 +151,33 @@ export function gitPull(options?: RunOptions): Promise<GitRunResult> {
   return git(`pull`, options);
 }
 
-export function gitPush(options?: RunOptions): Promise<GitRunResult> {
-  return git(`push`, options);
+/**
+ * The options for determining how gitPush() will run.
+ */
+export interface GitPushOptions extends RunOptions {
+  /**
+   * The upstream repository to push to if the current branch doesn't already have an upstream
+   * branch.
+   */
+  setUpstream?: boolean | string;
+  /**
+   * The name of the branch to push.
+   */
+  branchName?: string;
+}
+
+/**
+ * Push the current branch to the remote tracked repository.
+ * @param options The options for determining how this command will run.
+ */
+export async function gitPush(options: GitPushOptions = {}): Promise<GitRunResult> {
+  let args = "push";
+  if (options.setUpstream) {
+    const upstream: string = typeof options.setUpstream === "string" ? options.setUpstream : "origin";
+    const branchName: string = options.branchName || await gitCurrentBranch();
+    args += ` --set-upstream ${upstream} ${branchName}`;
+  }
+  return await git(args, options);
 }
 
 export function gitAddAll(options?: RunOptions): Promise<GitRunResult> {
@@ -165,6 +190,35 @@ export function gitCommit(commitMessage: string, options?: RunOptions): Promise<
 
 export function gitDeleteLocalBranch(branchName: string, options?: RunOptions): Promise<GitRunResult> {
   return git(`branch -D ${branchName}`, options);
+}
+
+/**
+ * Create a new local branch with the provided name.
+ * @param branchName The name of the new branch.
+ * @param options The options for determining how this command will run.
+ */
+export function gitCreateLocalBranch(branchName: string, options?: RunOptions): Promise<GitRunResult> {
+  return git(`checkout -b ${branchName}`, options);
+}
+
+/**
+ * The options for determining how this command will run.
+ */
+export interface GitDeleteRemoteBranchOptions extends RunOptions {
+  /**
+   * The name of the tracked remote repository. Defaults to "origin".
+   */
+  remoteName?: string;
+}
+
+/**
+ * Remote the provided branch from the provided tracked remote repository.
+ * @param branchName The name of the remote branch to delete.
+ * @param remoteName The name of the tracked remote repository.
+ * @param options The options for determining how this command will run.
+ */
+export function gitDeleteRemoteBranch(branchName: string, options: GitDeleteRemoteBranchOptions = {}): Promise<GitRunResult> {
+  return git(`push ${options.remoteName || "origin"} :${branchName}`, options);
 }
 
 /**
@@ -195,6 +249,14 @@ export async function gitDiff(baseCommitSha: string, headCommitSha: string, opti
 export interface GitBranchResult extends GitRunResult {
   localBranches: string[];
   currentBranch: string;
+}
+
+/**
+ * Get the branch that the repository is currently on.
+ * @param options The options to run this command with.
+ */
+export async function gitCurrentBranch(options: RunOptions = {}): Promise<string> {
+  return (await gitBranch(options)).currentBranch;
 }
 
 const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.*)\)/;
@@ -381,8 +443,8 @@ export async function gitStatus(options?: RunOptions): Promise<GitStatusResult> 
 
         case "UntrackedFiles":
           if (!line.match(/\(use "git add <file>..." to include in what will be committed\)/i) &&
-              !line.match(/nothing added to commit but untracked files present \(use "git add" to track\)/i) &&
-              !line.match(/no changes added to commit \(use \"git add\" and\/or \"git commit -a\"\)/i)) {
+            !line.match(/nothing added to commit but untracked files present \(use "git add" to track\)/i) &&
+            !line.match(/no changes added to commit \(use \"git add\" and\/or \"git commit -a\"\)/i)) {
             const resolveUntrackedFilePath: string = joinPath(folderPath, line);
             untrackedFiles.push(resolveUntrackedFilePath);
           }
