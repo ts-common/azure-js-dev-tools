@@ -12,7 +12,7 @@ export interface GitRunResult extends RunResult {
   error?: Error;
 }
 
-export function git(args: string | string[], options?: RunOptions): Promise<GitRunResult> {
+export function git(args: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
   return run("git", args, options);
 }
 
@@ -43,7 +43,7 @@ export function gitFetch(options: GitFetchOptions = {}): Promise<GitRunResult> {
   return git(command, options);
 }
 
-export function gitMergeOriginMaster(options?: RunOptions): Promise<GitRunResult> {
+export function gitMergeOriginMaster(options: RunOptions = {}): Promise<GitRunResult> {
   return git("merge origin master", options);
 }
 
@@ -122,7 +122,7 @@ export interface GitCheckoutResult extends GitRunResult {
   filesThatWouldBeOverwritten?: string[];
 }
 
-export async function gitCheckout(refId: string, options?: RunOptions): Promise<GitCheckoutResult> {
+export async function gitCheckout(refId: string, options: RunOptions = {}): Promise<GitCheckoutResult> {
   const runResult: GitRunResult = await git(`checkout ${refId}`, options);
   let filesThatWouldBeOverwritten: string[] | undefined;
   if (runResult.stderr) {
@@ -147,7 +147,7 @@ export async function gitCheckout(refId: string, options?: RunOptions): Promise<
   };
 }
 
-export function gitPull(options?: RunOptions): Promise<GitRunResult> {
+export function gitPull(options: RunOptions = {}): Promise<GitRunResult> {
   return git(`pull`, options);
 }
 
@@ -180,15 +180,15 @@ export async function gitPush(options: GitPushOptions = {}): Promise<GitRunResul
   return await git(args, options);
 }
 
-export function gitAddAll(options?: RunOptions): Promise<GitRunResult> {
+export function gitAddAll(options: RunOptions = {}): Promise<GitRunResult> {
   return git("add *", options);
 }
 
-export function gitCommit(commitMessage: string, options?: RunOptions): Promise<GitRunResult> {
+export function gitCommit(commitMessage: string, options: RunOptions = {}): Promise<GitRunResult> {
   return git(["commit", "-m", commitMessage], options);
 }
 
-export function gitDeleteLocalBranch(branchName: string, options?: RunOptions): Promise<GitRunResult> {
+export function gitDeleteLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
   return git(`branch -D ${branchName}`, options);
 }
 
@@ -197,7 +197,7 @@ export function gitDeleteLocalBranch(branchName: string, options?: RunOptions): 
  * @param branchName The name of the new branch.
  * @param options The options for determining how this command will run.
  */
-export function gitCreateLocalBranch(branchName: string, options?: RunOptions): Promise<GitRunResult> {
+export function gitCreateLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
   return git(`checkout -b ${branchName}`, options);
 }
 
@@ -231,7 +231,7 @@ export interface GitDiffResult extends GitRunResult {
   filesChanged: string[];
 }
 
-export async function gitDiff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): Promise<GitDiffResult> {
+export async function gitDiff(baseCommitSha: string, headCommitSha: string, options: RunOptions = {}): Promise<GitDiffResult> {
   const commandResult: RunResult = await git(`diff --name-only ${baseCommitSha} ${headCommitSha}`, options);
   const filesChanged: string[] = [];
   const repositoryFolderPath: string | undefined = (options && options.executionFolderPath) || process.cwd();
@@ -260,7 +260,7 @@ export async function gitCurrentBranch(options: RunOptions = {}): Promise<string
 }
 
 const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.*)\)/;
-export async function gitBranch(options?: RunOptions): Promise<GitBranchResult> {
+export async function gitBranch(options: RunOptions = {}): Promise<GitBranchResult> {
   const commandResult: RunResult = await git("branch", options);
   let currentBranch = "";
   const localBranches: string[] = [];
@@ -342,7 +342,7 @@ const onBranchRegExp: RegExp = /On branch (.*)/i;
 /**
  * Run "git status".
  */
-export async function gitStatus(options?: RunOptions): Promise<GitStatusResult> {
+export async function gitStatus(options: RunOptions = {}): Promise<GitStatusResult> {
   const folderPath: string = (options && options.executionFolderPath) || process.cwd();
 
   let parseState: StatusParseState = "CurrentBranch";
@@ -482,84 +482,112 @@ export class GitScope {
   constructor(private options: RunOptions) {
   }
 
-  public run(args: string | string[], options?: RunOptions): Promise<GitRunResult> {
+  public run(args: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
     return git(args, {
       ...this.options,
       ...options,
     });
   }
 
-  public fetch(options?: RunOptions): Promise<GitRunResult> {
+  public fetch(options: RunOptions = {}): Promise<GitRunResult> {
     return gitFetch({
       ...this.options,
       ...options,
     });
   }
 
-  public mergeOriginMaster(options?: RunOptions): Promise<GitRunResult> {
+  public mergeOriginMaster(options: RunOptions = {}): Promise<GitRunResult> {
     return gitMergeOriginMaster({
       ...this.options,
       ...options
     });
   }
 
-  public checkout(refId: string, options?: RunOptions): Promise<GitCheckoutResult> {
+  public clone(gitUri: string, options: GitCloneOptions = {}): Promise<GitRunResult> {
+    return gitClone(gitUri, {
+      ...this.options,
+      ...options
+    });
+  }
+
+  public checkout(refId: string, options: RunOptions = {}): Promise<GitCheckoutResult> {
     return gitCheckout(refId, {
       ...this.options,
       ...options
     });
   }
 
-  public pull(options?: RunOptions): Promise<GitRunResult> {
+  public pull(options: RunOptions = {}): Promise<GitRunResult> {
     return gitPull({
       ...this.options,
       ...options
     });
   }
 
-  public push(options?: RunOptions): Promise<GitRunResult> {
+  public push(options: RunOptions = {}): Promise<GitRunResult> {
     return gitPush({
       ...this.options,
       ...options
     });
   }
 
-  public addAll(options?: RunOptions): Promise<GitRunResult> {
+  public addAll(options: RunOptions = {}): Promise<GitRunResult> {
     return gitAddAll({
       ...this.options,
       ...options
     });
   }
 
-  public commit(commitMessage: string, options?: RunOptions): Promise<GitRunResult> {
+  public commit(commitMessage: string, options: RunOptions = {}): Promise<GitRunResult> {
     return gitCommit(commitMessage, {
       ...this.options,
       ...options
     });
   }
 
-  public deleteLocalBranch(branchName: string, options?: RunOptions): Promise<GitRunResult> {
+  public deleteLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
     return gitDeleteLocalBranch(branchName, {
       ...this.options,
       ...options
     });
   }
 
-  public diff(baseCommitSha: string, headCommitSha: string, options?: RunOptions): Promise<GitDiffResult> {
+  public createLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
+    return gitCreateLocalBranch(branchName, {
+      ...this.options,
+      ...options
+    });
+  }
+
+  public deleteRemoteBranch(branchName: string, options: GitDeleteRemoteBranchOptions = {}): Promise<GitRunResult> {
+    return gitDeleteRemoteBranch(branchName, {
+      ...this.options,
+      ...options
+    });
+  }
+
+  public diff(baseCommitSha: string, headCommitSha: string, options: RunOptions = {}): Promise<GitDiffResult> {
     return gitDiff(baseCommitSha, headCommitSha, {
       ...this.options,
       ...options,
     });
   }
 
-  public branch(options?: RunOptions): Promise<GitBranchResult> {
+  public branch(options: RunOptions = {}): Promise<GitBranchResult> {
     return gitBranch({
       ...this.options,
       ...options,
     });
   }
 
-  public status(options?: RunOptions): Promise<GitStatusResult> {
+  public currentBranch(options: RunOptions = {}): Promise<string> {
+    return gitCurrentBranch({
+      ...this.options,
+      ...options
+    });
+  }
+
+  public status(options: RunOptions = {}): Promise<GitStatusResult> {
     return gitStatus({
       ...this.options,
       ...options,
