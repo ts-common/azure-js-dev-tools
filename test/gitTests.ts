@@ -273,8 +273,6 @@ describe("git.ts", function () {
         const pushResult: GitRunResult = await gitPush({ setUpstream: true });
         assertEx.defined(pushResult, "pushResult");
         assertEx.defined(pushResult.processId, "pushResult.processId");
-        assert.strictEqual(pushResult.exitCode, 0);
-        assert.strictEqual(pushResult.stdout, "Branch 'myFakeBranch' set up to track remote branch 'myFakeBranch' from 'origin'.\n");
         assertEx.containsAll(pushResult.stderr, [
           `remote: `,
           `remote: Create a pull request for 'myFakeBranch' on GitHub by visiting:        `,
@@ -282,6 +280,8 @@ describe("git.ts", function () {
           `To https://github.com/ts-common/azure-js-dev-tools.git`,
           ` * [new branch]      myFakeBranch -> myFakeBranch`
         ]);
+        assert.strictEqual(pushResult.stdout, "Branch 'myFakeBranch' set up to track remote branch 'myFakeBranch' from 'origin'.\n");
+        assert.strictEqual(pushResult.exitCode, 0);
         assert.strictEqual(pushResult.error, undefined);
       } finally {
         await gitCheckout(currentBranch);
@@ -315,13 +315,19 @@ describe("git.ts", function () {
 
     it("when deleting current branch", async function () {
       const currentBranchName: string = await gitCurrentBranch();
-      const deleteBranchResult: GitRunResult = await gitDeleteLocalBranch(currentBranchName);
-      assertEx.defined(deleteBranchResult, "deleteBranchResult");
-      assertEx.defined(deleteBranchResult.processId, "deleteBranchResult.processId");
-      assert.strictEqual(deleteBranchResult.error, undefined);
-      assertEx.defined(deleteBranchResult.stdout, "deleteBranchResult.stdout");
-      assertEx.contains(deleteBranchResult.stderr, `Cannot delete branch '${currentBranchName}' checked out at `);
-      assert.strictEqual(await gitCurrentBranch(), currentBranchName);
+      await gitCreateLocalBranch("myFakeBranch");
+      try {
+        const deleteBranchResult: GitRunResult = await gitDeleteLocalBranch("myFakeBranch");
+        assertEx.defined(deleteBranchResult, "deleteBranchResult");
+        assertEx.defined(deleteBranchResult.processId, "deleteBranchResult.processId");
+        assert.strictEqual(deleteBranchResult.error, undefined);
+        assertEx.defined(deleteBranchResult.stdout, "deleteBranchResult.stdout");
+        assertEx.contains(deleteBranchResult.stderr, `Cannot delete branch 'myFakeBranch' checked out at `);
+        assert.strictEqual(await gitCurrentBranch(), "myFakeBranch");
+      } finally {
+        await gitCheckout(currentBranchName);
+        await gitDeleteLocalBranch("myFakeBranch");
+      }
     });
   });
 
