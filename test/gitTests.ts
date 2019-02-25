@@ -2,8 +2,9 @@ import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
 import { git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitFetch, gitMergeOriginMaster, gitPull, gitPush, GitRunResult, gitStatus, GitStatusResult } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
+import { findFileInPathSync } from "../lib/fileSystem2";
 
-const runPushRemoteBranchTests = true;
+const runPushRemoteBranchTests: boolean = !!findFileInPathSync("github.auth");
 
 describe("git.ts", function () {
   describe("git()", function () {

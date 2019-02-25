@@ -17,6 +17,16 @@ async function _entryExists(entryPath: string, condition?: (stats: fs.Stats) => 
   });
 }
 
+function _entryExistsSync(entryPath: string, condition?: (stats: fs.Stats) => boolean): boolean {
+  let result = false;
+  try {
+    const stat: fs.Stats = fs.lstatSync(entryPath);
+    result = !!(!condition || condition(stat));
+  } catch (error) {
+  }
+  return result;
+}
+
 /**
  * Get whether or not a file entry (file or folder) exists at the provided entryPath.
  * @param entryPath The path to the file entry to check.
@@ -43,6 +53,15 @@ export function symbolicLinkExists(symbolicLinkPath: string): Promise<boolean> {
  */
 export function fileExists(filePath: string): Promise<boolean> {
   return _entryExists(filePath, (stats: fs.Stats) => stats.isFile());
+}
+
+/**
+ * Check whether or not a file exists at the provided filePath.
+ * @param filePath The path to check.
+ * @returns Whether or not a file exists at the provided filePath.
+ */
+export function fileExistsSync(filePath: string): boolean {
+  return _entryExistsSync(filePath, (stats: fs.Stats) => stats.isFile());
 }
 
 /**
@@ -174,13 +193,32 @@ export async function copyFolder(sourceFolderPath: string, destinationFolderPath
   return result;
 }
 
-
 async function findEntryInPath(entryName: string, startFolderPath: string | undefined, condition: (entryPath: string) => (boolean | Promise<boolean>)): Promise<string | undefined> {
   let result: string | undefined;
   let folderPath: string = startFolderPath || process.cwd();
   while (folderPath) {
     const possibleResult: string = joinPath(folderPath, entryName);
     if (await Promise.resolve(condition(possibleResult))) {
+      result = possibleResult;
+      break;
+    } else {
+      const parentFolderPath: string = getParentFolderPath(folderPath);
+      if (!parentFolderPath || folderPath === parentFolderPath) {
+        break;
+      } else {
+        folderPath = parentFolderPath;
+      }
+    }
+  }
+  return result;
+}
+
+function findEntryInPathSync(entryName: string, startFolderPath: string | undefined, condition: (entryPath: string) => boolean): string | undefined {
+  let result: string | undefined;
+  let folderPath: string = startFolderPath || process.cwd();
+  while (folderPath) {
+    const possibleResult: string = joinPath(folderPath, entryName);
+    if (condition(possibleResult)) {
       result = possibleResult;
       break;
     } else {
@@ -208,6 +246,21 @@ async function findEntryInPath(entryName: string, startFolderPath: string | unde
  */
 export function findFileInPath(fileName: string, startFolderPath?: string): Promise<string | undefined> {
   return findEntryInPath(fileName, startFolderPath, fileExists);
+}
+
+/**
+ * Find the closest file with the provided name by searching the immediate child folders of the
+ * folder at the provided startFolderPath. If no file is found with the provided fileName, then the
+ * search will move up to the parent folder of the startFolderPath. This will continue until either
+ * the file is found, or the folder being searched does not have a parent folder (if it is a root
+ * folder).
+ * @param fileName The name of the file to look for.
+ * @param startFolderPath The path to the folder where the search will begin.
+ * @returns The path to the closest file with the provided fileName, or undefined if no file could
+ * be found.
+ */
+export function findFileInPathSync(fileName: string, startFolderPath?: string): string | undefined {
+  return findEntryInPathSync(fileName, startFolderPath, fileExistsSync);
 }
 
 /**
