@@ -359,13 +359,19 @@ describe("git.ts", function () {
 
     it("when branch is the current branch", async function () {
       const currentBranchName: string = await gitCurrentBranch();
-      const createBranchResult: GitRunResult = await gitCreateLocalBranch(currentBranchName);
-      assertEx.defined(createBranchResult, "createBranchResult");
-      assertEx.defined(createBranchResult.processId, "createBranchResult.processId");
-      assert.strictEqual(createBranchResult.error, undefined);
-      assert.strictEqual(createBranchResult.exitCode, 128);
-      assert.strictEqual(createBranchResult.stdout, "");
-      assert.strictEqual(createBranchResult.stderr, `fatal: A branch named '${currentBranchName}' already exists.\n`);
+      await gitCreateLocalBranch("myFakeBranch");
+      try {
+        const createBranchResult: GitRunResult = await gitCreateLocalBranch("myFakeBranch");
+        assertEx.defined(createBranchResult, "createBranchResult");
+        assertEx.defined(createBranchResult.processId, "createBranchResult.processId");
+        assert.strictEqual(createBranchResult.error, undefined);
+        assert.strictEqual(createBranchResult.exitCode, 128);
+        assert.strictEqual(createBranchResult.stdout, "");
+        assert.strictEqual(createBranchResult.stderr, `fatal: A branch named 'myFakeBranch' already exists.\n`);
+      } finally {
+        await gitCheckout(currentBranchName);
+        await gitDeleteLocalBranch("myFakeBranch");
+      }
     });
   });
 
