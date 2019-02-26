@@ -246,21 +246,16 @@ export async function gitDiff(baseCommitSha: string, headCommitSha: string, opti
   };
 }
 
-export interface GitBranchResult extends GitRunResult {
+/**
+ * The return type of gitLocalBranches().
+ */
+export interface GitLocalBranchesResult extends GitRunResult {
   localBranches: string[];
   currentBranch: string;
 }
 
-/**
- * Get the branch that the repository is currently on.
- * @param options The options to run this command with.
- */
-export async function gitCurrentBranch(options: RunOptions = {}): Promise<string> {
-  return (await gitBranch(options)).currentBranch;
-}
-
 const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.*)\)/;
-export async function gitBranch(options: RunOptions = {}): Promise<GitBranchResult> {
+export async function gitLocalBranches(options: RunOptions = {}): Promise<GitLocalBranchesResult> {
   const commandResult: RunResult = await git("branch", options);
   let currentBranch = "";
   const localBranches: string[] = [];
@@ -284,6 +279,58 @@ export async function gitBranch(options: RunOptions = {}): Promise<GitBranchResu
     ...commandResult,
     localBranches,
     currentBranch,
+  };
+}
+
+/**
+ * Get the branch that the repository is currently on.
+ * @param options The options to run this command with.
+ */
+export async function gitCurrentBranch(options: RunOptions = {}): Promise<string> {
+  return (await gitLocalBranches(options)).currentBranch;
+}
+
+/**
+ * A map of remote repository tracking names to the branches in the remote repository.
+ */
+export interface GitRemoteRepositoryTrackedBranches {
+  [remoteRepositoryTrackingName: string]: string[];
+}
+
+/**
+ * The return type of gitRemoteBranches().
+ */
+export interface GitRemoteBranchesResult extends GitRunResult {
+  /**
+   * A map of remote repository tracking names to the branches in the remote repository.
+   */
+  remoteBranches: GitRemoteRepositoryTrackedBranches;
+}
+
+/**
+ * Get the remote branches that this repository clone is aware of.
+ * @param options The options to run this command with.
+ */
+export async function gitRemoteBranches(options: RunOptions = {}): Promise<GitRemoteBranchesResult> {
+  const gitResult: GitRunResult = await git(["branch", "--remotes"], options);
+  const remoteBranches: GitRemoteRepositoryTrackedBranches = {};
+  for (let remoteBranchLine of getLines(gitResult.stdout)) {
+    if (remoteBranchLine && remoteBranchLine.indexOf("->") === -1) {
+      remoteBranchLine = remoteBranchLine.trim();
+      if (remoteBranchLine) {
+        const firstSlashIndex: number = remoteBranchLine.indexOf("/");
+        const remoteRepositoryTrackingName: string = remoteBranchLine.substring(0, firstSlashIndex);
+        if (!(remoteRepositoryTrackingName in remoteBranches)) {
+          remoteBranches[remoteRepositoryTrackingName] = [];
+        }
+        const remoteRepositoryBranches: string[] = remoteBranches[remoteRepositoryTrackingName];
+        remoteRepositoryBranches.push(remoteBranchLine.substring(firstSlashIndex + 1));
+      }
+    }
+  }
+  return {
+    ...gitResult,
+    remoteBranches
   };
 }
 
@@ -573,10 +620,17 @@ export class GitScope {
     });
   }
 
-  public branch(options: RunOptions = {}): Promise<GitBranchResult> {
-    return gitBranch({
+  public localBranches(options: RunOptions = {}): Promise<GitLocalBranchesResult> {
+    return gitLocalBranches({
       ...this.options,
       ...options,
+    });
+  }
+
+  public remoteBranches(options: RunOptions = {}): Promise<GitRunResult> {
+    return gitRemoteBranches({
+      ...this.options,
+      ...options
     });
   }
 

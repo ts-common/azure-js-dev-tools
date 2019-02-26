@@ -1,4 +1,4 @@
-import { contains } from "./arrays";
+import { contains, where } from "./arrays";
 import { getLines, padLeft } from "./common";
 import { getChildFilePaths, readFileContents } from "./fileSystem2";
 import { getDefaultLogger, Logger } from "./logger";
@@ -22,6 +22,10 @@ export interface CheckForSkipCallsOptions {
    * path to the file relative to the start path and without the file extension.
    */
   allowedSkips?: { [fileRelativePathWithoutFileExtension: string]: number[] | "all" };
+  /**
+   * Whether or not allowed skips will be reported. Defaults to false.
+   */
+  reportAllowedSkips?: boolean;
 }
 
 export interface SkipLine {
@@ -74,16 +78,23 @@ export async function checkForSkipCalls(options: CheckForSkipCallsOptions = {}):
           }
         }
         if (skipLines.length > 0) {
-          logSkip(`  Found ${skipLines.length} *.skip(...) call${skipLines.length === 1 ? "" : "s"} in "${sourceFilePath}".`);
-          ++filesWithSkipCalls;
-          let numberWidth = 1;
-          for (const skipLine of skipLines) {
-            numberWidth = Math.max(numberWidth, skipLine.lineNumber.toString().length);
-          }
-          for (const skipLine of skipLines) {
-            logSkip(`    Line ${padLeft(skipLine.lineNumber, numberWidth)}. ${skipLine.text}${skipLine.allowed ? " (ALLOWED)" : ""}`);
-            if (!skipLine.allowed && !options.skipIsWarning) {
-              ++exitCode;
+          const reportAllowedSkips: boolean = options.reportAllowedSkips || false;
+          const skipsToReport: SkipLine[] = where(skipLines, (skipLine: SkipLine) => reportAllowedSkips || !skipLine.allowed);
+          if (skipsToReport.length > 0) {
+            logSkip(`  Found ${skipLines.length} *.skip(...) call${skipLines.length === 1 ? "" : "s"} in "${sourceFilePath}".`);
+            ++filesWithSkipCalls;
+            let numberWidth = 1;
+            for (const skipLine of skipLines) {
+              numberWidth = Math.max(numberWidth, skipLine.lineNumber.toString().length);
+            }
+            for (const skipLine of skipLines) {
+              const allowed: boolean = skipLine.allowed;
+              if (!allowed || reportAllowedSkips) {
+                logSkip(`    Line ${padLeft(skipLine.lineNumber, numberWidth)}. ${skipLine.text}${allowed ? " (ALLOWED)" : ""}`);
+                if (!allowed && !options.skipIsWarning) {
+                  ++exitCode;
+                }
+              }
             }
           }
         }
