@@ -1,6 +1,6 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
-import { git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitFetch, gitMergeOriginMaster, gitPull, gitPush, GitRunResult, gitStatus, GitStatusResult } from "../lib/git";
+import { git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitFetch, gitMergeOriginMaster, gitPull, gitPush, GitRunResult, gitStatus, GitStatusResult, gitLocalBranches, GitLocalBranchesResult, gitRemoteBranches, GitRemoteBranchesResult } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
 import { findFileInPathSync } from "../lib/fileSystem2";
 
@@ -424,6 +424,77 @@ describe("git.ts", function () {
         "Please make sure you have the correct access rights",
         "and the repository exists."
       ]);
+    });
+  });
+
+  describe("gitLocalBranches()", function () {
+    it("with fake command line arguments", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitLocalBranchesResult = {
+        exitCode: 1,
+        stdout: "x",
+        stderr: "y",
+        currentBranch: "",
+        localBranches: [
+          "x"
+        ]
+      };
+      runner.set({ command: "git branch", result: expectedResult });
+      const branchResult: GitLocalBranchesResult = await gitLocalBranches({ runner });
+      assert.deepEqual(branchResult, expectedResult);
+    });
+
+    it("with two local branches", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitLocalBranchesResult = {
+        currentBranch: "daschult/gitBranchRemote",
+        exitCode: 0,
+        localBranches: [
+          "daschult/gitBranchRemote",
+          "master"
+        ],
+        stdout: "* daschult/gitBranchRemote\n  master\n",
+        stderr: "",
+      };
+      runner.set({ command: "git branch", result: expectedResult });
+      const branchResult: GitLocalBranchesResult = await gitLocalBranches({ runner });
+      assert.deepEqual(branchResult, expectedResult);
+    });
+  });
+
+  describe("gitRemoteBranches()", function () {
+    it("with fake command line arguments", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitRemoteBranchesResult = {
+        exitCode: 1,
+        stdout: "a/x",
+        stderr: "y",
+        remoteBranches: {
+          "a": [
+            "x"
+          ]
+        }
+      };
+      runner.set({ command: "git branch --remotes", result: expectedResult });
+      const branchResult: GitRunResult = await gitRemoteBranches({ runner });
+      assert.deepEqual(branchResult, expectedResult);
+    });
+
+    it("with one remote branch", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitRemoteBranchesResult = {
+        exitCode: 0,
+        stderr: "",
+        stdout: "  origin/HEAD -> origin/master\n  origin/master\n",
+        remoteBranches: {
+          "origin": [
+            "master"
+          ]
+        }
+      };
+      runner.set({ command: "git branch --remotes", result: expectedResult });
+      const branchResult: GitRunResult = await gitRemoteBranches({ runner });
+      assert.deepEqual(branchResult, expectedResult);
     });
   });
 
