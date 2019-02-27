@@ -1,6 +1,6 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
-import { git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitFetch, gitMergeOriginMaster, gitPull, gitPush, GitRunResult, gitStatus, GitStatusResult, gitLocalBranches, GitLocalBranchesResult, gitRemoteBranches, GitRemoteBranchesResult } from "../lib/git";
+import { git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitFetch, gitMergeOriginMaster, gitPull, gitPush, GitRunResult, gitStatus, GitStatusResult, gitLocalBranches, GitLocalBranchesResult, gitRemoteBranches, GitRemoteBranchesResult, getGitRemoteBranch, GitRemoteBranch } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
 import { findFileInPathSync } from "../lib/fileSystem2";
 
@@ -462,6 +462,46 @@ describe("git.ts", function () {
     });
   });
 
+  describe("getGitRemoteBranch(string|GitRemoteBranch)", function () {
+    it("with undefined", function () {
+      assert.strictEqual(getGitRemoteBranch(undefined as any), undefined);
+    });
+
+    it("with null", function () {
+      // tslint:disable-next-line:no-null-keyword
+      assert.strictEqual(getGitRemoteBranch(null as any), null);
+    });
+
+    it("with empty string", function () {
+      assert.deepEqual(getGitRemoteBranch(""), {
+        repositoryTrackingName: "",
+        branchName: ""
+      });
+    });
+
+    it("with non-empty string with no colon", function () {
+      assert.deepEqual(getGitRemoteBranch("hello"), {
+        repositoryTrackingName: "",
+        branchName: "hello"
+      });
+    });
+
+    it("with non-empty string with colon", function () {
+      assert.deepEqual(getGitRemoteBranch("hello:there"), {
+        repositoryTrackingName: "hello",
+        branchName: "there"
+      });
+    });
+
+    it("with GitRemoteBranch", function () {
+      const remoteBranch: GitRemoteBranch = {
+        repositoryTrackingName: "a",
+        branchName: "b",
+      };
+      assert.strictEqual(getGitRemoteBranch(remoteBranch), remoteBranch);
+    });
+  });
+
   describe("gitRemoteBranches()", function () {
     it("with fake command line arguments", async function () {
       const runner = new FakeRunner();
@@ -469,11 +509,12 @@ describe("git.ts", function () {
         exitCode: 1,
         stdout: "a/x",
         stderr: "y",
-        remoteBranches: {
-          "a": [
-            "x"
-          ]
-        }
+        remoteBranches: [
+          {
+            repositoryTrackingName: "a",
+            branchName: "x"
+          }
+        ],
       };
       runner.set({ command: "git branch --remotes", result: expectedResult });
       const branchResult: GitRunResult = await gitRemoteBranches({ runner });
@@ -486,11 +527,12 @@ describe("git.ts", function () {
         exitCode: 0,
         stderr: "",
         stdout: "  origin/HEAD -> origin/master\n  origin/master\n",
-        remoteBranches: {
-          "origin": [
-            "master"
-          ]
-        }
+        remoteBranches: [
+          {
+            repositoryTrackingName: "origin",
+            branchName: "master"
+          }
+        ]
       };
       runner.set({ command: "git branch --remotes", result: expectedResult });
       const branchResult: GitRunResult = await gitRemoteBranches({ runner });
