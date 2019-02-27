@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as arrays from "../lib/arrays";
 import { padLeft } from "../lib/common";
-import { getSprintMilestoneName, GitHub, GitHubSprintMilestone } from "../lib/github";
+import { getSprintMilestoneName, GitHub, GitHubSprintMilestone, RealGitHub, GitHubRepository, getRepositoryFullName, getGitHubRepository } from "../lib/github";
 import { joinPath } from "../lib/path";
 
 interface SprintLabel {
@@ -16,22 +16,13 @@ interface SprintMilestone {
   endDate?: string;
 }
 
-interface Repository {
-  name: string;
-  owner: string;
-}
-
-function repositoryToString(repository: Repository): string {
-  return `${repository.owner ? repository.owner + "/" : ""}${repository.name}`;
-}
-
 interface Options {
   createMissingSprintLabels: boolean;
   fixUnexpectedSprintLabelColors: boolean;
   createMissingMilestones: boolean;
   fixUnexpectedMilestoneEndDates: boolean;
   closeCompletedMilestones: boolean;
-  repositories: (string | Repository)[];
+  repositories: string[];
   expectedSprintLabels: SprintLabel[];
   expectedSprintMilestones: SprintMilestone[];
 }
@@ -43,85 +34,18 @@ const options: Options = {
   "fixUnexpectedMilestoneEndDates": true,
   "closeCompletedMilestones": true,
   "repositories": [
-    "autorest.nodejs",
-    "autorest.typescript",
-    "azure-sdk-for-js",
-    "azure-sdk-for-node",
-    "ms-rest-azure-env",
-    "ms-rest-azure-js",
-    "ms-rest-browserauth",
-    "ms-rest-js",
-    "ms-rest-nodeauth",
-    "swagger-to-sdk-ts",
-    { owner: "ts-common", name: "azure-js-dev-tools" }
+    "Azure/autorest.nodejs",
+    "Azure/autorest.typescript",
+    "Azure/azure-sdk-for-js",
+    "Azure/azure-sdk-for-node",
+    "Azure/ms-rest-azure-env",
+    "Azure/ms-rest-azure-js",
+    "Azure/ms-rest-browserauth",
+    "Azure/ms-rest-js",
+    "Azure/ms-rest-nodeauth",
+    "ts-common/azure-js-dev-tools",
   ],
   "expectedSprintLabels": [
-    {
-      "sprint": 119,
-      "plannedColor": "f4e2a1",
-      "startedColor": "0b8952",
-      "unplannedColor": "25dd38"
-    },
-    {
-      "sprint": 120,
-      "plannedColor": "f4b975",
-      "startedColor": "0b8952",
-      "unplannedColor": "25dd38"
-    },
-    {
-      "sprint": 121,
-      "plannedColor": "9abcea",
-      "startedColor": "5319e7",
-      "unplannedColor": "63ffd2"
-    },
-    {
-      "sprint": 122,
-      "plannedColor": "f2997b",
-      "startedColor": "006b75",
-      "unplannedColor": "f98b95"
-    },
-    {
-      "sprint": 123,
-      "plannedColor": "fef2c0",
-      "startedColor": "69d648",
-      "unplannedColor": "53fcad"
-    },
-    {
-      "sprint": 124,
-      "plannedColor": "185b7c",
-      "startedColor": "0900d2",
-      "unplannedColor": "524866"
-    },
-    {
-      "sprint": 125,
-      "plannedColor": "12ba7f",
-      "startedColor": "6d47c6",
-      "unplannedColor": "e99695"
-    },
-    {
-      "sprint": 126,
-      "plannedColor": "006b75",
-      "startedColor": "6875d6",
-      "unplannedColor": "8837f2"
-    },
-    {
-      "sprint": 127,
-      "plannedColor": "47c436",
-      "startedColor": "edc0f9",
-      "unplannedColor": "f2b3cd"
-    },
-    {
-      "sprint": 128,
-      "plannedColor": "fbca04",
-      "startedColor": "f490df",
-      "unplannedColor": "301793"
-    },
-    {
-      "sprint": 129,
-      "plannedColor": "d34c45",
-      "startedColor": "ba2901",
-      "unplannedColor": "c0def7"
-    },
     {
       "sprint": 130,
       "plannedColor": "d27aff",
@@ -133,57 +57,39 @@ const options: Options = {
       "plannedColor": "ea7e56",
       "startedColor": "5e6fd1",
       "unplannedColor": "fcf76c"
+    },
+    {
+      "sprint": 132,
+      "plannedColor": "ea7e56",
+      "startedColor": "5e6fd1",
+      "unplannedColor": "fcf76c"
+    },
+    {
+      "sprint": 133,
+      "plannedColor": "ea7e56",
+      "startedColor": "5e6fd1",
+      "unplannedColor": "fcf76c"
+    },
+    {
+      "sprint": 134,
+      "plannedColor": "ea7e56",
+      "startedColor": "5e6fd1",
+      "unplannedColor": "fcf76c"
+    },
+    {
+      "sprint": 135,
+      "plannedColor": "ea7e56",
+      "startedColor": "5e6fd1",
+      "unplannedColor": "fcf76c"
+    },
+    {
+      "sprint": 136,
+      "plannedColor": "ea7e56",
+      "startedColor": "5e6fd1",
+      "unplannedColor": "fcf76c"
     }
   ],
   "expectedSprintMilestones": [
-    {
-      "sprint": 118,
-      "endDate": "2018-05-28"
-    },
-    {
-      "sprint": 119,
-      "endDate": "2018-06-18"
-    },
-    {
-      "sprint": 120,
-      "endDate": "2018-07-09"
-    },
-    {
-      "sprint": 121,
-      "endDate": "2018-07-30"
-    },
-    {
-      "sprint": 122,
-      "endDate": "2018-08-20"
-    },
-    {
-      "sprint": 123,
-      "endDate": "2018-09-10"
-    },
-    {
-      "sprint": 124,
-      "endDate": "2018-10-01"
-    },
-    {
-      "sprint": 125,
-      "endDate": "2018-10-22"
-    },
-    {
-      "sprint": 126,
-      "endDate": "2018-11-12"
-    },
-    {
-      "sprint": 127,
-      "endDate": "2018-12-03"
-    },
-    {
-      "sprint": 128,
-      "endDate": "2018-12-24"
-    },
-    {
-      "sprint": 129,
-      "endDate": "2019-01-14"
-    },
     {
       "sprint": 130,
       "endDate": "2019-02-04"
@@ -191,6 +97,26 @@ const options: Options = {
     {
       "sprint": 131,
       "endDate": "2019-02-25"
+    },
+    {
+      "sprint": 132,
+      "endDate": "2019-03-18"
+    },
+    {
+      "sprint": 133,
+      "endDate": "2019-04-08"
+    },
+    {
+      "sprint": 134,
+      "endDate": "2019-04-29"
+    },
+    {
+      "sprint": 135,
+      "endDate": "2019-05-20"
+    },
+    {
+      "sprint": 136,
+      "endDate": "2019-06-10"
     }
   ]
 };
@@ -217,8 +143,8 @@ function addProblem(problems: string[], problem: string): void {
   }
 }
 
-function addRepositoryProblem(problems: string[], repository: Repository, problem: string): void {
-  addProblem(problems, `${repositoryToString(repository)}: ${problem}`);
+function addRepositoryProblem(problems: string[], repository: GitHubRepository, problem: string): void {
+  addProblem(problems, `${getRepositoryFullName(repository)}: ${problem}`);
 }
 
 function authenticateWithGitHub(problems: string[]): GitHub | undefined {
@@ -231,7 +157,7 @@ function authenticateWithGitHub(problems: string[]): GitHub | undefined {
     const githubAuthToken: string = fs.readFileSync(githubAuthFilePath, { encoding: "utf-8" });
 
     try {
-      result = new GitHub(githubAuthToken);
+      result = new RealGitHub(githubAuthToken);
     } catch (error) {
       addProblem(problems, `Error while authenticating with GitHub: ${JSON.stringify(error)}`);
       result = undefined;
@@ -241,28 +167,28 @@ function authenticateWithGitHub(problems: string[]): GitHub | undefined {
   return result;
 }
 
-async function createGitHubLabel(github: GitHub, repository: Repository, labelName: string, color: string, problems: string[]): Promise<void> {
-  console.log(`Creating label "${labelName}" in repository ${repositoryToString(repository)} with color "${color}"...`);
+async function createGitHubLabel(github: GitHub, repository: GitHubRepository, labelName: string, color: string, problems: string[]): Promise<void> {
+  console.log(`Creating label "${labelName}" in repository ${getRepositoryFullName(repository)} with color "${color}"...`);
   try {
-    await github.createLabel(repository.name, labelName, color, repository.owner);
+    await github.createLabel(repository, labelName, color);
   } catch (error) {
     addRepositoryProblem(problems, repository, `Error while creating label "${labelName}" with color "${color}": ${JSON.stringify(error)}`);
   }
 }
 
-async function updateGitHubSprintLabelColor(github: GitHub, repository: Repository, labelName: string, newColor: string, problems: string[]): Promise<void> {
-  console.log(`Changing label "${labelName}" in repository ${repositoryToString(repository)}" to color "${newColor}"...`);
+async function updateGitHubSprintLabelColor(github: GitHub, repository: GitHubRepository, labelName: string, newColor: string, problems: string[]): Promise<void> {
+  console.log(`Changing label "${labelName}" in repository ${getRepositoryFullName(repository)}" to color "${newColor}"...`);
   try {
-    await github.updateLabelColor(repository.name, labelName, newColor, repository.owner);
+    await github.updateLabelColor(repository, labelName, newColor);
   } catch (error) {
     addRepositoryProblem(problems, repository, `Error while updating the color for label "${labelName}" to "${newColor}".`);
   }
 }
 
-async function checkSprintLabelColor(github: GitHub, repository: Repository, sprintLabelName: string, expectedSprintLabelColor: string, actualSprintLabelColor: string | undefined, problems: string[], planningOptions: Options): Promise<void> {
+async function checkSprintLabelColor(github: GitHub, repository: GitHubRepository, sprintLabelName: string, expectedSprintLabelColor: string, actualSprintLabelColor: string | undefined, problems: string[], planningOptions: Options): Promise<void> {
   if (actualSprintLabelColor == undefined) {
     if (planningOptions.createMissingSprintLabels === true) {
-      await github.createLabel(repository.name, sprintLabelName, expectedSprintLabelColor, repository.owner);
+      await github.createLabel(repository.name, sprintLabelName, expectedSprintLabelColor);
     } else {
       addRepositoryProblem(problems, repository, `No "${sprintLabelName}" label found.`);
     }
@@ -275,9 +201,9 @@ async function checkSprintLabelColor(github: GitHub, repository: Repository, spr
   }
 }
 
-async function checkSprintLabels(github: GitHub, repository: Repository, options: Options, problems: string[]): Promise<void> {
+async function checkSprintLabels(github: GitHub, repository: GitHubRepository, options: Options, problems: string[]): Promise<void> {
   const expectedSprintLabels: SprintLabel[] = options.expectedSprintLabels;
-  const githubSprintLabels: SprintLabel[] = await github.getSprintLabels(repository.name, repository.owner);
+  const githubSprintLabels: SprintLabel[] = await github.getSprintLabels(repository);
 
   for (const expectedSprintLabel of expectedSprintLabels) {
     const expectedSprintNumber: number = expectedSprintLabel.sprint;
@@ -311,9 +237,9 @@ function getNow(): string {
   return result;
 }
 
-async function checkSprintMilestones(github: GitHub, repository: Repository, options: Options, problems: string[]): Promise<void> {
+async function checkSprintMilestones(github: GitHub, repository: GitHubRepository, options: Options, problems: string[]): Promise<void> {
   const expectedSprintMilestones: SprintMilestone[] = options.expectedSprintMilestones;
-  const githubSprintMilestones: GitHubSprintMilestone[] = await github.getSprintMilestones(repository.name, { repositoryOwner: repository.owner });
+  const githubSprintMilestones: GitHubSprintMilestone[] = await github.getSprintMilestones(repository);
 
   const now: string = getNow();
 
@@ -323,9 +249,9 @@ async function checkSprintMilestones(github: GitHub, repository: Repository, opt
     let githubSprintMilestone: GitHubSprintMilestone | undefined = arrays.first(githubSprintMilestones, (sprintMilestone: GitHubSprintMilestone) => sprintMilestone.sprint === expectedSprintMilestoneNumber);
     if (githubSprintMilestone == undefined) {
       if (options.createMissingMilestones === true) {
-        console.log(`Creating sprint milestone "${expectedSprintMilestoneNumber}" in repository ${repositoryToString(repository)} with end date ${expectedSprintMilestoneEndDate}...`);
+        console.log(`Creating sprint milestone "${expectedSprintMilestoneNumber}" in repository ${getRepositoryFullName(repository)} with end date ${expectedSprintMilestoneEndDate}...`);
         try {
-          githubSprintMilestone = await github.createSprintMilestone(repository.name, expectedSprintMilestoneNumber, expectedSprintMilestoneEndDate, repository.owner);
+          githubSprintMilestone = await github.createSprintMilestone(repository, expectedSprintMilestoneNumber, expectedSprintMilestoneEndDate);
         } catch (error) {
           addRepositoryProblem(problems, repository, `Error while creating sprint milestone "${expectedSprintMilestoneNumber}" with end date "${expectedSprintMilestoneEndDate}": ${JSON.stringify(error)}`);
         }
@@ -337,9 +263,9 @@ async function checkSprintMilestones(github: GitHub, repository: Repository, opt
       if (githubSprintMilestoneEndDate !== expectedSprintMilestoneEndDate) {
         if (options.fixUnexpectedMilestoneEndDates === true) {
           const milestoneName: string = getSprintMilestoneName(expectedSprintMilestoneNumber);
-          console.log(`Changing milestone "${milestoneName}" in repository ${repositoryToString(repository)} to end date ${expectedSprintMilestoneEndDate}...`);
+          console.log(`Changing milestone "${milestoneName}" in repository ${getRepositoryFullName(repository)} to end date ${expectedSprintMilestoneEndDate}...`);
           try {
-            githubSprintMilestone = await github.updateSprintMilestoneEndDate(repository.name, githubSprintMilestone, expectedSprintMilestoneEndDate, repository.owner);
+            githubSprintMilestone = await github.updateSprintMilestoneEndDate(repository, githubSprintMilestone, expectedSprintMilestoneEndDate);
           } catch (error) {
             addRepositoryProblem(problems, repository, `Error while updating the end date for milestone "${milestoneName}" to "${expectedSprintMilestoneEndDate}": ${JSON.stringify(error)}`);
           }
@@ -355,9 +281,9 @@ async function checkSprintMilestones(github: GitHub, repository: Repository, opt
           const milestoneName = getSprintMilestoneName(expectedSprintMilestoneNumber);
           if (githubSprintMilestone.openIssueCount === 0) {
             if (options.closeCompletedMilestones) {
-              console.log(`Closing milestone "${milestoneName}" in repository "${repositoryToString(repository)}"...`);
+              console.log(`Closing milestone "${milestoneName}" in repository "${getRepositoryFullName(repository)}"...`);
               try {
-                await github.closeSprintMilestone(repository.name, githubSprintMilestone, repository.owner);
+                await github.closeSprintMilestone(repository, githubSprintMilestone);
               } catch (error) {
                 addRepositoryProblem(problems, repository, `Error while closing milestone "${milestoneName}": ${JSON.stringify(error)}`);
               }
@@ -379,7 +305,7 @@ async function main(): Promise<void> {
 
   if (github && options) {
     for (const repositoryOrName of options.repositories) {
-      const repository: Repository = typeof repositoryOrName === "string" ? { owner: "Azure", name: repositoryOrName } : repositoryOrName;
+      const repository: GitHubRepository = getGitHubRepository(repositoryOrName);
       await checkSprintLabels(github, repository, options, problems);
       await checkSprintMilestones(github, repository, options, problems);
     }
