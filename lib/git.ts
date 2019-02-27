@@ -291,10 +291,38 @@ export async function gitCurrentBranch(options: RunOptions = {}): Promise<string
 }
 
 /**
- * A map of remote repository tracking names to the branches in the remote repository.
+ * Get a GitRemoteBranch from the provided label. Labels usually follow the format
+ * "<repository-tracking-name>:<branch-name>", such as "origin:master".
+ * @param label The string or GitRemoteBranch to convert to a GitRemoteBranch.
  */
-export interface GitRemoteRepositoryTrackedBranches {
-  [remoteRepositoryTrackingName: string]: string[];
+export function getGitRemoteBranch(label: string | GitRemoteBranch): GitRemoteBranch {
+  let result: GitRemoteBranch;
+  if (typeof label === "string") {
+    const colonIndex: number = label.indexOf(":");
+    const repositoryTrackingName: string = label.substring(0, colonIndex);
+    const branchName: string = label.substring(colonIndex + 1);
+    result = {
+      repositoryTrackingName,
+      branchName
+    };
+  } else {
+    result = label;
+  }
+  return result;
+}
+
+/**
+ * A branch from a tracked remote repository.
+ */
+export interface GitRemoteBranch {
+  /**
+   * The tracking name of the remote repository, such as "origin".
+   */
+  repositoryTrackingName: string;
+  /**
+   * The name of the branch.
+   */
+  branchName: string;
 }
 
 /**
@@ -302,9 +330,9 @@ export interface GitRemoteRepositoryTrackedBranches {
  */
 export interface GitRemoteBranchesResult extends GitRunResult {
   /**
-   * A map of remote repository tracking names to the branches in the remote repository.
+   * The branches in remote repositories.
    */
-  remoteBranches: GitRemoteRepositoryTrackedBranches;
+  remoteBranches: GitRemoteBranch[];
 }
 
 /**
@@ -313,18 +341,18 @@ export interface GitRemoteBranchesResult extends GitRunResult {
  */
 export async function gitRemoteBranches(options: RunOptions = {}): Promise<GitRemoteBranchesResult> {
   const gitResult: GitRunResult = await git(["branch", "--remotes"], options);
-  const remoteBranches: GitRemoteRepositoryTrackedBranches = {};
+  const remoteBranches: GitRemoteBranch[] = [];
   for (let remoteBranchLine of getLines(gitResult.stdout)) {
     if (remoteBranchLine && remoteBranchLine.indexOf("->") === -1) {
       remoteBranchLine = remoteBranchLine.trim();
       if (remoteBranchLine) {
         const firstSlashIndex: number = remoteBranchLine.indexOf("/");
-        const remoteRepositoryTrackingName: string = remoteBranchLine.substring(0, firstSlashIndex);
-        if (!(remoteRepositoryTrackingName in remoteBranches)) {
-          remoteBranches[remoteRepositoryTrackingName] = [];
-        }
-        const remoteRepositoryBranches: string[] = remoteBranches[remoteRepositoryTrackingName];
-        remoteRepositoryBranches.push(remoteBranchLine.substring(firstSlashIndex + 1));
+        const repositoryTrackingName: string = remoteBranchLine.substring(0, firstSlashIndex);
+        const branchName: string = remoteBranchLine.substring(firstSlashIndex + 1);
+        remoteBranches.push({
+          repositoryTrackingName,
+          branchName
+        });
       }
     }
   }
