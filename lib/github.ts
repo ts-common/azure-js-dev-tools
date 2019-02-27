@@ -270,7 +270,7 @@ export interface GitHub {
    * @param labelName The name of the label to update.
    * @param newColor The color to update the label to.
    */
-  updateLabelColor(repositoryName: string, labelName: string, newColor: string, repositoryOwner?: string): Promise<any>;
+  updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<any>;
 
   /**
    * Get the milestone in the provided repository with either the provided milestone number or name.
