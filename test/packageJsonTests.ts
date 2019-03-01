@@ -3,7 +3,7 @@ import { isPackageJsonPublished, PackageJson } from "../lib";
 
 describe("packageJson.ts", function () {
   describe("isPackageJsonPublished(PackageJson)", function () {
-    this.timeout(5000);
+    this.timeout(10000);
 
     it("with no package name", async function () {
       const packageJson: PackageJson = {

@@ -141,8 +141,8 @@ export interface GitHubSprintMilestone {
 }
 
 export interface GitHubPullRequest {
-  base: GitHubCommit;
-  head: GitHubCommit;
+  base: GitHubPullRequestCommit;
+  head: GitHubPullRequestCommit;
   merge_commit_sha?: string;
   id: number;
   labels: GitHubLabel[];
@@ -165,7 +165,7 @@ export interface GitHubUser {
   site_admin: boolean;
 }
 
-export interface GitHubCommit {
+export interface GitHubPullRequestCommit {
   label: string;
   ref: string;
   sha: string;
@@ -238,6 +238,30 @@ export interface GitHubGetPullRequestsOptions {
   open?: boolean;
 }
 
+/**
+ * A commit that exists in a GitHub repository.
+ */
+export interface GitHubCommit {
+  /**
+   * The unique identifier for this commit.
+   */
+  sha: string;
+  /**
+   * The data of the GitHub commit.
+   */
+  commit: GitHubCommitData;
+}
+
+/**
+ * The data of a GitHub commit.
+ */
+export interface GitHubCommitData {
+  /**
+   * The message of the commit.
+   */
+  message: string;
+}
+
 export interface GitHub {
   /**
    * Get the user that is currently authenticated.
@@ -262,7 +286,7 @@ export interface GitHub {
    * @param labelName The name of the created label.
    * @param color The color of the created label.
    */
-  createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<any>;
+  createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<unknown>;
 
   /**
    * Update the color of the label with the provided name in the provided repository.
@@ -270,7 +294,7 @@ export interface GitHub {
    * @param labelName The name of the label to update.
    * @param newColor The color to update the label to.
    */
-  updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<any>;
+  updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<unknown>;
 
   /**
    * Get the milestone in the provided repository with either the provided milestone number or name.
@@ -318,9 +342,9 @@ export interface GitHub {
 
   updateSprintMilestoneEndDate(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string): Promise<GitHubSprintMilestone>;
 
-  closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<any>;
+  closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<unknown>;
 
-  closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<any>;
+  closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<unknown>;
 
   /**
    * Get the pull request from the provided repository with the provided number.
@@ -334,7 +358,7 @@ export interface GitHub {
    */
   getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]>;
 
-  addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<any>;
+  addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<unknown>;
 
   /**
    * Add the provided labels to the provided GitHubPullRequest.
@@ -342,9 +366,9 @@ export interface GitHub {
    * @param githubPullRequest The GitHubPullRequest that the labels will be added to.
    * @param labelNamesToAdd The name of the label or labels to add to the pull request.
    */
-  addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<any>;
+  addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<unknown>;
 
-  setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, milestone: number | string | GitHubMilestone): Promise<any>;
+  setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, milestone: number | string | GitHubMilestone): Promise<unknown>;
 
   /**
    * Get the comments that have been made on the provided GitHubPullRequest.
@@ -375,7 +399,15 @@ export interface GitHub {
    * @param githubPullRequest The GitHubPUllRequest to delete an existing comment from.
    * @param comment The comment to delete.
    */
-  deletePullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: GitHubComment | number): Promise<any>;
+  deletePullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: GitHubComment | number): Promise<unknown>;
+
+  /**
+   * Get the details of the commit with the provided unique identifier or undefined if no commit
+   * existed with the provided identifier.
+   * @param repository The repository that the commit exists in.
+   * @param commit A unique identifier for the commit.
+   */
+  getCommit(repository: string | GitHubRepository, commit: string): Promise<GitHubCommit | undefined>;
 }
 
 export interface FakeGitHubPullRequest extends GitHubPullRequest {
@@ -387,6 +419,7 @@ export class FakeGitHubRepository {
   public readonly labels: GitHubLabel[] = [];
   public readonly milestones: GitHubMilestone[] = [];
   public readonly pullRequests: FakeGitHubPullRequest[] = [];
+  public readonly commits: GitHubCommit[] = [];
 
   constructor(name: string) {
     this.name = name;
@@ -455,7 +488,7 @@ export class FakeGitHub implements GitHub {
     return result;
   }
 
-  public setCurrentUser(username: string): Promise<any> {
+  public setCurrentUser(username: string): Promise<unknown> {
     return this.getUser(username)
       .then((user: GitHubUser) => {
         this.currentUser = user;
@@ -490,8 +523,8 @@ export class FakeGitHub implements GitHub {
       .then(getSprintLabels);
   }
 
-  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<any> {
-    let result: Promise<any>;
+  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<unknown> {
+    let result: Promise<unknown>;
     if (!labelName) {
       result = Promise.reject(new Error(`labelName cannot be undefined or empty.`));
     } else if (!color) {
@@ -513,11 +546,11 @@ export class FakeGitHub implements GitHub {
     return result;
   }
 
-  public updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<any> {
+  public updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<unknown> {
     return this.getFakeRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
         const label: GitHubLabel | undefined = first(fakeRepository.labels, (label: GitHubLabel) => label.name === labelName);
-        let result: Promise<any>;
+        let result: Promise<unknown>;
         if (!label) {
           result = Promise.reject(new Error(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`));
         } else {
@@ -606,21 +639,21 @@ export class FakeGitHub implements GitHub {
       });
   }
 
-  public closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<any> {
+  public closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<unknown> {
     return this.getMilestone(repository, milestoneNumber)
       .then((milestone: GitHubMilestone) => {
         milestone.state = "closed";
       });
   }
 
-  public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<any> {
+  public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<unknown> {
     return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
   }
 
-  public createPullRequest(repository: string | GitHubRepository, pullRequest: GitHubPullRequest): Promise<any> {
+  public createPullRequest(repository: string | GitHubRepository, pullRequest: GitHubPullRequest): Promise<unknown> {
     return this.getFakeRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
-        let result: Promise<any>;
+        let result: Promise<unknown>;
         const existingPullRequest: FakeGitHubPullRequest | undefined = first(fakeRepository.pullRequests, (pr: FakeGitHubPullRequest) => pr.number === pullRequest.number);
         if (existingPullRequest) {
           result = Promise.reject(new Error(`A pull request already exists in the fake repository "${getRepositoryFullName(repository)}" with the number ${pullRequest.number}.`));
@@ -654,11 +687,11 @@ export class FakeGitHub implements GitHub {
       });
   }
 
-  public addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<any> {
+  public addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<unknown> {
     const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
     return this.getPullRequest(repository, pullRequestNumber)
       .then((pullRequest: FakeGitHubPullRequest) => {
-        let collectAssigneeUsers: Promise<any>;
+        let collectAssigneeUsers: Promise<unknown>;
 
         const assigneeUsers: GitHubUser[] = [];
         if (typeof assignees === "string") {
@@ -696,14 +729,14 @@ export class FakeGitHub implements GitHub {
       });
   }
 
-  public addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<any> {
+  public addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<unknown> {
     const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
     return this.getPullRequest(repository, pullRequestNumber)
       .then((pullRequest: FakeGitHubPullRequest) => {
         const labelNamesArray: string[] = (Array.isArray(labelNames) ? labelNames : [labelNames]);
 
         const labels: GitHubLabel[] = [];
-        let collectLabels: Promise<any> = Promise.resolve();
+        let collectLabels: Promise<unknown> = Promise.resolve();
         for (const labelName of labelNamesArray) {
           collectLabels = collectLabels.then(() => this.getLabel(repository, labelName)
             .then((label: GitHubLabel) => {
@@ -720,7 +753,7 @@ export class FakeGitHub implements GitHub {
       });
   }
 
-  public setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, milestone: string | number | GitHubMilestone): Promise<any> {
+  public setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, milestone: string | number | GitHubMilestone): Promise<unknown> {
     const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
     return this.getPullRequest(repository, pullRequestNumber)
       .then((pullRequest: FakeGitHubPullRequest) => {
@@ -779,11 +812,11 @@ export class FakeGitHub implements GitHub {
       });
   }
 
-  public deletePullRequestComment(repository: string | GitHubRepository, githubPullRequest: number | GitHubPullRequest, comment: number | GitHubComment): Promise<any> {
+  public deletePullRequestComment(repository: string | GitHubRepository, githubPullRequest: number | GitHubPullRequest, comment: number | GitHubComment): Promise<unknown> {
     const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
     return this.getPullRequest(repository, pullRequestNumber)
       .then((pullRequest: FakeGitHubPullRequest) => {
-        let result: Promise<any>;
+        let result: Promise<unknown>;
         const commentId: number = getCommentId(comment);
         if (!contains(pullRequest.comments, (existingComment: GitHubComment) => existingComment.id === commentId)) {
           result = Promise.reject(`No comment was found with the id ${commentId}.`);
@@ -792,6 +825,25 @@ export class FakeGitHub implements GitHub {
           result = Promise.resolve();
         }
         return result;
+      });
+  }
+
+  public getCommit(repository: string | GitHubRepository, commitId: string): Promise<GitHubCommit | undefined> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        return first(fakeRepository.commits, (commit: GitHubCommit) => commit.sha.startsWith(commitId));
+      });
+  }
+
+  public createCommit(repository: string | GitHubRepository, commitId: string, message: string): Promise<unknown> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        fakeRepository.commits.push({
+          sha: commitId,
+          commit: {
+            message
+          }
+        });
       });
   }
 }
@@ -888,7 +940,7 @@ export class RealGitHub implements GitHub {
     return this.getLabels(repository).then(getSprintLabels);
   }
 
-  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<any> {
+  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<unknown> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       this.github.issues.createLabel({
@@ -906,7 +958,7 @@ export class RealGitHub implements GitHub {
     });
   }
 
-  public updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<any> {
+  public updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<unknown> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       this.github.issues.updateLabel({
@@ -1047,7 +1099,7 @@ export class RealGitHub implements GitHub {
       });
   }
 
-  public closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<any> {
+  public closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<unknown> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       this.github.issues.updateMilestone({
@@ -1065,7 +1117,7 @@ export class RealGitHub implements GitHub {
     });
   }
 
-  public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<any> {
+  public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<unknown> {
     return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
   }
 
@@ -1102,7 +1154,7 @@ export class RealGitHub implements GitHub {
       .then((response: Octokit.AnyResponse) => this.getAllPageData<GitHubPullRequest>(response));
   }
 
-  public addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<any> {
+  public addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<unknown> {
     return new Promise((resolve, reject) => {
       let assigneeLogins: string[];
       if (typeof assignees === "string") {
@@ -1139,7 +1191,7 @@ export class RealGitHub implements GitHub {
     });
   }
 
-  public addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<any> {
+  public addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const labelNamesArray: string[] = (typeof labelNames === "string" ? [labelNames] : labelNames);
 
@@ -1167,7 +1219,7 @@ export class RealGitHub implements GitHub {
     });
   }
 
-  public setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, milestone: number | string | GitHubMilestone): Promise<any> {
+  public setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, milestone: number | string | GitHubMilestone): Promise<unknown> {
     let milestoneNumberPromise: Promise<number>;
     if (typeof milestone === "number") {
       milestoneNumberPromise = Promise.resolve(milestone);
@@ -1179,7 +1231,7 @@ export class RealGitHub implements GitHub {
 
     return milestoneNumberPromise
       .then((milestoneNumber: number) => {
-        return new Promise<any>((resolve, reject) => {
+        return new Promise<unknown>((resolve, reject) => {
           const githubRepository: GitHubRepository = getGitHubRepository(repository);
           this.github.issues.edit({
             owner: githubRepository.organization,
@@ -1262,7 +1314,7 @@ export class RealGitHub implements GitHub {
       .then((response: Octokit.AnyResponse) => response.data);
   }
 
-  public deletePullRequestComment(repository: string | GitHubRepository, _githubPullRequest: number | GitHubPullRequest, comment: number | GitHubComment): Promise<any> {
+  public deletePullRequestComment(repository: string | GitHubRepository, _githubPullRequest: number | GitHubPullRequest, comment: number | GitHubComment): Promise<unknown> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
     const githubArguments: Octokit.IssuesDeleteCommentParams = {
       owner: githubRepository.organization,
@@ -1270,6 +1322,32 @@ export class RealGitHub implements GitHub {
       comment_id: getCommentId(comment).toString()
     } as any;
     return this.github.issues.deleteComment(githubArguments);
+  }
+
+  public getCommit(repository: string | GitHubRepository, commit: string): Promise<GitHubCommit | undefined> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.ReposGetCommitParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      sha: commit
+    };
+    return this.github.repos.getCommit(githubArguments)
+      .then((response: Octokit.AnyResponse) => {
+        let commit: GitHubCommit | undefined;
+        if (response.data) {
+          commit = response.data;
+        }
+        return commit;
+      })
+      .catch((error: Error) => {
+        let result: Promise<GitHubCommit | undefined>;
+        if (error.message.toLowerCase().includes("no commit found")) {
+          result = Promise.resolve(undefined);
+        } else {
+          result = Promise.reject(error);
+        }
+        return result;
+      });
   }
 }
 
