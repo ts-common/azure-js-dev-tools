@@ -299,11 +299,20 @@ describe("git.ts", function () {
     assert.deepEqual(await gitAddAll({ runner }), expectedResult);
   });
 
-  it("gitCommit()", async function () {
-    const runner = new FakeRunner();
-    const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
-    runner.set({ command: "git", args: ["commit", "-m", "Hello World"], result: expectedResult });
-    assert.deepEqual(await gitCommit("Hello World", { runner }), expectedResult);
+  describe("gitCommit()", function () {
+    it("with one commit message", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+      runner.set({ command: "git", args: ["commit", "-m", "Hello World"], result: expectedResult });
+      assert.deepEqual(await gitCommit("Hello World", { runner }), expectedResult);
+    });
+
+    it("with two commit messages", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+      runner.set({ command: "git", args: ["commit", "-m", "Hello", "-m", "World"], result: expectedResult });
+      assert.deepEqual(await gitCommit(["Hello", "World"], { runner }), expectedResult);
+    });
   });
 
   describe("gitDeleteLocalBranch()", function () {

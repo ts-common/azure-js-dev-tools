@@ -184,8 +184,15 @@ export function gitAddAll(options: RunOptions = {}): Promise<GitRunResult> {
   return git("add *", options);
 }
 
-export function gitCommit(commitMessage: string, options: RunOptions = {}): Promise<GitRunResult> {
-  return git(["commit", "-m", commitMessage], options);
+export function gitCommit(commitMessages: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
+  const args: string[] = ["commit"];
+  if (typeof commitMessages === "string") {
+    commitMessages = [commitMessages];
+  }
+  for (const commitMessage of commitMessages) {
+    args.push("-m", commitMessage);
+  }
+  return git(args, options);
 }
 
 export function gitDeleteLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
@@ -613,7 +620,7 @@ export class GitScope {
     });
   }
 
-  public commit(commitMessage: string, options: RunOptions = {}): Promise<GitRunResult> {
+  public commit(commitMessage: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
     return gitCommit(commitMessage, {
       ...this.options,
       ...options
