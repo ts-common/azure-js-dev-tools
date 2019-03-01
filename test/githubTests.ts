@@ -1,6 +1,6 @@
 import { assert } from "chai";
 import { assertEx, findPackageJsonFileSync, getParentFolderPath, joinPath } from "../lib";
-import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub } from "../lib/github";
+import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubPullRequestCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub, GitHubCommit } from "../lib/github";
 
 describe("github.ts", function () {
   describe("getGitHubRepository(string)", function () {
@@ -531,6 +531,38 @@ describe("github.ts", function () {
           await assertEx.throwsAsync(github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, 1392581235476));
         });
       });
+
+      describe("getCommit()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.getCommit(undefined as any, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.getCommit(null as any, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.getCommit("", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
+        });
+
+        it(`with repository that doesn't exist`, async function () {
+          await assertEx.throwsAsync(github.getCommit("ImARepositoryThatDoesntExist", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
+        });
+
+        it(`with commit that doesn't exist`, async function () {
+          const commit: GitHubCommit | undefined = await github.getCommit("ts-common/azure-js-dev-tools", "applesandbananas");
+          assert.strictEqual(commit, undefined);
+        });
+
+        it(`with commit that does exist`, async function () {
+          const commit: GitHubCommit = (await github.getCommit("ts-common/azure-js-dev-tools", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"))!;
+          assertEx.defined(commit, "commit");
+          assert.strictEqual(commit.sha, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
+          assertEx.defined(commit.commit, "commit.commit");
+          assert.strictEqual(commit.commit.message, `Merge pull request #112 from ts-common/daschult/encoding\n\n Add encoding to stdout and stderr capture functions`);
+        });
+      });
     });
   }
   githubTests("FakeGitHub", createFakeGitHub());
@@ -566,6 +598,7 @@ function createFakeGitHub(): FakeGitHub {
     title: "Buffer external process output and error until newline character",
     url: "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/113"
   }));
+  fakeGitHub.createCommit("ts-common/azure-js-dev-tools", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5", `Merge pull request #112 from ts-common/daschult/encoding\n\n Add encoding to stdout and stderr capture functions`);
 
   return fakeGitHub;
 }
@@ -582,8 +615,8 @@ function createRealGitHub(): RealGitHub | undefined {
 }
 
 interface GitHubPullRequestOptions {
-  base?: GitHubCommit;
-  head?: GitHubCommit;
+  base?: GitHubPullRequestCommit;
+  head?: GitHubPullRequestCommit;
   id?: number;
   labels?: GitHubLabel[];
   merge_commit_sha?: string;
@@ -636,7 +669,7 @@ function createFakeGitHubLabel(options: GitHubLabelOptions = {}): GitHubLabel {
   };
 }
 
-function createFakeGitHubCommit(name: "Base" | "Head"): GitHubCommit {
+function createFakeGitHubCommit(name: "Base" | "Head"): GitHubPullRequestCommit {
   return {
     label: `Fake ${name} Commit`,
     ref: `Fake ${name} Ref`,
