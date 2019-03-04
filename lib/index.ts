@@ -3,6 +3,7 @@ export * from "./assertEx";
 export * from "./autorest";
 export * from "./blobStorage";
 export * from "./checkEverything";
+export * from "./checkFileContains";
 export * from "./checkForOnlyCalls";
 export * from "./checkForSkipCalls";
 export * from "./checkPackageJsonVersion";

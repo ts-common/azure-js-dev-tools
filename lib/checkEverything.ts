@@ -59,15 +59,22 @@ export async function checkEverything(checkEverythingOptions?: CheckEverythingOp
     logger.logInfo("Done.");
   };
 
-  await runCheck("Package.json Version", () => checkPackageJsonVersion(options.checkPackageJsonVersionOptions));
-  await runCheck("No only() calls", () => checkForOnlyCalls(options.checkForOnlyCallsOptions));
-  await runCheck("No skip() calls", () => checkForSkipCalls(options.checkForSkipCallsOptions));
+  const checks: AdditionalCheck[] = [
+    checkPackageJsonVersion(),
+    checkForOnlyCalls(),
+    checkForSkipCalls(),
+  ];
   if (options.additionalChecks) {
-    const additionalChecks: AdditionalCheck[] = Array.isArray(options.additionalChecks) ? options.additionalChecks : [options.additionalChecks];
-    for (const additionalCheck of additionalChecks) {
-      if (additionalCheck) {
-        await runCheck(additionalCheck.name, additionalCheck.check);
-      }
+    if (Array.isArray(options.additionalChecks)) {
+      checks.push(...options.additionalChecks);
+    } else {
+      checks.push(options.additionalChecks);
+    }
+  }
+
+  for (const check of checks) {
+    if (check) {
+      await runCheck(check.name, check.check);
     }
   }
 

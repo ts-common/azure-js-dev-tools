@@ -1,5 +1,6 @@
 import { getDefaultLogger, Logger } from "./logger";
 import { findPackageJsonFileSync, isPackageJsonPublished, PackageJson, readPackageJsonFileSync } from "./packageJson";
+import { AdditionalCheck } from "./checkEverything";
 
 export interface CheckPackageJsonVersionOptions {
   /**
@@ -12,6 +13,13 @@ export interface CheckPackageJsonVersionOptions {
   logger?: Logger;
 }
 
+export function checkPackageJsonVersion(): AdditionalCheck {
+  return {
+    name: "Package.json Version",
+    check: checkPackageJsonVersionCheck,
+  };
+}
+
 /**
  * Check the package.json file found at the provided startPath (or in one of the parent folders) to
  * see if the version number has already been published. If the version number has been published,
@@ -21,7 +29,7 @@ export interface CheckPackageJsonVersionOptions {
  * @returns The exit code for this function. Zero will be returned if the package version doesn't
  * exist in NPM.
  */
-export async function checkPackageJsonVersion(options: CheckPackageJsonVersionOptions = {}): Promise<number> {
+export async function checkPackageJsonVersionCheck(options: CheckPackageJsonVersionOptions = {}): Promise<number> {
   const startPath: string = options.startPath || process.cwd();
   const logger: Logger = options.logger || getDefaultLogger();
 

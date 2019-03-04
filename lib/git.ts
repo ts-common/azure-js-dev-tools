@@ -606,7 +606,7 @@ export class GitScope {
     });
   }
 
-  public push(options: RunOptions = {}): Promise<GitRunResult> {
+  public push(options: GitPushOptions = {}): Promise<GitRunResult> {
     return gitPush({
       ...this.options,
       ...options
