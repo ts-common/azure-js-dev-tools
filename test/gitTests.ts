@@ -127,14 +127,16 @@ describe("git.ts", function () {
     it("command line arguments with non-empty setUpstream", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
-      runner.set({ command: "git", args: ["push", "--set-upstream", "hello", await gitCurrentBranch()], result: expectedResult });
+      runner.set({ command: "git", args: ["push", "--set-upstream", "hello", "myfakebranch"], result: expectedResult });
+      runner.set({ command: "git", args: ["branch"], result: { exitCode: 0, stdout: "* myfakebranch" } });
       assert.deepEqual(await gitPush({ setUpstream: "hello", runner }), expectedResult);
     });
 
     it("command line arguments with true setUpstream", async function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
-      runner.set({ command: "git", args: ["push", "--set-upstream", "origin", await gitCurrentBranch()], result: expectedResult });
+      runner.set({ command: "git", args: ["push", "--set-upstream", "origin", "myfakebranch"], result: expectedResult });
+      runner.set({ command: "git", args: ["branch"], result: { exitCode: 0, stdout: "* myfakebranch" } });
       assert.deepEqual(await gitPush({ setUpstream: true, runner }), expectedResult);
     });
 
