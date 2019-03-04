@@ -52,11 +52,10 @@ export async function checkEverything(checkEverythingOptions?: CheckEverythingOp
   let exitCode = 0;
 
   const runCheck = async (checkName: string, check: () => number | Promise<number>) => {
-    logger.logSection(`Starting check "${checkName}"...`);
+    logger.logSection(`Checking ${checkName}...`);
     if (0 !== await Promise.resolve(check())) {
       ++exitCode;
     }
-    logger.logInfo("Done.");
   };
 
   const checks: AdditionalCheck[] = [
