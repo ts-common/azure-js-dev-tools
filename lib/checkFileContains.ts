@@ -40,7 +40,7 @@ export async function checkFileContainsCheck(filePath: string, textToFind: strin
   if (fileContents == undefined) {
     await logger.logError(`  The file ${filePath} should exist.`);
     exitCode = 1;
-  } else if (!fileContents.includes(filePath)) {
+  } else if (!fileContents.includes(textToFind)) {
     await logger.logError(`  The file ${filePath} should contain "${textToFind}".`);
     exitCode = 1;
   } else {
