@@ -3,6 +3,7 @@ import { getLines, padLeft } from "./common";
 import { getChildFilePaths, readFileContents } from "./fileSystem2";
 import { getDefaultLogger, Logger } from "./logger";
 import { getName, pathRelativeTo, pathWithoutFileExtension } from "./path";
+import { AdditionalCheck } from "./checkEverything";
 
 export interface CheckForSkipCallsOptions {
   /**
@@ -34,6 +35,13 @@ export interface SkipLine {
   allowed: boolean;
 }
 
+export function checkForSkipCalls(): AdditionalCheck {
+  return {
+    name: "No skip() calls",
+    check: checkForSkipCallsCheck,
+  };
+}
+
 /**
  * Check the source files found under the provided startPaths for only() function calls. Returns the
  * number of source files found that reference the only() function.
@@ -41,7 +49,7 @@ export interface SkipLine {
  * @param logger The logger to use. If no logger is specified, then a console logger will be used.
  * @returns The number of source files found that contain only() function calls.
  */
-export async function checkForSkipCalls(options: CheckForSkipCallsOptions = {}): Promise<number> {
+export async function checkForSkipCallsCheck(options: CheckForSkipCallsOptions = {}): Promise<number> {
   const startPathArray: string[] = !options.startPaths ? [process.cwd()] : typeof options.startPaths === "string" ? [options.startPaths] : options.startPaths;
   const logger: Logger = options.logger || getDefaultLogger();
 
