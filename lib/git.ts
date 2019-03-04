@@ -174,7 +174,7 @@ export async function gitPush(options: GitPushOptions = {}): Promise<GitRunResul
   let args = "push";
   if (options.setUpstream) {
     const upstream: string = typeof options.setUpstream === "string" ? options.setUpstream : "origin";
-    const branchName: string = options.branchName || await gitCurrentBranch();
+    const branchName: string = options.branchName || await gitCurrentBranch(options);
     args += ` --set-upstream ${upstream} ${branchName}`;
   }
   return await git(args, options);
