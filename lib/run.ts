@@ -140,6 +140,10 @@ export class RealRunner implements Runner {
   }
 }
 
+function getExecutionFolderPath(options: RunOptions | undefined): string {
+  return (options && options.executionFolderPath) || process.cwd();
+}
+
 export interface FakeCommand {
   command: string;
   args?: string[];
@@ -153,9 +157,29 @@ export interface FakeCommand {
 export class FakeRunner implements Runner {
   private readonly innerRunner: Runner;
   private readonly fakeCommands: FakeCommand[] = [];
+  private unrecognizedCommand: (command: string, args?: string | string[], options?: RunOptions) => (RunResult | Promise<RunResult>);
 
   constructor(innerRunner?: Runner) {
     this.innerRunner = innerRunner || new RealRunner();
+    this.unrecognizedCommand = (command: string, args?: string | string[], options?: RunOptions) =>
+      Promise.reject(new Error(`No FakeRunner result has been registered for the command "${getCommandString(command, args)}" at "${getExecutionFolderPath(options)}".`));
+  }
+
+  /**
+   * Set the function to invoke when an unrecognized command is run.
+   * @param unrecognizedCommandHandler The function to call when an unrecognized command is run.
+   */
+  public onUnrecognizedCommand(unrecognizedCommandHandler: ((command: string, args?: string | string[], options?: RunOptions) => (RunResult | Promise<RunResult>))): void {
+    this.unrecognizedCommand = unrecognizedCommandHandler;
+  }
+
+  /**
+   * Configure this FakeRunner so that all unrecognized commands will be passed through to its
+   * inner runner.
+   */
+  public passthroughUnrecognized(): void {
+    this.onUnrecognizedCommand((command: string, args?: string | string[], options?: RunOptions) =>
+      this.innerRunner.run(command, args, options));
   }
 
   /**
@@ -163,9 +187,6 @@ export class FakeRunner implements Runner {
    * @param command The command to fake.
    */
   public set(command: FakeCommand): void {
-    if (!command.result) {
-      command.result = { exitCode: 0 };
-    }
     this.fakeCommands.push(command);
   }
 
@@ -183,11 +204,11 @@ export class FakeRunner implements Runner {
     });
   }
 
-  public async run(command: string, args: string | string[] | undefined, options?: RunOptions): Promise<RunResult> {
+  public async run(command: string, args?: string | string[], options?: RunOptions): Promise<RunResult> {
     const commandString: string = getCommandString(command, args);
 
     let fakeCommand: FakeCommand | undefined;
-    const executionFolderPath: string = (options && options.executionFolderPath) || process.cwd();
+    const executionFolderPath: string = getExecutionFolderPath(options);
     for (const registeredFakeCommand of this.fakeCommands) {
       if (commandString === getCommandString(registeredFakeCommand.command, registeredFakeCommand.args) &&
         (!registeredFakeCommand.executionFolderPath || executionFolderPath === registeredFakeCommand.executionFolderPath)) {
@@ -198,7 +219,7 @@ export class FakeRunner implements Runner {
 
     let result: Promise<RunResult>;
     if (!fakeCommand) {
-      result = Promise.reject(new Error(`No FakeRunner result has been registered for the command "${commandString}"${executionFolderPath ? ` at "${executionFolderPath}"` : ""}.`));
+      result = Promise.resolve(this.unrecognizedCommand(command, args, options));
     } else {
       let runResult: RunResult | Promise<RunResult> | (() => RunResult | Promise<RunResult>) | undefined = fakeCommand.result;
       if (!runResult) {

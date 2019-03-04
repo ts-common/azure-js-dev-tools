@@ -19,6 +19,13 @@ describe("run.ts", function () {
         assert.deepEqual(result, registeredResult);
       });
 
+      it("with undefined registered result", async function () {
+        const runner = new FakeRunner();
+        runner.set({ command: "git fetch --prune" });
+        const result: RunResult = await runner.run("git", ["fetch", "--prune"]);
+        assert.deepEqual(result, { exitCode: 0 });
+      });
+
       it("with passthrough command", async function () {
         const innerRunner = new FakeRunner();
         const registeredResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
@@ -45,6 +52,16 @@ describe("run.ts", function () {
         assert.deepEqual(result, {
           exitCode: 2
         });
+      });
+
+      it("with passthroughUnrecognized() called", async function () {
+        const runner = new FakeRunner();
+        runner.passthroughUnrecognized();
+
+        const result: RunResult = await runner.run("git", ["fetch", "--prune"]);
+        assertEx.defined(result, "result");
+        assertEx.defined(result.processId, "result.processId");
+        assert.strictEqual(result.exitCode, 0);
       });
     });
   });
