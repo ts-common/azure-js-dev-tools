@@ -245,6 +245,16 @@ export interface GitHubGetPullRequestsOptions {
 }
 
 /**
+ * Optional parameters that can be provided to the GitHub.createPullRequest function.
+ */
+export interface GitHubCreatePullRequestOptions {
+  /**
+   * The description that will appear in the created pull request.
+   */
+  description?: string;
+}
+
+/**
  * A commit that exists in a GitHub repository.
  */
 export interface GitHubCommit {
@@ -364,6 +374,23 @@ export interface GitHub {
    */
   getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]>;
 
+  /**
+   * Create a new pull request in the provided repository.
+   * @param repository The repository to create the pull request in.
+   * @param baseBranch The base branch that the pull request will merge into.
+   * @param headBranch The head branch that the pull request will merge from.
+   * @param title The title of the pull request.
+   * @param options The optional parameters for creating a pull request.
+   */
+  createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string, title: string, options?: GitHubCreatePullRequestOptions): Promise<GitHubPullRequest>;
+
+  /**
+   * Close the provided pull request without merging it.
+   * @param repository The repository that the pull request exists in.
+   * @param pullRequest The pull request number or the pull request object to close.
+   */
+  closePullRequest(repository: string | GitHubRepository, pullRequest: number | GitHubPullRequest): Promise<unknown>;
+
   addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<unknown>;
 
   /**
@@ -426,6 +453,7 @@ export class FakeGitHubRepository {
   public readonly milestones: GitHubMilestone[] = [];
   public readonly pullRequests: FakeGitHubPullRequest[] = [];
   public readonly commits: GitHubCommit[] = [];
+  public readonly branches: string[] = [];
 
   constructor(name: string) {
     this.name = name;
@@ -461,6 +489,18 @@ export class FakeGitHub implements GitHub {
       result = Promise.resolve(fakeRepository);
     }
     return result;
+  }
+
+  /**
+   * Create a fake branch in the provided repository.
+   * @param repository The repository to create the fake branch in.
+   * @param branchName The name of the fake branch.
+   */
+  public createFakeBranch(repository: string | GitHubRepository, branchName: string): Promise<unknown> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        fakeRepository.branches.push(branchName);
+      });
   }
 
   public createUser(username: string): Promise<GitHubUser> {
@@ -656,21 +696,62 @@ export class FakeGitHub implements GitHub {
     return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
   }
 
-  public createPullRequest(repository: string | GitHubRepository, pullRequest: GitHubPullRequest): Promise<unknown> {
+  public createFakePullRequest(repository: string | GitHubRepository, pullRequest: GitHubPullRequest): Promise<FakeGitHubPullRequest> {
     return this.getFakeRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
-        let result: Promise<unknown>;
-        const existingPullRequest: FakeGitHubPullRequest | undefined = first(fakeRepository.pullRequests, (pr: FakeGitHubPullRequest) => pr.number === pullRequest.number);
-        if (existingPullRequest) {
-          result = Promise.reject(new Error(`A pull request already exists in the fake repository "${getRepositoryFullName(repository)}" with the number ${pullRequest.number}.`));
+        let result: Promise<FakeGitHubPullRequest>;
+        if (!fakeRepository.branches.includes(pullRequest.base.ref)) {
+          result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.base.ref}".`));
+        } else if (!fakeRepository.branches.includes(pullRequest.head.ref)) {
+          result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.head.ref}".`));
+        } else if (pullRequest.base.ref === pullRequest.head.ref) {
+          result = Promise.reject(new Error(`The base ref ("${pullRequest.base.ref}") cannot be the same as the head ref ("${pullRequest.head.ref}").`));
         } else {
-          fakeRepository.pullRequests.push({
-            ...pullRequest,
-            comments: []
-          });
-          result = Promise.resolve();
+          const existingPullRequest: FakeGitHubPullRequest | undefined = first(fakeRepository.pullRequests, (pr: FakeGitHubPullRequest) => pr.number === pullRequest.number);
+          if (existingPullRequest) {
+            result = Promise.reject(new Error(`A pull request already exists in the fake repository "${getRepositoryFullName(repository)}" with the number ${pullRequest.number}.`));
+          } else {
+            const fakePullRequest: FakeGitHubPullRequest = {
+              ...pullRequest,
+              comments: [],
+            };
+            fakeRepository.pullRequests.push(fakePullRequest);
+            result = Promise.resolve(fakePullRequest);
+          }
         }
         return result;
+      });
+  }
+
+  public createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string, title: string, _options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) =>
+        this.createFakePullRequest(repository, {
+          base: {
+            label: "fake-base-label",
+            ref: baseBranch,
+            sha: "fake-base-sha",
+          },
+          diff_url: "fake-diff-url",
+          head: {
+            label: "fake-head-label",
+            ref: headBranch,
+            sha: "fake-head-sha",
+          },
+          html_url: "fake-html-url",
+          id: fakeRepository.pullRequests.length + 1,
+          labels: [],
+          number: fakeRepository.pullRequests.length + 1,
+          state: "open",
+          title,
+          url: "fake-url"
+        }));
+  }
+
+  public closePullRequest(repository: string | GitHubRepository, pullRequestNumber: number | GitHubPullRequest): Promise<unknown> {
+    return this.getPullRequest(repository, getPullRequestNumber(pullRequestNumber))
+      .then((existingPullRequest: FakeGitHubPullRequest) => {
+        existingPullRequest.state = "closed";
       });
   }
 
@@ -1125,6 +1206,36 @@ export class RealGitHub implements GitHub {
 
   public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<unknown> {
     return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
+  }
+
+  public createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string, title: string, options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.PullRequestsCreateParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      base: baseBranch,
+      head: headBranch,
+      title: title,
+      body: options && options.description
+    };
+    return this.github.pullRequests.create(githubArguments)
+      .then((response: Octokit.AnyResponse) => {
+        return response.data as GitHubPullRequest;
+      });
+  }
+
+  public closePullRequest(repository: string | GitHubRepository, pullRequest: number | GitHubPullRequest): Promise<unknown> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.PullRequestsUpdateParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      number: getPullRequestNumber(pullRequest),
+      state: "closed",
+    };
+    return this.github.pullRequests.update(githubArguments)
+      .then((response: Octokit.AnyResponse) => {
+        return response.data;
+      });
   }
 
   public getPullRequest(repository: string | GitHubRepository, pullRequestNumber: number): Promise<GitHubPullRequest> {
