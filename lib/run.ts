@@ -47,29 +47,31 @@ export class RealRunner implements Runner {
       }
       stdoutCaptured = new Promise((resolve, reject) => {
         let currentOutputLine = "";
-        childProcess.stdout.addListener("data", (chunk: any) => {
-          currentOutputLine += chunkToString(chunk);
-          const newLineIndex: number = currentOutputLine.indexOf("\n");
-          if (newLineIndex !== -1) {
-            const startOfNextLine: number = newLineIndex + 1;
-            captureOutputFunction(currentOutputLine.substring(0, startOfNextLine));
-            currentOutputLine = currentOutputLine.substring(startOfNextLine);
-          }
-        });
-        childProcess.stdout.addListener("error", (error: Error) => {
-          if (currentOutputLine) {
-            captureOutputFunction(currentOutputLine);
-            currentOutputLine = "";
-          }
-          reject(error);
-        });
-        childProcess.stdout.addListener("end", () => {
-          if (currentOutputLine) {
-            captureOutputFunction(currentOutputLine);
-            currentOutputLine = "";
-          }
-          resolve();
-        });
+        if (childProcess.stdout) {
+          childProcess.stdout.addListener("data", (chunk: any) => {
+            currentOutputLine += chunkToString(chunk);
+            const newLineIndex: number = currentOutputLine.indexOf("\n");
+            if (newLineIndex !== -1) {
+              const startOfNextLine: number = newLineIndex + 1;
+              captureOutputFunction(currentOutputLine.substring(0, startOfNextLine));
+              currentOutputLine = currentOutputLine.substring(startOfNextLine);
+            }
+          });
+          childProcess.stdout.addListener("error", (error: Error) => {
+            if (currentOutputLine) {
+              captureOutputFunction(currentOutputLine);
+              currentOutputLine = "";
+            }
+            reject(error);
+          });
+          childProcess.stdout.addListener("end", () => {
+            if (currentOutputLine) {
+              captureOutputFunction(currentOutputLine);
+              currentOutputLine = "";
+            }
+            resolve();
+          });
+        }
       });
     }
 
@@ -85,29 +87,31 @@ export class RealRunner implements Runner {
       }
       stderrCaptured = new Promise((resolve, reject) => {
         let currentErrorLine = "";
-        childProcess.stderr.addListener("data", (chunk: any) => {
-          currentErrorLine += chunkToString(chunk);
-          const newLineIndex: number = currentErrorLine.indexOf("\n");
-          if (newLineIndex !== -1) {
-            const startOfNextLine: number = newLineIndex + 1;
-            captureErrorFunction(currentErrorLine.substring(0, startOfNextLine));
-            currentErrorLine = currentErrorLine.substring(startOfNextLine);
-          }
-        });
-        childProcess.stderr.addListener("error", (error: Error) => {
-          if (currentErrorLine) {
-            captureErrorFunction(currentErrorLine);
-            currentErrorLine = "";
-          }
-          reject(error);
-        });
-        childProcess.stderr.addListener("end", () => {
-          if (currentErrorLine) {
-            captureErrorFunction(currentErrorLine);
-            currentErrorLine = "";
-          }
-          resolve();
-        });
+        if (childProcess.stderr) {
+          childProcess.stderr.addListener("data", (chunk: any) => {
+            currentErrorLine += chunkToString(chunk);
+            const newLineIndex: number = currentErrorLine.indexOf("\n");
+            if (newLineIndex !== -1) {
+              const startOfNextLine: number = newLineIndex + 1;
+              captureErrorFunction(currentErrorLine.substring(0, startOfNextLine));
+              currentErrorLine = currentErrorLine.substring(startOfNextLine);
+            }
+          });
+          childProcess.stderr.addListener("error", (error: Error) => {
+            if (currentErrorLine) {
+              captureErrorFunction(currentErrorLine);
+              currentErrorLine = "";
+            }
+            reject(error);
+          });
+          childProcess.stderr.addListener("end", () => {
+            if (currentErrorLine) {
+              captureErrorFunction(currentErrorLine);
+              currentErrorLine = "";
+            }
+            resolve();
+          });
+        }
       });
     }
 

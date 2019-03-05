@@ -180,18 +180,53 @@ export async function gitPush(options: GitPushOptions = {}): Promise<GitRunResul
   return await git(args, options);
 }
 
-export function gitAddAll(options: RunOptions = {}): Promise<GitRunResult> {
-  return git("add *", options);
+/**
+ * Add/stage the provided files.
+ * @param filePaths The paths to the files to stage.
+ * @param options The options for determining how this command will run.
+ */
+export function gitAdd(filePaths: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
+  const args: string[] = ["add"];
+  if (typeof filePaths === "string") {
+    args.push(filePaths);
+  } else {
+    args.push(...filePaths);
+  }
+  return git(args, options);
 }
 
-export function gitCommit(commitMessages: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
+/**
+ * Add/stage all of the current unstaged files.
+ * @param options The options that determine how this command will run.
+ */
+export function gitAddAll(options: RunOptions = {}): Promise<GitRunResult> {
+  return gitAdd("*", options);
+}
+
+/**
+ * Options that modify how a "git commit" operation will run.
+ */
+export interface GitCommitOptions extends RunOptions {
+  /**
+   * Whether or not pre-commit checks will be run.
+   */
+  noVerify?: boolean;
+}
+
+export function gitCommit(commitMessages: string | string[], options: GitCommitOptions = {}): Promise<GitRunResult> {
   const args: string[] = ["commit"];
+
+  if (options.noVerify) {
+    args.push("--no-verify");
+  }
+
   if (typeof commitMessages === "string") {
     commitMessages = [commitMessages];
   }
   for (const commitMessage of commitMessages) {
     args.push("-m", commitMessage);
   }
+
   return git(args, options);
 }
 
@@ -613,6 +648,22 @@ export class GitScope {
     });
   }
 
+  /**
+   * Add/stage the provided files.
+   * @param filePaths The paths to the files to stage.
+   * @param options The options for determining how this command will run.
+   */
+  public add(filePaths: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
+    return gitAdd(filePaths, {
+      ...this.options,
+      ...options
+    });
+  }
+
+  /**
+   * Add/stage all of the current unstaged files.
+   * @param options The options that determine how this command will run.
+   */
   public addAll(options: RunOptions = {}): Promise<GitRunResult> {
     return gitAddAll({
       ...this.options,
@@ -620,7 +671,7 @@ export class GitScope {
     });
   }
 
-  public commit(commitMessage: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
+  public commit(commitMessage: string | string[], options: GitCommitOptions = {}): Promise<GitRunResult> {
     return gitCommit(commitMessage, {
       ...this.options,
       ...options
