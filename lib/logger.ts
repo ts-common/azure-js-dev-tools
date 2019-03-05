@@ -5,7 +5,8 @@
  */
 
 import { getBooleanArgument } from "./commandLine";
-import { getConsoleLogger, getAzureDevOpsLogger, LoggerOptions, Logger } from "@azure/logger-js";
+import { LoggerOptions, Logger } from "@azure/logger-js";
+import * as LoggerJs from "@azure/logger-js";
 
 /**
  * Get the default Logger based on the command line arguments.
@@ -15,5 +16,11 @@ export function getDefaultLogger(options: LoggerOptions = {}): Logger {
     if (options.logVerbose == undefined) {
         options.logVerbose = getBooleanArgument("verbose");
     }
-    return getBooleanArgument("azure-devops") ? getAzureDevOpsLogger(options) : getConsoleLogger(options);
+
+    if (options.type == undefined) {
+        const isAzureDevopsLogger = getBooleanArgument("azure-devops");
+        options.type = isAzureDevopsLogger ? "devops" : "console";
+    }
+
+    return LoggerJs.getDefaultLogger(options);
 }
