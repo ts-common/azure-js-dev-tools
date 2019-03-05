@@ -1,7 +1,15 @@
+/**
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ */
+
+import { Logger } from "@azure/logger-js";
+
 import { checkForOnlyCalls, CheckForOnlyCallsOptions } from "./checkForOnlyCalls";
 import { checkForSkipCalls, CheckForSkipCallsOptions } from "./checkForSkipCalls";
 import { checkPackageJsonVersion, CheckPackageJsonVersionOptions } from "./checkPackageJsonVersion";
-import { getDefaultLogger, Logger } from "./logger";
+import { getDefaultLogger } from "./logger";
 
 /**
  * An additional check that can be run.

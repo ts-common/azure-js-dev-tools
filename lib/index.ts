@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ */
+
 export * from "./arrays";
 export * from "./assertEx";
 export * from "./autorest";
@@ -15,7 +21,6 @@ export * from "./fileSystem2";
 export * from "./git";
 export * from "./github";
 export * from "./http";
-export * from "./logger";
 export * from "./mvn";
 export * from "./node";
 export * from "./npm";

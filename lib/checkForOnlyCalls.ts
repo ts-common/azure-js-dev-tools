@@ -1,5 +1,13 @@
+/**
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ */
+
+import { Logger } from "@azure/logger-js";
+
 import { getChildFilePaths, readFileContents } from "./fileSystem2";
-import { getDefaultLogger, Logger } from "./logger";
+import { getDefaultLogger } from "./logger";
 import { getName } from "./path";
 import { getLines, padLeft } from "./common";
 import { AdditionalCheck } from "./checkEverything";
