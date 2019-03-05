@@ -1,8 +1,16 @@
+/**
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ */
+
+import { Logger } from "@azure/logger-js";
+
 import { any, contains, first } from "./arrays";
 import { getBooleanArgument } from "./commandLine";
 import { StringMap } from "./common";
 import { fileExists, folderExists, getChildFolderPaths, readFileContents, writeFileContents } from "./fileSystem2";
-import { getDefaultLogger, Logger } from "./logger";
+import { getDefaultLogger } from "./logger";
 import { npmInstall, npmView, NPMViewResult } from "./npm";
 import { findPackageJsonFileSync, PackageJson, PackageLockJson, readPackageJsonFileSync, readPackageLockJsonFileSync, removePackageLockJsonDependencies, writePackageJsonFileSync, writePackageLockJsonFileSync } from "./packageJson";
 import { getParentFolderPath, joinPath, normalizePath } from "./path";
