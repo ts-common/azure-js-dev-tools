@@ -278,6 +278,52 @@ export interface GitHubCommitData {
   message: string;
 }
 
+/**
+ * A reference to a branch in a forked repository.
+ */
+export interface ForkedRepositoryBranch {
+  /**
+   * The username of the user that created the forked repository.
+   */
+  username: string;
+  /**
+   * The name of the branch in the fork.
+   */
+  branchName: string;
+}
+
+/**
+ * Parse a ForkedRepositoryBranch reference from the provided value.
+ * @param forkedRepositoryBranch The string or ForkedRepositoryBranch to parse.
+ */
+export function getForkedRepositoryBranch(forkedRepositoryBranch: string | ForkedRepositoryBranch): ForkedRepositoryBranch {
+  let result: ForkedRepositoryBranch;
+  if (typeof forkedRepositoryBranch === "string") {
+    const colonIndex: number = forkedRepositoryBranch.indexOf(":");
+    const username: string = forkedRepositoryBranch.substring(0, colonIndex);
+    const branchName: string = forkedRepositoryBranch.substring(colonIndex + 1);
+    result = {
+      username,
+      branchName
+    };
+  } else {
+    result = forkedRepositoryBranch;
+  }
+  return result;
+}
+
+export function getForkedRepositoryBranchFullName(forkedRepositoryBranch: string | ForkedRepositoryBranch): string {
+  let result: string;
+  if (!forkedRepositoryBranch || typeof forkedRepositoryBranch === "string") {
+    result = forkedRepositoryBranch;
+  } else if (!forkedRepositoryBranch.username) {
+    result = forkedRepositoryBranch.branchName;
+  } else {
+    result = `${forkedRepositoryBranch.username}:${forkedRepositoryBranch.branchName}`;
+  }
+  return result;
+}
+
 export interface GitHub {
   /**
    * Get the user that is currently authenticated.
@@ -382,7 +428,7 @@ export interface GitHub {
    * @param title The title of the pull request.
    * @param options The optional parameters for creating a pull request.
    */
-  createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string, title: string, options?: GitHubCreatePullRequestOptions): Promise<GitHubPullRequest>;
+  createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string | ForkedRepositoryBranch, title: string, options?: GitHubCreatePullRequestOptions): Promise<GitHubPullRequest>;
 
   /**
    * Close the provided pull request without merging it.
@@ -704,8 +750,8 @@ export class FakeGitHub implements GitHub {
           result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.base.ref}".`));
         } else if (!fakeRepository.branches.includes(pullRequest.head.ref)) {
           result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.head.ref}".`));
-        } else if (pullRequest.base.ref === pullRequest.head.ref) {
-          result = Promise.reject(new Error(`The base ref ("${pullRequest.base.ref}") cannot be the same as the head ref ("${pullRequest.head.ref}").`));
+        } else if (pullRequest.base.label === pullRequest.head.label) {
+          result = Promise.reject(new Error(`The base label ("${pullRequest.base.label}") cannot be the same as the head label ("${pullRequest.head.label}").`));
         } else {
           const existingPullRequest: FakeGitHubPullRequest | undefined = first(fakeRepository.pullRequests, (pr: FakeGitHubPullRequest) => pr.number === pullRequest.number);
           if (existingPullRequest) {
@@ -723,19 +769,20 @@ export class FakeGitHub implements GitHub {
       });
   }
 
-  public createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string, title: string, _options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
+  public createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string | ForkedRepositoryBranch, title: string, _options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
     return this.getFakeRepository(repository)
-      .then((fakeRepository: FakeGitHubRepository) =>
-        this.createFakePullRequest(repository, {
+      .then((fakeRepository: FakeGitHubRepository) => {
+        const forkedRepositoryHeadBranch: ForkedRepositoryBranch = getForkedRepositoryBranch(headBranch);
+        return this.createFakePullRequest(repository, {
           base: {
-            label: "fake-base-label",
+            label: baseBranch,
             ref: baseBranch,
             sha: "fake-base-sha",
           },
           diff_url: "fake-diff-url",
           head: {
-            label: "fake-head-label",
-            ref: headBranch,
+            label: getForkedRepositoryBranchFullName(forkedRepositoryHeadBranch),
+            ref: forkedRepositoryHeadBranch.branchName,
             sha: "fake-head-sha",
           },
           html_url: "fake-html-url",
@@ -745,7 +792,8 @@ export class FakeGitHub implements GitHub {
           state: "open",
           title,
           url: "fake-url"
-        }));
+        });
+      });
   }
 
   public closePullRequest(repository: string | GitHubRepository, pullRequestNumber: number | GitHubPullRequest): Promise<unknown> {
@@ -1208,13 +1256,13 @@ export class RealGitHub implements GitHub {
     return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
   }
 
-  public createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string, title: string, options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
+  public createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string | ForkedRepositoryBranch, title: string, options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
     const githubArguments: Octokit.PullRequestsCreateParams = {
       owner: githubRepository.organization,
       repo: githubRepository.name,
       base: baseBranch,
-      head: headBranch,
+      head: getForkedRepositoryBranchFullName(headBranch),
       title: title,
       body: options && options.description
     };

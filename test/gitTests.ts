@@ -1,6 +1,6 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
-import { git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitFetch, gitMergeOriginMaster, gitPull, gitPush, GitRunResult, gitStatus, GitStatusResult, gitLocalBranches, GitLocalBranchesResult, gitRemoteBranches, GitRemoteBranchesResult, getGitRemoteBranch, GitRemoteBranch } from "../lib/git";
+import { git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitFetch, gitMergeOriginMaster, gitPull, gitPush, GitRunResult, gitStatus, GitStatusResult, gitLocalBranches, GitLocalBranchesResult, gitRemoteBranches, GitRemoteBranchesResult, getGitRemoteBranch, GitRemoteBranch, getRemoteBranchFullName } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
 import { findFileInPathSync } from "../lib/fileSystem2";
 
@@ -510,6 +510,37 @@ describe("git.ts", function () {
         branchName: "b",
       };
       assert.strictEqual(getGitRemoteBranch(remoteBranch), remoteBranch);
+    });
+  });
+
+  describe("getRemoteBranchFullName(string|GitRemoteBranch)", function () {
+    it("with undefined", function () {
+      assert.strictEqual(getRemoteBranchFullName(undefined as any), undefined);
+    });
+
+    it("with null", function () {
+      // tslint:disable-next-line:no-null-keyword
+      assert.strictEqual(getRemoteBranchFullName(null as any), null);
+    });
+
+    it("with empty string", function () {
+      assert.deepEqual(getRemoteBranchFullName(""), "");
+    });
+
+    it("with non-empty string with no colon", function () {
+      assert.deepEqual(getRemoteBranchFullName("hello"), "hello");
+    });
+
+    it("with non-empty string with colon", function () {
+      assert.deepEqual(getRemoteBranchFullName("hello:there"), "hello:there");
+    });
+
+    it("with GitRemoteBranch", function () {
+      const remoteBranch: GitRemoteBranch = {
+        repositoryTrackingName: "a",
+        branchName: "b",
+      };
+      assert.strictEqual(getRemoteBranchFullName(remoteBranch), "a:b");
     });
   });
 
