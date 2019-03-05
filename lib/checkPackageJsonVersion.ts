@@ -1,4 +1,12 @@
-import { getDefaultLogger, Logger } from "./logger";
+/**
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ */
+
+import { Logger } from "@azure/logger-js";
+
+import { getDefaultLogger } from "./logger";
 import { findPackageJsonFileSync, isPackageJsonPublished, PackageJson, readPackageJsonFileSync } from "./packageJson";
 import { AdditionalCheck } from "./checkEverything";
 

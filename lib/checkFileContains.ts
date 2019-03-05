@@ -1,6 +1,14 @@
+/**
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ */
+
+import { Logger } from "@azure/logger-js";
+
 import { AdditionalCheck } from "./checkEverything";
 import { readFileContents } from "./fileSystem2";
-import { getDefaultLogger, Logger } from "./logger";
+import { getDefaultLogger } from "./logger";
 import { isRooted, resolvePath } from "./path";
 
 export interface CheckFileContainsOptions {

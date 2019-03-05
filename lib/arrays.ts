@@ -1,4 +1,10 @@
 /**
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ */
+
+/**
  * Get whether or not the provided array contains any values.
  * @param values The array to check.
  * @returns Whether or not the provided array contains any values.
