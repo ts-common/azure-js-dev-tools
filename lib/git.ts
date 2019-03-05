@@ -384,6 +384,16 @@ export interface GitRemoteBranchesResult extends GitRunResult {
 }
 
 /**
+ * Get the full name of the provided remote branch.
+ * @param remoteBranch The remote branch to get the full name of.
+ */
+export function getRemoteBranchFullName(remoteBranch: string | GitRemoteBranch): string {
+  return !remoteBranch || typeof remoteBranch === "string"
+    ? remoteBranch
+    : `${remoteBranch.repositoryTrackingName}:${remoteBranch.branchName}`;
+}
+
+/**
  * Get the remote branches that this repository clone is aware of.
  * @param options The options to run this command with.
  */

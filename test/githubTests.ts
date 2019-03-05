@@ -389,7 +389,7 @@ describe("github.ts", function () {
           await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "not-found-fake-head-branch", "fake-title"));
         });
 
-        it("with head branch with same name as base branch", async function () {
+        it("with head branch with same label as base branch", async function () {
           await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "master", "fake-title"));
         });
 
