@@ -160,6 +160,10 @@ export interface GitHubPullRequest {
   diff_url: string;
   milestone?: GitHubMilestone;
   assignees?: GitHubUser[];
+  /**
+   * The description for the pull request.
+   */
+  body?: string;
 }
 
 export interface GitHubUser {
@@ -757,6 +761,7 @@ export class FakeGitHub implements GitHub {
           if (existingPullRequest) {
             result = Promise.reject(new Error(`A pull request already exists in the fake repository "${getRepositoryFullName(repository)}" with the number ${pullRequest.number}.`));
           } else {
+            pullRequest.body = pullRequest.body || "";
             const fakePullRequest: FakeGitHubPullRequest = {
               ...pullRequest,
               comments: [],
@@ -769,7 +774,7 @@ export class FakeGitHub implements GitHub {
       });
   }
 
-  public createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string | ForkedRepositoryBranch, title: string, _options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
+  public createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string | ForkedRepositoryBranch, title: string, options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
     return this.getFakeRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
         const forkedRepositoryHeadBranch: ForkedRepositoryBranch = getForkedRepositoryBranch(headBranch);
@@ -791,7 +796,8 @@ export class FakeGitHub implements GitHub {
           number: fakeRepository.pullRequests.length + 1,
           state: "open",
           title,
-          url: "fake-url"
+          url: "fake-url",
+          body: options && options.description
         });
       });
   }
@@ -1268,7 +1274,9 @@ export class RealGitHub implements GitHub {
     };
     return this.github.pullRequests.create(githubArguments)
       .then((response: Octokit.AnyResponse) => {
-        return response.data as GitHubPullRequest;
+        const result: GitHubPullRequest = response.data as GitHubPullRequest;
+        result.body = result.body || "";
+        return result;
       });
   }
 
@@ -1295,7 +1303,9 @@ export class RealGitHub implements GitHub {
     };
     return this.github.pullRequests.get(githubArguments)
       .then((response: Octokit.AnyResponse) => {
-        return response.data as GitHubPullRequest;
+        const result: GitHubPullRequest = response.data as GitHubPullRequest;
+        result.body = result.body || "";
+        return result;
       });
   }
 

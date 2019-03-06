@@ -6,7 +6,7 @@ import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFul
 import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
 
-describe("github.ts", function () {
+describe.only("github.ts", function () {
   describe("getGitHubRepository(string)", function () {
     it(`with null`, function () {
       // tslint:disable-next-line:no-null-keyword
@@ -416,6 +416,45 @@ describe("github.ts", function () {
                 assert.strictEqual(pullRequest.head.ref, headBranchName);
                 assertEx.defined(pullRequest.number, "pullRequest.number");
                 assert.strictEqual(pullRequest.title, "fake-title");
+                assert.strictEqual(pullRequest.body, "");
+              } finally {
+                await github.closePullRequest("ts-common/azure-js-dev-tools", pullRequest);
+              }
+            } finally {
+              await git.deleteRemoteBranch(headBranchName);
+            }
+          } finally {
+            await git.checkout(currentBranch);
+            await git.deleteLocalBranch(headBranchName);
+          }
+        });
+
+        it("with valid branches, changes, and description", async function () {
+          this.timeout(30000);
+
+          const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
+          const git = new GitScope({ executionFolderPath: repositoryFolderPath });
+
+          const currentBranch: string = await git.currentBranch();
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`, { noVerify: true });
+          try {
+            await git.push({ setUpstream: true, branchName: headBranchName });
+            try {
+              const pullRequest: GitHubPullRequest = await github.createPullRequest("ts-common/azure-js-dev-tools", "master", headBranchName, "fake-title", {
+                description: "My pull request's body/description"
+              });
+              try {
+                assertEx.defined(pullRequest, "pullRequest");
+                assert.strictEqual(pullRequest.base.ref, "master");
+                assert.strictEqual(pullRequest.head.ref, headBranchName);
+                assertEx.defined(pullRequest.number, "pullRequest.number");
+                assert.strictEqual(pullRequest.title, "fake-title");
+                assert.strictEqual(pullRequest.body, "My pull request's body/description");
               } finally {
                 await github.closePullRequest("ts-common/azure-js-dev-tools", pullRequest);
               }
@@ -493,6 +532,7 @@ describe("github.ts", function () {
           assert.strictEqual(pullRequest.state, "closed");
           assert.strictEqual(pullRequest.title, "Buffer external process output and error until newline character");
           assert.strictEqual(pullRequest.url, "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/113");
+          assert.strictEqual(pullRequest.body, "");
         });
       });
 
