@@ -18,7 +18,7 @@ export function any<T>(values: T[] | undefined): boolean {
  * @param values The array of values to search through.
  * @param condition The condition to use when looking through the array of values.
  */
-export function first<T>(values: T[] | undefined, condition: T | ((value: T) => boolean)): T | undefined {
+export function first<T>(values: T[] | undefined, condition?: T | ((value: T) => boolean)): T | undefined {
   let result: T | undefined;
   if (values) {
     if (condition instanceof Function) {
@@ -28,8 +28,10 @@ export function first<T>(values: T[] | undefined, condition: T | ((value: T) => 
           break;
         }
       }
-    } else {
+    } else if (condition !== undefined) {
       result = first(values, (value: T) => value === condition);
+    } else {
+      result = values[0];
     }
   }
   return result;
@@ -103,4 +105,42 @@ export function map<T, U>(values: T[] | undefined, conversion: (value: T) => U):
  */
 export function toArray<T>(value: T | T[], conversion: (valueToConvert: T) => T[] = (valueToConvert: T) => [valueToConvert]): T[] {
   return value instanceof Array ? value : conversion(value);
+}
+
+/**
+ * Get the index of the first value that matches the provided condition. -1 will be returned if no
+ * matching index is found.
+ * @param values The values to look through.
+ * @param condition The condition to check against each of the elements.
+ * @returns The first index that matches the provided condition or -1 if the condition is never
+ * satisfied.
+ */
+export function indexOf<T>(values: T[] | undefined, condition: (value: T, index: number) => boolean): number {
+  let result = -1;
+  if (values) {
+    for (let i = 0; i < values.length; ++i) {
+      if (condition(values[i], i)) {
+        result = i;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Remove and return the first element in the provided values that matches the provided condition.
+ * Undefined will be returned if no matching element is found.
+ * @param values The values to look through.
+ * @param condition The condition to check against each of the elements.
+ */
+export function removeFirst<T>(values: T[] | undefined, condition: (value: T, index: number) => boolean): T | undefined {
+  let result: T | undefined;
+  if (values) {
+    const indexToRemove: number = indexOf(values, condition);
+    if (indexToRemove !== -1) {
+      result = values.splice(indexToRemove, 1)[0];
+    }
+  }
+  return result;
 }

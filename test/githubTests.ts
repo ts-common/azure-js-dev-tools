@@ -5,6 +5,7 @@ import { GitScope } from "../lib/git";
 import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub } from "../lib/github";
 import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
+import { contains } from "../lib/arrays";
 
 describe.only("github.ts", function () {
   describe("getGitHubRepository(string)", function () {
@@ -360,6 +361,62 @@ describe.only("github.ts", function () {
 
         it(`with "" color`, async function () {
           await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "fake label name", ""));
+        });
+
+        it(`with valid label name and color`, async function () {
+          const labelName = "fakelabelthatjustgotcreated";
+          const labelColor = "123456";
+          const createdLabel: GitHubLabel = await github.createLabel("ts-common/azure-js-dev-tools", labelName, labelColor);
+          try {
+            assertEx.defined(createdLabel, "createdLabel");
+            assert.strictEqual(createdLabel.name, labelName);
+            assert.strictEqual(createdLabel.color, labelColor);
+
+            const labels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
+            assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName), true);
+          } finally {
+            await github.deleteLabel("ts-common/azure-js-dev-tools", labelName);
+          }
+        });
+      });
+
+      describe("deleteLabel()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.deleteLabel(undefined as any, "fake label name"));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.deleteLabel(null as any, "fake label name"));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.deleteLabel(undefined as any, "fake label name"));
+        });
+
+        it("with undefined label name", async function () {
+          await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", undefined as any));
+        });
+
+        it("with null label name", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", null as any));
+        });
+
+        it(`with "" label name`, async function () {
+          await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", ""));
+        });
+
+        it(`with label name that doesn't exist`, async function () {
+          await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", "labelthatdoesntexist"));
+        });
+
+        it(`with label that exists`, async function () {
+          const labelName = "fakelabelthatjustgotcreated";
+          await github.createLabel("ts-common/azure-js-dev-tools", labelName, "123456");
+          await github.deleteLabel("ts-common/azure-js-dev-tools", labelName);
+          const labels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
+          assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName), false);
         });
       });
 

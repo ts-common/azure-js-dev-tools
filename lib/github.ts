@@ -6,7 +6,7 @@
 
 import Octokit from "@octokit/rest";
 import * as fs from "fs";
-import { contains, first, map, where } from "./arrays";
+import { contains, first, map, removeFirst, where } from "./arrays";
 
 /**
  * The name and optional organization that the repository belongs to.
@@ -352,7 +352,14 @@ export interface GitHub {
    * @param labelName The name of the created label.
    * @param color The color of the created label.
    */
-  createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<unknown>;
+  createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<GitHubLabel>;
+
+  /**
+   * Delete the provided label from the provided repository.
+   * @param repository The repository to delete the label from.
+   * @param label The label name, id, or details to delete.
+   */
+  deleteLabel(repository: string | GitHubRepository, label: string | number | GitHubLabel): Promise<unknown>;
 
   /**
    * Update the color of the label with the provided name in the provided repository.
@@ -619,8 +626,8 @@ export class FakeGitHub implements GitHub {
       .then(getSprintLabels);
   }
 
-  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<unknown> {
-    let result: Promise<unknown>;
+  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<GitHubLabel> {
+    let result: Promise<GitHubLabel>;
     if (!labelName) {
       result = Promise.reject(new Error(`labelName cannot be undefined or empty.`));
     } else if (!color) {
@@ -637,9 +644,23 @@ export class FakeGitHub implements GitHub {
             color: color
           };
           fakeRepository.labels.push(label);
+          return label;
         });
     }
     return result;
+  }
+
+  public deleteLabel(repository: string | GitHubRepository, label: string | GitHubLabel): Promise<unknown> {
+    const labelName: string = (!label || typeof label === "string") ? label : label.name;
+    return !labelName
+      ? Promise.reject(new Error(`label cannot be undefined or an empty string.`))
+      : this.getFakeRepository(repository)
+        .then((fakeRepository: FakeGitHubRepository) => {
+          const removedLabel: GitHubLabel | undefined = removeFirst(fakeRepository.labels, (label: GitHubLabel) => label.name === labelName);
+          return !removedLabel
+            ? Promise.reject(new Error(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`))
+            : Promise.resolve();
+        });
   }
 
   public updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<unknown> {
@@ -1081,7 +1102,7 @@ export class RealGitHub implements GitHub {
     return this.getLabels(repository).then(getSprintLabels);
   }
 
-  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<unknown> {
+  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<GitHubLabel> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
     return new Promise((resolve, reject) => {
       this.github.issues.createLabel({
@@ -1089,7 +1110,26 @@ export class RealGitHub implements GitHub {
         repo: githubRepository.name,
         name: labelName,
         color: color
-      }, (error: Error | null) => {
+      }, (error: Error | null, response: Octokit.AnyResponse) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(response.data as GitHubLabel);
+        }
+      });
+    });
+  }
+
+  public deleteLabel(repository: string | GitHubRepository, label: string | GitHubLabel): Promise<unknown> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const labelName: string = (!label || typeof label === "string") ? label : label.name;
+    const githubArguments: Octokit.IssuesDeleteLabelParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      name: labelName
+    };
+    return new Promise((resolve, reject) => {
+      this.github.issues.deleteLabel(githubArguments, (error: Error | null) => {
         if (error) {
           reject(error);
         } else {
