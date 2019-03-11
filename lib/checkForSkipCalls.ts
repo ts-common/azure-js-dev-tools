@@ -43,10 +43,10 @@ export interface SkipLine {
   allowed: boolean;
 }
 
-export function checkForSkipCalls(): AdditionalCheck {
+export function checkForSkipCalls(options: CheckForSkipCallsOptions = {}): AdditionalCheck {
   return {
     name: "No skip() calls",
-    check: checkForSkipCallsCheck,
+    check: () => checkForSkipCallsCheck(options),
   };
 }
 

@@ -34,10 +34,10 @@ export interface OnlyLine {
  * @param filePath The path to the file to check.
  * @param textToFind The text to find in the file.
  */
-export function checkForOnlyCalls(): AdditionalCheck {
+export function checkForOnlyCalls(options: CheckForOnlyCallsOptions = {}): AdditionalCheck {
   return {
     name: "No only() calls",
-    check: () => checkForOnlyCallsCheck(),
+    check: () => checkForOnlyCallsCheck(options),
   };
 }
 
@@ -51,11 +51,12 @@ export function checkForOnlyCalls(): AdditionalCheck {
 export async function checkForOnlyCallsCheck(options: CheckForOnlyCallsOptions = {}): Promise<number> {
   const startPathArray: string[] = !options.startPaths ? [process.cwd()] : typeof options.startPaths === "string" ? [options.startPaths] : options.startPaths;
   const logger: Logger = options.logger || getDefaultLogger();
+  await logger.logVerbose(`startPathArray: ${JSON.stringify(startPathArray)}`);
 
   let exitCode = 0;
 
   for (const startPath of startPathArray) {
-    logger.logSection(`Looking for *.only(...) function calls in files starting at "${startPath}"...`);
+    await logger.logSection(`Looking for *.only(...) function calls in files starting at "${startPath}"...`);
     const sourceFilePaths: string[] | undefined = await getChildFilePaths(startPath, {
       recursive: true,
       folderCondition: (folderPath: string) => getName(folderPath) !== "node_modules",
@@ -63,9 +64,10 @@ export async function checkForOnlyCallsCheck(options: CheckForOnlyCallsOptions =
     });
 
     if (!sourceFilePaths) {
-      logger.logError(`  No source files (*.ts, *.js) found.`);
+      await logger.logError(`  No source files (*.ts, *.js) found.`);
     } else {
       for (const sourceFilePath of sourceFilePaths) {
+        logger.logVerbose(`  Checking ${sourceFilePath}...`);
         const sourceFileContents: string = (await readFileContents(sourceFilePath))!;
         const sourceFileLines: string[] = getLines(sourceFileContents);
         const onlyLines: OnlyLine[] = [];
@@ -76,14 +78,14 @@ export async function checkForOnlyCallsCheck(options: CheckForOnlyCallsOptions =
           }
         }
         if (onlyLines.length > 0) {
-          logger.logError(`  Found ${onlyLines.length} *.only(...) call${onlyLines.length === 1 ? "" : "s"} in "${sourceFilePath}".`);
+          await logger.logError(`  Found ${onlyLines.length} *.only(...) call${onlyLines.length === 1 ? "" : "s"} in "${sourceFilePath}".`);
           exitCode += onlyLines.length;
           let numberWidth = 1;
           for (const onlyLine of onlyLines) {
             numberWidth = Math.max(numberWidth, onlyLine.lineNumber.toString().length);
           }
           for (const onlyLine of onlyLines) {
-            logger.logError(`    Line ${padLeft(onlyLine.lineNumber, numberWidth)}. ${onlyLine.text}`);
+            await logger.logError(`    Line ${padLeft(onlyLine.lineNumber, numberWidth)}. ${onlyLine.text}`);
           }
         }
       }
@@ -91,9 +93,9 @@ export async function checkForOnlyCallsCheck(options: CheckForOnlyCallsOptions =
   }
 
   if (exitCode === 0) {
-    logger.logInfo(`Found 0 source files that contain *.only(...) calls.`);
+    await logger.logInfo(`Found 0 source files that contain *.only(...) calls.`);
   } else {
-    logger.logError(`Found ${exitCode} source file${exitCode === 1 ? "" : "s"} that contain${exitCode === 1 ? "s" : ""} *.only(...) calls.`);
+    await logger.logError(`Found ${exitCode} source file${exitCode === 1 ? "" : "s"} that contain${exitCode === 1 ? "s" : ""} *.only(...) calls.`);
   }
 
   process.exitCode = exitCode;

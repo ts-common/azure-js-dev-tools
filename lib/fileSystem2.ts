@@ -334,27 +334,21 @@ export function getChildEntryPaths(folderPath: string, options: GetChildEntriesO
         const result: string[] = options.result || [];
         for (const entryName of entryNames) {
           const entryPath: string = joinPath(folderPath, entryName);
-          let folderPathExists: boolean | undefined;
-          let addEntryPathToResult = true;
           if (!options.condition || await Promise.resolve(options.condition(entryPath))) {
 
-            if (options.fileCondition && await fileExists(entryPath)) {
-              addEntryPathToResult = await Promise.resolve(options.fileCondition(entryPath));
-            } else if (options.folderCondition) {
-              folderPathExists = await folderExists(entryPath);
-              if (folderPathExists) {
-                addEntryPathToResult = await Promise.resolve(options.folderCondition(entryPath));
+            if (await fileExists(entryPath)) {
+              if (!options.fileCondition || await Promise.resolve(options.fileCondition(entryPath))) {
+                result.push(entryPath);
+              }
+            } else if (await folderExists(entryPath)) {
+              if (!options.folderCondition || await Promise.resolve(options.folderCondition(entryPath))) {
+                result.push(entryPath);
+                if (options.recursive) {
+                  options.result = result;
+                  await getChildEntryPaths(entryPath, options);
+                }
               }
             }
-
-            if (addEntryPathToResult) {
-              result.push(entryPath);
-            }
-          }
-
-          if (options.recursive && folderPathExists && addEntryPathToResult) {
-            options.result = result;
-            await getChildEntryPaths(entryPath, options);
           }
         }
         resolve(result);
