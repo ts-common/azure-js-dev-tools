@@ -7,7 +7,7 @@ import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
 import { contains } from "../lib/arrays";
 
-describe.only("github.ts", function () {
+describe("github.ts", function () {
   describe("getGitHubRepository(string)", function () {
     it(`with null`, function () {
       // tslint:disable-next-line:no-null-keyword

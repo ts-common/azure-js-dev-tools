@@ -40,7 +40,7 @@ describe("arrays.ts", function () {
     });
 
     it("with undefined values and value condition", function () {
-      assert.strictEqual(first(undefined), 3);
+      assert.strictEqual(first(undefined, 3), undefined);
     });
 
     it("with null values and value condition", function () {
@@ -57,7 +57,7 @@ describe("arrays.ts", function () {
     });
 
     it("with undefined values and function condition", function () {
-      assert.strictEqual(first(undefined), (value: number) => value % 2 === 0);
+      assert.strictEqual(first(undefined, (value: number) => value % 2 === 0), undefined);
     });
 
     it("with null values and value condition", function () {

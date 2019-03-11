@@ -21,10 +21,10 @@ export interface CheckPackageJsonVersionOptions {
   logger?: Logger;
 }
 
-export function checkPackageJsonVersion(): AdditionalCheck {
+export function checkPackageJsonVersion(options: CheckPackageJsonVersionOptions = {}): AdditionalCheck {
   return {
     name: "Package.json Version",
-    check: checkPackageJsonVersionCheck,
+    check: () => checkPackageJsonVersionCheck(options),
   };
 }
 

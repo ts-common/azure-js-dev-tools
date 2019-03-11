@@ -24,10 +24,10 @@ export interface CheckFileContainsOptions {
  * @param filePath The path to the file to check.
  * @param textToFind The text to find in the file.
  */
-export function checkFileContains(filePath: string, textToFind: string): AdditionalCheck {
+export function checkFileContains(filePath: string, textToFind: string, options: CheckFileContainsOptions = {}): AdditionalCheck {
   return {
     name: `${filePath} contains "${textToFind}"`,
-    check: () => checkFileContainsCheck(filePath, textToFind),
+    check: () => checkFileContainsCheck(filePath, textToFind, options),
   };
 }
 

@@ -53,8 +53,7 @@ export interface CheckEverythingOptions {
  * Run all of the repository checks.
  * @returns The number of repository checks that failed.
  */
-export async function checkEverything(checkEverythingOptions?: CheckEverythingOptions): Promise<number> {
-  const options: CheckEverythingOptions = checkEverythingOptions || {};
+export async function checkEverything(options: CheckEverythingOptions = {}): Promise<number> {
   const logger: Logger = options.logger || getDefaultLogger();
 
   let exitCode = 0;
@@ -68,8 +67,8 @@ export async function checkEverything(checkEverythingOptions?: CheckEverythingOp
 
   const checks: AdditionalCheck[] = [
     checkPackageJsonVersion(),
-    checkForOnlyCalls(),
-    checkForSkipCalls(),
+    checkForOnlyCalls(options.checkForOnlyCallsOptions),
+    checkForSkipCalls(options.checkForSkipCallsOptions),
   ];
   if (options.additionalChecks) {
     if (Array.isArray(options.additionalChecks)) {
