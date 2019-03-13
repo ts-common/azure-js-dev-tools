@@ -26,7 +26,7 @@ describe("blobStorage.ts", function () {
 
     it("with file that exists", async function () {
       const fileLength: number = await getFileLengthInBytes(joinPath(__dirname, "../LICENSE"));
-      assert.strictEqual(fileLength, 1077);
+      assert(fileLength === 1056 || fileLength === 1077, `Expected fileLength (${fileLength}) to be either 1056 or 1077.`);
     });
   });
 
