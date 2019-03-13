@@ -195,16 +195,16 @@ export class BlobStorageContainer {
    * Create a block blob relative to this container with the provided name.
    * @param blockBlobName The name of the blob relative to this container.
    */
-  public createBlockBlob(blockBlobName: string): Promise<boolean> {
-    return this.storage.createBlockBlob(new BlobPath(this.name, blockBlobName));
+  public createBlockBlob(blockBlobName: string, options: BlobContentOptions = {}): Promise<boolean> {
+    return this.storage.createBlockBlob(new BlobPath(this.name, blockBlobName), options);
   }
 
   /**
    * Create an append blob relative to this container with the provided name.
    * @param appendBlobName The name of the append blob relative to this container.
    */
-  public createAppendBlob(appendBlobName: string): Promise<boolean> {
-    return this.storage.createAppendBlob(new BlobPath(this.name, appendBlobName));
+  public createAppendBlob(appendBlobName: string, options: BlobContentOptions = {}): Promise<boolean> {
+    return this.storage.createAppendBlob(new BlobPath(this.name, appendBlobName), options);
   }
 
   /**
@@ -213,6 +213,23 @@ export class BlobStorageContainer {
    */
   public blobExists(blobName: string): Promise<boolean> {
     return this.storage.blobExists(new BlobPath(this.name, blobName));
+  }
+
+  /**
+   * Get the content type that has been assigned to the provided blob.
+   * @param blobName The name of to the blob.
+   */
+  public getBlobContentType(blobName: string): Promise<string | undefined> {
+    return this.storage.getBlobContentType(new BlobPath(this.name, blobName));
+  }
+
+  /**
+   * Assign the provided content type to the provided blob.
+   * @param blobName The name of the blob.
+   * @param contentType The content type to assign to the provided blob.
+   */
+  public setBlobContentType(blobName: string, contentType: string): Promise<unknown> {
+    return this.storage.setBlobContentType(new BlobPath(this.name, blobName), contentType);
   }
 
   /**
@@ -699,7 +716,7 @@ interface InMemoryContainer {
 }
 
 interface InMemoryBlob {
-  contents: Buffer;
+  contents: string;
   contentType?: string;
   blobType: "block" | "append";
 }
@@ -732,9 +749,10 @@ export class InMemoryBlobStorage extends BlobStorage {
     const blobName: string = blobPath.blobName;
     return this.getInMemoryContainer(blobPath.containerName)
       .then((container: InMemoryContainer) => {
-        return blobName in container.blobs
-          ? Promise.resolve(container.blobs[blobName])
-          : Promise.reject(new Error("BlobNotFound: The specified blob does not exist."));
+        return validateBlobName(blobPath)
+          .then(() => blobName in container.blobs
+            ? Promise.resolve(container.blobs[blobName])
+            : Promise.reject(new Error("BlobNotFound: The specified blob does not exist.")));
       });
   }
 
@@ -756,11 +774,15 @@ export class InMemoryBlobStorage extends BlobStorage {
     const blobName: string = blobPath.blobName;
     return this.getInMemoryContainer(blobPath)
       .then((container: InMemoryContainer) => {
-        let result = false;
-        if (!(blobName in container.blobs)) {
-          result = true;
+        let result: Promise<boolean>;
+        if (!blobName) {
+          result = Promise.reject(new Error("InvalidUri: The requested URI does not represent any resource on the server."));
+        } else if (blobName in container.blobs) {
+          result = Promise.resolve(false);
+        } else {
+          result = Promise.resolve(true);
           container.blobs[blobName] = {
-            contents: new Buffer(0),
+            contents: "",
             contentType: options.contentType || "application/octet-stream",
             blobType,
           };
@@ -789,7 +811,12 @@ export class InMemoryBlobStorage extends BlobStorage {
 
   public getBlobContentsAsString(blobPath: string | BlobPath): Promise<string | undefined> {
     return this.getInMemoryBlob(blobPath)
-      .then((blob: InMemoryBlob) => blob.contents.toString());
+      .then((blob: InMemoryBlob) => blob.contents.toString())
+      .catch((error: Error) => {
+        return error.message.includes("ContainerNotFound")
+          ? Promise.reject(new Error("BlobNotFound: The specified blob does not exist."))
+          : Promise.reject(error);
+      });
   }
 
   public setBlockBlobContentsFromString(blobPath: string | BlobPath, blobContents: string, options: BlobContentOptions = {}): Promise<unknown> {
@@ -801,12 +828,12 @@ export class InMemoryBlobStorage extends BlobStorage {
         const blob: InMemoryBlob | undefined = container.blobs[blobName];
         if (!blob) {
           container.blobs[blobName] = {
-            contents: new Buffer(blobContents),
+            contents: blobContents,
             contentType: options.contentType || "application/octet-stream",
             blobType: "block",
           };
         } else {
-          blob.contents = new Buffer(blobContents);
+          blob.contents = blobContents;
           blob.contentType = options.contentType || "application/octet-stream";
         }
       });
@@ -821,12 +848,12 @@ export class InMemoryBlobStorage extends BlobStorage {
         const blockBlob: InMemoryBlob | undefined = container.blobs[blockBlobName];
         if (!blockBlob) {
           container.blobs[blockBlobName] = {
-            contents: fs.readFileSync(filePath),
+            contents: fs.readFileSync(filePath, "utf8"),
             contentType: options.contentType || "application/octet-stream",
             blobType: "block",
           };
         } else {
-          blockBlob.contents = fs.readFileSync(filePath);
+          blockBlob.contents = fs.readFileSync(filePath, "utf8");
           blockBlob.contentType = options.contentType || "application/octet-stream";
         }
       });
@@ -835,7 +862,7 @@ export class InMemoryBlobStorage extends BlobStorage {
   public addToAppendBlobContentsFromString(appendBlobPath: string | BlobPath, blobContentsToAppend: string): Promise<unknown> {
     return this.getInMemoryBlob(appendBlobPath)
       .then((appendBlob: InMemoryBlob) => {
-        appendBlob.contents.write(blobContentsToAppend, "utf8");
+        appendBlob.contents += blobContentsToAppend;
       });
   }
 
@@ -855,14 +882,17 @@ export class InMemoryBlobStorage extends BlobStorage {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
 
-    return this.getInMemoryContainer(blobPath)
-      .then((container: InMemoryContainer) => {
-        let result = false;
-        if (blobName in container.blobs) {
-          result = true;
-          delete container.blobs[blobName];
-        }
-        return result;
+    return validateBlobName(blobPath)
+      .then(() => {
+        return this.getInMemoryContainer(blobPath)
+          .then((container: InMemoryContainer) => {
+            let result = false;
+            if (blobName in container.blobs) {
+              result = true;
+              delete container.blobs[blobName];
+            }
+            return result;
+          });
       });
   }
 
@@ -916,6 +946,17 @@ export class InMemoryBlobStorage extends BlobStorage {
     }
     return Promise.resolve(result);
   }
+}
+
+/**
+ * Validate that the provided BlobPath's blobName is defined and not-empty.
+ * @param blobPath The blob path to validate.
+ */
+export function validateBlobName(blobPath: string | BlobPath): Promise<void> {
+  blobPath = BlobPath.parse(blobPath);
+  return !blobPath.blobName
+    ? Promise.reject(new Error("InvalidUri: The requested URI does not represent any resource on the server."))
+    : Promise.resolve();
 }
 
 export function getAzureContainerAccessPermissions(permissions?: ContainerAccessPolicy): "container" | "blob" | undefined {
@@ -1000,12 +1041,16 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public getBlobContentsAsString(blobPath: string | BlobPath): Promise<string | undefined> {
-    return this.getBlockBlobURL(blobPath)
-      .download(azure.Aborter.none, 0, undefined)
-      .then((blobDownloadResponse: azure.Models.BlobDownloadResponse) => {
-        return blobDownloadResponse.readableStreamBody;
-      })
-      .then(readEntireString);
+    return validateBlobName(blobPath)
+      .then(() => {
+        return this.getBlockBlobURL(blobPath)
+          .download(azure.Aborter.none, 0, undefined)
+          .then((blobDownloadResponse: azure.Models.BlobDownloadResponse) => {
+            return blobDownloadResponse.readableStreamBody;
+          })
+          .then(readEntireString)
+          .catch((error: Error) => resolveIfErrorStatusCodeEquals(error, 404, Promise.reject(new Error("BlobNotFound: The specified blob does not exist."))));
+      });
   }
 
   public setBlockBlobContentsFromString(blockBlobPath: string | BlobPath, blockBlobContents: string, options: BlobContentOptions = {}): Promise<unknown> {
@@ -1053,9 +1098,12 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public setBlobContentType(blobPath: string | BlobPath, contentType: string): Promise<unknown> {
-    return this.getBlockBlobURL(blobPath)
-      .setHTTPHeaders(azure.Aborter.none, {
-        blobContentType: contentType
+    return validateBlobName(blobPath)
+      .then(() => {
+        return this.getBlockBlobURL(blobPath)
+          .setHTTPHeaders(azure.Aborter.none, {
+            blobContentType: contentType
+          });
       });
   }
 
@@ -1078,42 +1126,51 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public createBlockBlob(blockBlobPath: string | BlobPath, options: BlobContentOptions = {}): Promise<boolean> {
-    return this.getBlockBlobURL(blockBlobPath)
-      .upload(azure.Aborter.none, "", 0, {
-        accessConditions: {
-          modifiedAccessConditions: {
-            ifNoneMatch: "*"
-          }
-        },
-        blobHTTPHeaders: {
-          blobContentType: options.contentType
-        }
-      })
-      .then(() => true)
-      .catch((error: Error) => resolveIfErrorMessageContains(error, "BlobAlreadyExists", false));
+    return validateBlobName(blockBlobPath)
+      .then(() => {
+        return this.getBlockBlobURL(blockBlobPath)
+          .upload(azure.Aborter.none, "", 0, {
+            accessConditions: {
+              modifiedAccessConditions: {
+                ifNoneMatch: "*"
+              }
+            },
+            blobHTTPHeaders: {
+              blobContentType: options.contentType
+            }
+          })
+          .then(() => true)
+          .catch((error: Error) => resolveIfErrorMessageContains(error, "BlobAlreadyExists", false));
+      });
   }
 
   public createAppendBlob(appendBlobPath: string | BlobPath, options: BlobContentOptions = {}): Promise<boolean> {
-    return this.getAppendBlobURL(appendBlobPath)
-      .create(azure.Aborter.none, {
-        accessConditions: {
-          modifiedAccessConditions: {
-            ifNoneMatch: "*"
-          }
-        },
-        blobHTTPHeaders: {
-          blobContentType: options.contentType
-        }
-      })
-      .then(() => true)
-      .catch((error: Error) => resolveIfErrorMessageContains(error, "BlobAlreadyExists", false));
+    return validateBlobName(appendBlobPath)
+      .then(() => {
+        return this.getAppendBlobURL(appendBlobPath)
+          .create(azure.Aborter.none, {
+            accessConditions: {
+              modifiedAccessConditions: {
+                ifNoneMatch: "*"
+              }
+            },
+            blobHTTPHeaders: {
+              blobContentType: options.contentType
+            }
+          })
+          .then(() => true)
+          .catch((error: Error) => resolveIfErrorMessageContains(error, "BlobAlreadyExists", false));
+      });
   }
 
   public deleteBlob(blobPath: string | BlobPath): Promise<boolean> {
-    return this.getBlockBlobURL(blobPath)
-      .delete(azure.Aborter.none)
-      .then(() => true)
-      .catch((error: Error) => resolveIfErrorMessageContains(error, "BlobNotFound", false));
+    return validateBlobName(blobPath)
+      .then(() => {
+        return this.getBlockBlobURL(blobPath)
+          .delete(azure.Aborter.none)
+          .then(() => true)
+          .catch((error: Error) => resolveIfErrorMessageContains(error, "BlobNotFound", false));
+      });
   }
 
   public createContainer(containerName: string, options?: CreateContainerOptions): Promise<boolean> {
@@ -1147,14 +1204,14 @@ export class AzureBlobStorage extends BlobStorage {
   }
 }
 
-function resolveIfErrorStatusCodeEquals<T>(error: Error, statusCode: number, resolvedValue: T): Promise<T> {
+function resolveIfErrorStatusCodeEquals<T>(error: Error, statusCode: number, resolvedValue: T | Promise<T>): Promise<T> {
   const errorAny: any = error;
   return typeof errorAny.statusCode === "number" && errorAny.statusCode === statusCode
     ? Promise.resolve(resolvedValue)
     : Promise.reject(error);
 }
 
-function resolveIfErrorMessageContains<T>(error: Error, substring: string, resolvedValue: T): Promise<T> {
+function resolveIfErrorMessageContains<T>(error: Error, substring: string, resolvedValue: T | Promise<T>): Promise<T> {
   return error.message.indexOf(substring) !== -1
     ? Promise.resolve(resolvedValue)
     : Promise.reject(error);

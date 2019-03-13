@@ -4,7 +4,7 @@ import { AzureBlobStorage, BlobPath, BlobStorage, BlobStorageAppendBlob, BlobSto
 import { joinPath } from "../lib/path";
 import { URLBuilder } from "../lib/url";
 
-const realStorageUrl = "https://sdkautomationdev.blob.core.windows.net/?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2019-03-14T00:45:18Z&st=2019-03-13T16:45:18Z&spr=https&sig=EmkSatw8JfVyv58hQmoYZD9qE0AwZaATSKMqoERIdos%3D";
+const realStorageUrl = "https://sdkautomationdev.blob.core.windows.net/";
 
 const containerNameBase = "abc";
 let containerNameCount = 0;
@@ -18,7 +18,7 @@ function getBlobName(): string {
   return `${blobNameBase}${++blobNameCount}`;
 }
 
-describe.only("blobStorage.ts", function () {
+describe("blobStorage.ts", function () {
   describe("getFileLengthInBytes()", function () {
     it("with file that doesn't exist", async function () {
       await assertEx.throwsAsync(getFileLengthInBytes("idontexist.jpg"));
@@ -41,6 +41,8 @@ describe.only("blobStorage.ts", function () {
 
   function blobStorageTests(createBlobStorage: () => BlobStorage): void {
     describe("BlobStorageContainer", function () {
+      this.timeout(5000);
+
       function getContainer(containerName?: string, blobStorage?: BlobStorage): BlobStorageContainer {
         return (blobStorage || createBlobStorage()).getContainer(containerName || getContainerName());
       }
@@ -86,47 +88,59 @@ describe.only("blobStorage.ts", function () {
         assert.strictEqual(prefix.storage, container.storage);
       });
 
-      describe.skip("create()", function () {
+      describe("create()", function () {
         it("with non-existing container and no options", async function () {
-          const container: BlobStorageContainer = getContainer();
+          const blobStorage: BlobStorage = createBlobStorage();
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
           assert.strictEqual(await container.create(), true);
           try {
             assert.strictEqual(await container.exists(), true);
-            assert.deepEqual(await container.getAccessPolicy(), "private");
+            if (!(blobStorage instanceof AzureBlobStorage)) {
+              assert.strictEqual(await container.getAccessPolicy(), "private");
+            }
           } finally {
             await container.delete();
           }
         });
 
         it("with non-existing container and empty options", async function () {
-          const container: BlobStorageContainer = getContainer();
+          const blobStorage: BlobStorage = createBlobStorage();
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
           assert.strictEqual(await container.create({}), true);
           try {
             assert.strictEqual(await container.exists(), true);
-            assert.deepEqual(await container.getAccessPolicy(), "private");
+            if (!(blobStorage instanceof AzureBlobStorage)) {
+              assert.strictEqual(await container.getAccessPolicy(), "private");
+            }
           } finally {
             await container.delete();
           }
         });
 
         it("with non-existing container and accessPolicy options", async function () {
-          const container: BlobStorageContainer = getContainer();
+          const blobStorage: BlobStorage = createBlobStorage();
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
           assert.strictEqual(await container.create({ accessPolicy: "blob" }), true);
           try {
             assert.strictEqual(await container.exists(), true);
-            assert.deepEqual(await container.getAccessPolicy(), "blob");
+            if (!(blobStorage instanceof AzureBlobStorage)) {
+              assert.strictEqual(await container.getAccessPolicy(), "blob");
+            }
           } finally {
             await container.delete();
           }
         });
 
         it("when container already exists", async function () {
-          const container: BlobStorageContainer = getContainer();
+          const blobStorage: BlobStorage = createBlobStorage();
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
           assert.strictEqual(await container.create(), true);
           try {
             assert.strictEqual(await container.create(), false);
             assert.strictEqual(await container.exists(), true);
-            assert.deepEqual(await container.getAccessPolicy(), "blob");
+            if (!(blobStorage instanceof AzureBlobStorage)) {
+              assert.strictEqual(await container.getAccessPolicy(), "private");
+            }
           } finally {
             await container.delete();
           }
@@ -143,8 +157,10 @@ describe.only("blobStorage.ts", function () {
           } else {
             const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
             const error: Error = await assertEx.throwsAsync(container.setAccessPolicy("container"));
-            assertEx.contains(error.message, "ContainerNotFound");
-            assertEx.contains(error.message, "container does not exist");
+            assertEx.containsAll(error.message, [
+              "ContainerNotFound",
+              "The specified container does not exist."
+            ]);
           }
         });
 
@@ -166,9 +182,469 @@ describe.only("blobStorage.ts", function () {
           }
         });
       });
+
+      describe("createBlockBlob()", function () {
+        it("when container doesn't exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          const error: Error = await assertEx.throwsAsync(container.createBlockBlob(getBlobName()));
+          assertEx.containsAll(error.message, [
+            "ContainerNotFound",
+            "The specified container does not exist."
+          ]);
+        });
+
+        it("with undefined blockBlobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.createBlockBlob(undefined as any));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with null blockBlobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            // tslint:disable-next-line:no-null-keyword
+            const error: Error = await assertEx.throwsAsync(container.createBlockBlob(null as any));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with empty blockBlobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.createBlockBlob(""));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with non-empty blockBlobName that doesn't exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const blockBlobName: string = getBlobName();
+            assert.strictEqual(await container.createBlockBlob(blockBlobName), true);
+            assert.strictEqual(await container.blobExists(blockBlobName), true);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with non-empty blockBlobName that already exists", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const blockBlobName: string = getBlobName();
+            assert.strictEqual(await container.createBlockBlob(blockBlobName), true);
+            assert.strictEqual(await container.blobExists(blockBlobName), true);
+
+            assert.strictEqual(await container.createBlockBlob(blockBlobName), false);
+            assert.strictEqual(await container.blobExists(blockBlobName), true);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with contentType when blob doesn't already exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const blockBlobName: string = getBlobName();
+            assert.strictEqual(await container.createBlockBlob(blockBlobName, { contentType: "spam" }), true);
+            assert.strictEqual(await container.blobExists(blockBlobName), true);
+            assert.strictEqual(await container.getBlobContentType(blockBlobName), "spam");
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with contentType when blob doesn't already exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const blockBlobName: string = getBlobName();
+            assert.strictEqual(await container.createBlockBlob(blockBlobName, { contentType: "spam" }), true);
+            assert.strictEqual(await container.blobExists(blockBlobName), true);
+
+            assert.strictEqual(await container.createBlockBlob(blockBlobName, { contentType: "spam2" }), false);
+            assert.strictEqual(await container.blobExists(blockBlobName), true);
+            assert.strictEqual(await container.getBlobContentType(blockBlobName), "spam");
+          } finally {
+            await container.delete();
+          }
+        });
+      });
+
+      describe("createAppendBlob()", function () {
+        it("when container doesn't exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          const error: Error = await assertEx.throwsAsync(container.createAppendBlob(getBlobName()));
+          assertEx.containsAll(error.message, [
+            "ContainerNotFound",
+            "The specified container does not exist."
+          ]);
+        });
+
+        it("with undefined appendBlobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.createAppendBlob(undefined as any));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with null appendBlobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            // tslint:disable-next-line:no-null-keyword
+            const error: Error = await assertEx.throwsAsync(container.createAppendBlob(null as any));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with empty appendBlobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.createAppendBlob(""));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with non-empty appendBlobName that doesn't exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const appendBlobName: string = getBlobName();
+            assert.strictEqual(await container.createAppendBlob(appendBlobName), true);
+            assert.strictEqual(await container.blobExists(appendBlobName), true);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with non-empty appendBlobName that already exists", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const appendBlobName: string = getBlobName();
+            assert.strictEqual(await container.createAppendBlob(appendBlobName), true);
+            assert.strictEqual(await container.blobExists(appendBlobName), true);
+
+            assert.strictEqual(await container.createAppendBlob(appendBlobName), false);
+            assert.strictEqual(await container.blobExists(appendBlobName), true);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with contentType when blob doesn't already exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const appendBlobName: string = getBlobName();
+            assert.strictEqual(await container.createAppendBlob(appendBlobName, { contentType: "spam" }), true);
+            assert.strictEqual(await container.blobExists(appendBlobName), true);
+            assert.strictEqual(await container.getBlobContentType(appendBlobName), "spam");
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with contentType when blob doesn't already exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const appendBlobName: string = getBlobName();
+            assert.strictEqual(await container.createAppendBlob(appendBlobName, { contentType: "spam" }), true);
+            assert.strictEqual(await container.blobExists(appendBlobName), true);
+
+            assert.strictEqual(await container.createAppendBlob(appendBlobName, { contentType: "spam2" }), false);
+            assert.strictEqual(await container.blobExists(appendBlobName), true);
+            assert.strictEqual(await container.getBlobContentType(appendBlobName), "spam");
+          } finally {
+            await container.delete();
+          }
+        });
+      });
+
+      describe("setBlobContentType()", function () {
+        it("when container doesn't exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          const error: Error = await assertEx.throwsAsync(container.setBlobContentType(getBlobName(), "spam"));
+          assertEx.containsAll(error.message, [
+            "ContainerNotFound",
+            "The specified container does not exist."
+          ]);
+        });
+
+        it("with undefined appendBlobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.setBlobContentType(undefined as any, "spam"));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with null appendBlobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            // tslint:disable-next-line:no-null-keyword
+            const error: Error = await assertEx.throwsAsync(container.setBlobContentType(null as any, "spam"));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with empty appendBlobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.setBlobContentType("", "spam"));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+      });
+
+      describe("getBlobContentsAsString()", function () {
+        it("when container doesn't exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          const error: Error = await assertEx.throwsAsync(container.getBlobContentsAsString(getBlobName()));
+          assertEx.containsAll(error.message, [
+            "BlobNotFound",
+            "The specified blob does not exist."
+          ]);
+        });
+
+        it("with undefined blobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.getBlobContentsAsString(undefined as any));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with null blobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            // tslint:disable-next-line:no-null-keyword
+            const error: Error = await assertEx.throwsAsync(container.getBlobContentsAsString(null as any));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with empty blobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.getBlobContentsAsString(""));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with non-empty blobName that doesn't exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.getBlobContentsAsString(getBlobName()));
+            assertEx.containsAll(error.message, [
+              "BlobNotFound",
+              "The specified blob does not exist."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with existing BlockBlob", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const blockBlobName: string = getBlobName();
+            assert.strictEqual(await container.createBlockBlob(blockBlobName), true);
+            await container.setBlockBlobContentsFromString(blockBlobName, "hello world");
+
+            assert.strictEqual(await container.getBlobContentsAsString(blockBlobName), "hello world");
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with existing AppendBlob", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const appendBlobName: string = getBlobName();
+            assert.strictEqual(await container.createAppendBlob(appendBlobName), true);
+            await container.addToAppendBlobContentsFromString(appendBlobName, "hello world");
+
+            assert.strictEqual(await container.getBlobContentsAsString(appendBlobName), "hello world");
+          } finally {
+            await container.delete();
+          }
+        });
+      });
+
+      describe("deleteBlob()", function () {
+        it("when container doesn't exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          const error: Error = await assertEx.throwsAsync(container.deleteBlob(getBlobName()));
+          assertEx.containsAll(error.message, [
+            "ContainerNotFound",
+            "The specified container does not exist."
+          ]);
+        });
+
+        it("with undefined blobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.deleteBlob(undefined as any));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with null blobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            // tslint:disable-next-line:no-null-keyword
+            const error: Error = await assertEx.throwsAsync(container.deleteBlob(null as any));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with empty blobName", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const error: Error = await assertEx.throwsAsync(container.deleteBlob(""));
+            assertEx.containsAll(error.message, [
+              "InvalidUri",
+              "The requested URI does not represent any resource on the server."
+            ]);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with non-empty blobName that doesn't exist", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            assert.strictEqual(await container.deleteBlob(getBlobName()), false);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with existing BlockBlob", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const blockBlobName: string = getBlobName();
+            assert.strictEqual(await container.createBlockBlob(blockBlobName), true);
+            assert.strictEqual(await container.deleteBlob(blockBlobName), true);
+          } finally {
+            await container.delete();
+          }
+        });
+
+        it("with existing AppendBlob", async function () {
+          const container: BlobStorageContainer = getContainer();
+          await container.create();
+          try {
+            const appendBlobName: string = getBlobName();
+            assert.strictEqual(await container.createAppendBlob(appendBlobName), true);
+            assert.strictEqual(await container.deleteBlob(appendBlobName), true);
+          } finally {
+            await container.delete();
+          }
+        });
+      });
     });
 
     describe("BlobStorage", function () {
+      this.timeout(5000);
+
       it("getContainer()", function () {
         const blobStorage: BlobStorage = createBlobStorage();
         const container: BlobStorageContainer = blobStorage.getContainer("xyz");
@@ -267,8 +743,10 @@ describe.only("blobStorage.ts", function () {
             this.skip();
           } else {
             const error: Error = await assertEx.throwsAsync(blobStorage.getContainerAccessPolicy(getContainerName()));
-            assertEx.contains(error.message, "ContainerNotFound");
-            assertEx.contains(error.message, "The specified container does not exist.");
+            assertEx.containsAll(error.message, [
+              "ContainerNotFound",
+              "The specified container does not exist"
+            ]);
           }
         });
 

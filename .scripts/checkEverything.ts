@@ -12,6 +12,6 @@ checkEverything({
     }
   },
   additionalChecks: [
-    checkFileContains(joinPath(testFolderPath, "blobStorageTests.ts"), `const realStorageUrl = "https://autosdkstorage.blob.core.windows.net/";`)
+    checkFileContains(joinPath(testFolderPath, "blobStorageTests.ts"), `const realStorageUrl = "https://sdkautomationdev.blob.core.windows.net/";`)
   ]
 });
