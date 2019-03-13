@@ -1,4 +1,4 @@
-import { checkEverything, resolvePath } from "../lib";
+import { checkEverything, resolvePath, checkFileContains, joinPath } from "../lib";
 
 const testFolderPath: string = resolvePath(__dirname, "..", "test");
 checkEverything({
@@ -10,5 +10,8 @@ checkEverything({
     allowedSkips: {
       "blobStorageTests": "all"
     }
-  }
+  },
+  additionalChecks: [
+    checkFileContains(joinPath(testFolderPath, "blobStorageTests.ts"), `const realStorageUrl = "https://sdkautomationdev.blob.core.windows.net/";`)
+  ]
 });
