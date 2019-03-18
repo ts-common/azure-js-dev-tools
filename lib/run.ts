@@ -7,6 +7,7 @@
 import { ChildProcess, spawn, StdioOptions } from "child_process";
 import * as os from "os";
 import { normalizePath } from "./path";
+import { StringMap } from "./common";
 
 /**
  * An object that runs a provided command.
@@ -39,6 +40,7 @@ export class RealRunner implements Runner {
     const childProcess: ChildProcess = spawn(command, argsArray, {
       cwd: options.executionFolderPath,
       stdio: getChildProcessStdio(options),
+      env: options.environmentVariables
     });
 
     let childProcessOutput: string | undefined;
@@ -306,6 +308,10 @@ export interface RunOptions {
    * The runner that will be used to execute this command.
    */
   runner?: Runner;
+  /**
+   * The environment variables that will be added when the command is run.
+   */
+  environmentVariables?: StringMap<string>;
 }
 
 /**
