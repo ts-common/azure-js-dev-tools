@@ -286,6 +286,10 @@ export interface RunOptions {
    */
   showCommand?: boolean;
   /**
+   * Whether or not to show the environment variables that have been passed to this command.
+   */
+  showEnvironmentVariables?: boolean;
+  /**
    * Whether or not to write the command result to the console. Defaults to only show if the exit
    * code was non-zero.
    */
@@ -357,13 +361,22 @@ export function getCommandString(command: string, args: string | string[] | unde
   return result;
 }
 
-export async function logCommand(command: string, args: string | string[] | undefined, options: RunOptions | undefined): Promise<void> {
+export async function logCommand(command: string, args: string | string[] | undefined, options: RunOptions): Promise<void> {
   if (options && options.log && (options.showCommand == undefined || options.showCommand)) {
     let commandString: string = getCommandString(command, args);
     if (options.executionFolderPath) {
       commandString = `${options.executionFolderPath}: ${commandString}`;
     }
     await Promise.resolve(options.log(commandString));
+  }
+}
+
+export async function logEnvironmentVariables(options: RunOptions): Promise<void> {
+  if (options && options.log && options.environmentVariables && options.showEnvironmentVariables) {
+    await options.log("Environment Variables:");
+    for (const [entryName, entryValue] of Object.entries(options.environmentVariables)) {
+      await options.log(` "${entryName}": "${entryValue}"`);
+    }
   }
 }
 
@@ -405,6 +418,7 @@ export async function run(command: string, args?: string | string[], options: Ru
   const runner: Runner = options.runner || new RealRunner();
 
   await logCommand(command, args, options);
+  await logEnvironmentVariables(options);
   const result: RunResult = await runner.run(command, args, options);
   await logResult(result, options);
 
