@@ -1,8 +1,9 @@
 import { assert } from "chai";
+import { joinPath } from "../lib";
 import { assertEx } from "../lib/assertEx";
-import { git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitFetch, gitMergeOriginMaster, gitPull, gitPush, GitRunResult, gitStatus, GitStatusResult, gitLocalBranches, GitLocalBranchesResult, gitRemoteBranches, GitRemoteBranchesResult, getGitRemoteBranch, GitRemoteBranch, getRemoteBranchFullName } from "../lib/git";
-import { FakeRunner, RunResult } from "../lib/run";
 import { findFileInPathSync } from "../lib/fileSystem2";
+import { getGitRemoteBranch, getRemoteBranchFullName, git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitDiff, GitDiffResult, gitFetch, gitLocalBranches, GitLocalBranchesResult, gitMergeOriginMaster, gitPull, gitPush, GitRemoteBranch, gitRemoteBranches, GitRemoteBranchesResult, GitRunResult, gitStatus, GitStatusResult } from "../lib/git";
+import { FakeRunner, RunResult } from "../lib/run";
 
 const runPushRemoteBranchTests: boolean = !!findFileInPathSync("github.auth");
 
@@ -435,6 +436,108 @@ describe("git.ts", function () {
         "Please make sure you have the correct access rights",
         "and the repository exists."
       ]);
+    });
+  });
+
+  describe("gitDiff()", function () {
+    it("command line arguments with no options", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitDiffResult = {
+        exitCode: 2,
+        stdout: "c",
+        stderr: "d",
+        filesChanged: []
+      };
+      runner.set({ command: "git", args: ["diff"], result: expectedResult });
+      assert.deepEqual(await gitDiff({ runner }), expectedResult);
+    });
+
+    it("command line arguments with commit1", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitDiffResult = {
+        exitCode: 2,
+        stdout: "c",
+        stderr: "d",
+        filesChanged: []
+      };
+      runner.set({ command: "git", args: ["diff", "fake-commit1"], result: expectedResult });
+      assert.deepEqual(await gitDiff({ runner, commit1: "fake-commit1" }), expectedResult);
+    });
+
+    it("command line arguments with commit2", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitDiffResult = {
+        exitCode: 2,
+        stdout: "c",
+        stderr: "d",
+        filesChanged: []
+      };
+      runner.set({ command: "git", args: ["diff", "fake-commit2"], result: expectedResult });
+      assert.deepEqual(await gitDiff({ runner, commit2: "fake-commit2" }), expectedResult);
+    });
+
+    it("command line arguments with commit1 and commit2", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitDiffResult = {
+        exitCode: 2,
+        stdout: "c",
+        stderr: "d",
+        filesChanged: []
+      };
+      runner.set({ command: "git", args: ["diff", "fake-commit1", "fake-commit2"], result: expectedResult });
+      assert.deepEqual(await gitDiff({ runner, commit1: "fake-commit1", commit2: "fake-commit2" }), expectedResult);
+    });
+
+    it("command line arguments with nameOnly", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitDiffResult = {
+        exitCode: 2,
+        stdout: "c",
+        stderr: "d",
+        filesChanged: [
+          joinPath(process.cwd(), "c")
+        ]
+      };
+      runner.set({ command: "git", args: ["diff", "--name-only"], result: expectedResult });
+      assert.deepEqual(await gitDiff({ runner, nameOnly: true }), expectedResult);
+    });
+
+    it("command line arguments with ignoreSpace: all", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitDiffResult = {
+        exitCode: 2,
+        stdout: "c",
+        stderr: "d",
+        filesChanged: []
+      };
+      runner.set({ command: "git", args: ["diff", "--ignore-all-space"], result: expectedResult });
+      assert.deepEqual(await gitDiff({ runner, ignoreSpace: "all" }), expectedResult);
+    });
+
+    it("command line arguments with ignoreSpace: change", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitDiffResult = {
+        exitCode: 2,
+        stdout: "c",
+        stderr: "d",
+        filesChanged: []
+      };
+      runner.set({ command: "git", args: ["diff", "--ignore-space-change"], result: expectedResult });
+      assert.deepEqual(await gitDiff({ runner, ignoreSpace: "change" }), expectedResult);
+    });
+
+    it("command line arguments with ignoreSpace: at-eol", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitDiffResult = {
+        exitCode: 2,
+        stdout: "diff --git a/foo.txt b/foo.txt",
+        stderr: "d",
+        filesChanged: [
+          joinPath(process.cwd(), "foo.txt")
+        ]
+      };
+      runner.set({ command: "git", args: ["diff", "--ignore-space-at-eol"], result: expectedResult });
+      assert.deepEqual(await gitDiff({ runner, ignoreSpace: "at-eol" }), expectedResult);
     });
   });
 
