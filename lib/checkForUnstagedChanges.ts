@@ -11,6 +11,11 @@ import { getDefaultLogger } from "./logger";
 
 export interface CheckForUnstagedChangesOptions {
   /**
+   * Whether or not this check is enabled. Since this is part of the checkEverything check, people
+   * who use the checkEverything check need a way to turn this check off.
+   */
+  enable?: boolean;
+  /**
    * The Logger to use. If no Logger is specified, then a default Logger will be used instead.
    */
   logger?: Logger;
@@ -33,26 +38,31 @@ export function checkForUnstagedChanges(options: CheckForUnstagedChangesOptions 
 export async function checkForUnstagedChangesCheck(options: CheckForUnstagedChangesOptions = {}): Promise<number> {
   const logger: Logger = options.logger || getDefaultLogger();
 
-  await logger.logSection("Looking for unstaged changes...");
-  const gitStatusResult: GitStatusResult = await gitStatus();
-  const notStagedDeletedFileCount: number = gitStatusResult.notStagedDeletedFiles.length;
-  const notStagedModifiedFileCount: number = gitStatusResult.notStagedModifiedFiles.length;
-  const untrackedFileCount: number = gitStatusResult.untrackedFiles.length;
-  const exitCode: number = notStagedDeletedFileCount + notStagedModifiedFileCount + untrackedFileCount;
-  if (exitCode === 0) {
-    await logger.logInfo("  No unstaged changes found.");
+  let exitCode = 0;
+  if (options.enable === false) {
+    await logger.logWarning("Check is disabled. Allowing unstaged changes if they exist.");
   } else {
-    if (notStagedDeletedFileCount !== 0) {
-      await logger.logInfo(`  Found ${notStagedDeletedFileCount} not staged deleted file${notStagedDeletedFileCount === 1 ? "" : "s"}.`);
-    }
-    if (notStagedModifiedFileCount !== 0) {
-      await logger.logInfo(`  Found ${notStagedModifiedFileCount} not staged modified file${notStagedModifiedFileCount === 1 ? "" : "s"}.`);
-    }
-    if (untrackedFileCount !== 0) {
-      await logger.logInfo(`  Found ${untrackedFileCount} untracked file${untrackedFileCount === 1 ? "" : "s"}.`);
+    await logger.logSection("Looking for unstaged changes...");
+    const gitStatusResult: GitStatusResult = await gitStatus();
+    const notStagedDeletedFileCount: number = gitStatusResult.notStagedDeletedFiles.length;
+    const notStagedModifiedFileCount: number = gitStatusResult.notStagedModifiedFiles.length;
+    const untrackedFileCount: number = gitStatusResult.untrackedFiles.length;
+    exitCode = notStagedDeletedFileCount + notStagedModifiedFileCount + untrackedFileCount;
+    if (exitCode === 0) {
+      await logger.logInfo("  No unstaged changes found.");
+    } else {
+      if (notStagedDeletedFileCount !== 0) {
+        await logger.logInfo(`  Found ${notStagedDeletedFileCount} not staged deleted file${notStagedDeletedFileCount === 1 ? "" : "s"}.`);
+      }
+      if (notStagedModifiedFileCount !== 0) {
+        await logger.logInfo(`  Found ${notStagedModifiedFileCount} not staged modified file${notStagedModifiedFileCount === 1 ? "" : "s"}.`);
+      }
+      if (untrackedFileCount !== 0) {
+        await logger.logInfo(`  Found ${untrackedFileCount} untracked file${untrackedFileCount === 1 ? "" : "s"}.`);
+      }
     }
   }
-
+  
   process.exitCode = exitCode;
 
   return exitCode;
