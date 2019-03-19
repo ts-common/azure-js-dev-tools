@@ -371,6 +371,12 @@ describe("fileSystem2.ts", function () {
       const filePath: string | undefined = await findFileInPath("packages.jsdon");
       assert.strictEqual(filePath, undefined);
     });
+
+    it("with file path that treats an existing file as a folder", async function () {
+      const filePath: string | undefined = await findFileInPath("package.json", joinPath(__filename, "blah.txt"));
+      assertEx.defined(filePath, "filePath");
+      assertEx.contains(filePath, "package.json");
+    });
   });
 
   describe("findFolderInPath()", function () {
