@@ -62,7 +62,7 @@ export async function checkForUnstagedChangesCheck(options: CheckForUnstagedChan
       }
     }
   }
-  
+
   process.exitCode = exitCode;
 
   return exitCode;
