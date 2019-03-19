@@ -10,6 +10,7 @@ import { checkForOnlyCalls, CheckForOnlyCallsOptions } from "./checkForOnlyCalls
 import { checkForSkipCalls, CheckForSkipCallsOptions } from "./checkForSkipCalls";
 import { checkPackageJsonVersion, CheckPackageJsonVersionOptions } from "./checkPackageJsonVersion";
 import { getDefaultLogger } from "./logger";
+import { CheckForUnstagedChangesOptions, checkForUnstagedChanges } from "./checkForUnstagedChanges";
 
 /**
  * An additional check that can be run.
@@ -44,6 +45,10 @@ export interface CheckEverythingOptions {
    */
   checkForSkipCallsOptions?: CheckForSkipCallsOptions;
   /**
+   * The options to provide to the check for unstaged changes check.
+   */
+  checkForUnstagedChangesOptions?: CheckForUnstagedChangesOptions;
+  /**
    * Additional checks that can be run as a part of check everything.
    */
   additionalChecks?: AdditionalCheck | AdditionalCheck[];
@@ -69,6 +74,7 @@ export async function checkEverything(options: CheckEverythingOptions = {}): Pro
     checkPackageJsonVersion(),
     checkForOnlyCalls(options.checkForOnlyCallsOptions),
     checkForSkipCalls(options.checkForSkipCallsOptions),
+    checkForUnstagedChanges(options.checkForUnstagedChangesOptions),
   ];
   if (options.additionalChecks) {
     if (Array.isArray(options.additionalChecks)) {
