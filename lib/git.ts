@@ -4,9 +4,10 @@
  * license information.
  */
 
+import { where } from "./arrays";
 import { getLines } from "./common";
 import { joinPath } from "./path";
-import { RunOptions, RunResult, run } from "./run";
+import { run, RunOptions, RunResult } from "./run";
 
 /**
  * The result of running a git operation.
@@ -270,6 +271,31 @@ export function gitDeleteRemoteBranch(branchName: string, options: GitDeleteRemo
 }
 
 /**
+ * Options that can be passed to gitDiff().
+ */
+export interface GitDiffOptions extends RunOptions {
+  /**
+   * The unique identifier for a commit to compare. If this is specified but commit2 is not
+   * specified, then this commit will be compared against HEAD.
+   */
+  commit1?: string;
+  /**
+   * The unique identifier for a commit to compare. If this is specified but commit1 is not
+   * specified, then this commit will be compared against HEAD.
+   */
+  commit2?: string;
+  /**
+   * Show only the names of changed files.
+   */
+  nameOnly?: boolean;
+  /**
+   * Whether or not to ignore whitespace changes in the diff, and if provided, to what extent should
+   * whitespace changes be ignored.
+   */
+  ignoreSpace?: "at-eol" | "change" | "all";
+}
+
+/**
  * The result of a "git diff" command.
  */
 export interface GitDiffResult extends GitRunResult {
@@ -279,19 +305,75 @@ export interface GitDiffResult extends GitRunResult {
   filesChanged: string[];
 }
 
-export async function gitDiff(baseCommitSha: string, headCommitSha: string, options: RunOptions = {}): Promise<GitDiffResult> {
-  const commandResult: RunResult = await git(`diff --name-only ${baseCommitSha} ${headCommitSha}`, options);
-  const filesChanged: string[] = [];
-  const repositoryFolderPath: string | undefined = (options && options.executionFolderPath) || process.cwd();
-  for (const fileChanged of getLines(commandResult.stdout)) {
-    if (fileChanged) {
-      filesChanged.push(joinPath(repositoryFolderPath, fileChanged));
+export async function gitDiff(options: GitDiffOptions = {}): Promise<GitDiffResult> {
+  let command = "diff";
+
+  if (options.commit1) {
+    command += ` ${options.commit1}`;
+  }
+
+  if (options.commit2) {
+    command += ` ${options.commit2}`;
+  }
+
+  if (options.nameOnly) {
+    command += ` --name-only`;
+  }
+
+  if (options.ignoreSpace === "all") {
+    command += ` --ignore-all-space`;
+  } else if (options.ignoreSpace) {
+    command += ` --ignore-space-${options.ignoreSpace}`;
+  }
+
+  const commandResult: RunResult = await git(command, options);
+
+  let filesChanged: string[];
+  const repositoryFolderPath: string | undefined = options.executionFolderPath || process.cwd();
+  const stdoutLines: string[] = getLines(commandResult.stdout);
+  if (options.nameOnly) {
+    filesChanged = [];
+    for (const fileChanged of getLines(commandResult.stdout)) {
+      if (fileChanged) {
+        filesChanged.push(joinPath(repositoryFolderPath, fileChanged));
+      }
     }
+  } else {
+    filesChanged = getFilesChangedFromFullDiff(stdoutLines, repositoryFolderPath);
   }
   return {
     ...commandResult,
     filesChanged
   };
+}
+
+/**
+ * The prefix that marks the beginning of a diff-ed file line.
+ */
+const changedFileDiffLinePrefix = "diff --git";
+
+/**
+ * The regular expression used to get a relative file path from a full diff contents line.
+ */
+const fullDiffGitLineRegex: RegExp = /diff --git a\/(.*) b\/.*/;
+
+/**
+ * Get the files that have changed based on the provided full diff text result.
+ * @param text The text of the full diff.
+ * @param currentFolder The folder that the diff-ed files should be resolved against.
+ */
+export function getFilesChangedFromFullDiff(text: string | string[], currentFolder?: string): string[] {
+  const resolvedCurrentFolder: string = currentFolder || process.cwd();
+  const lines: string[] = typeof text === "string" ? getLines(text) : text;
+  const fileDiffLines: string[] = where(lines, (line: string) => line.startsWith(changedFileDiffLinePrefix));
+  const result: string[] = [];
+  for (const fileDiffLine of fileDiffLines) {
+    const lineMatch: RegExpMatchArray | null = fileDiffLine.match(fullDiffGitLineRegex);
+    if (lineMatch) {
+      result.push(joinPath(resolvedCurrentFolder, lineMatch[1]));
+    }
+  }
+  return result;
 }
 
 /**
@@ -715,8 +797,8 @@ export class GitScope {
     });
   }
 
-  public diff(baseCommitSha: string, headCommitSha: string, options: RunOptions = {}): Promise<GitDiffResult> {
-    return gitDiff(baseCommitSha, headCommitSha, {
+  public diff(options: GitDiffOptions = {}): Promise<GitDiffResult> {
+    return gitDiff({
       ...this.options,
       ...options,
     });
