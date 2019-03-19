@@ -52,13 +52,22 @@ export async function checkForUnstagedChangesCheck(options: CheckForUnstagedChan
       await logger.logInfo("  No unstaged changes found.");
     } else {
       if (notStagedDeletedFileCount !== 0) {
-        await logger.logInfo(`  Found ${notStagedDeletedFileCount} not staged deleted file${notStagedDeletedFileCount === 1 ? "" : "s"}.`);
+        await logger.logInfo(`  Found ${notStagedDeletedFileCount} not staged deleted file${notStagedDeletedFileCount === 1 ? "" : "s"}:`);
+        for (const notStagedDeletedFilePath of gitStatusResult.notStagedDeletedFiles) {
+          await logger.logInfo(`    ${notStagedDeletedFilePath}`);
+        }
       }
       if (notStagedModifiedFileCount !== 0) {
-        await logger.logInfo(`  Found ${notStagedModifiedFileCount} not staged modified file${notStagedModifiedFileCount === 1 ? "" : "s"}.`);
+        await logger.logInfo(`  Found ${notStagedModifiedFileCount} not staged modified file${notStagedModifiedFileCount === 1 ? "" : "s"}:`);
+        for (const notStagedModifiedFilePath of gitStatusResult.notStagedModifiedFiles) {
+          await logger.logInfo(`    ${notStagedModifiedFilePath}`);
+        }
       }
       if (untrackedFileCount !== 0) {
-        await logger.logInfo(`  Found ${untrackedFileCount} untracked file${untrackedFileCount === 1 ? "" : "s"}.`);
+        await logger.logInfo(`  Found ${untrackedFileCount} untracked file${untrackedFileCount === 1 ? "" : "s"}:`);
+        for (const untrackedFilePath of gitStatusResult.untrackedFiles) {
+          await logger.logInfo(`    ${untrackedFilePath}`);
+        }
       }
     }
   }
