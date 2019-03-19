@@ -11,7 +11,7 @@ async function _entryExists(entryPath: string, condition?: (stats: fs.Stats) => 
   return new Promise((resolve, reject) => {
     fs.lstat(entryPath, (error: NodeJS.ErrnoException, stats: fs.Stats) => {
       if (error) {
-        if (error.code === "ENOENT") {
+        if (error.code === "ENOENT" || error.code === "ENOTDIR") {
           resolve(false);
         } else {
           reject(error);
