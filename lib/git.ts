@@ -370,9 +370,8 @@ export function getFilesChangedFromFullDiff(text: string | string[], currentFold
     const lineMatch: RegExpMatchArray | null = fileDiffLine.match(fullDiffGitLineRegex);
     if (lineMatch) {
       const relativeFilePath: string = lineMatch[1];
-      result.push(currentFolder
-        ? joinPath(currentFolder, relativeFilePath)
-        : relativeFilePath);
+      const filePath: string = currentFolder ? joinPath(currentFolder, relativeFilePath) : relativeFilePath;
+      result.push(filePath);
     }
   }
   return result;
