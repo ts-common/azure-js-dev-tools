@@ -363,14 +363,15 @@ const fullDiffGitLineRegex: RegExp = /diff --git a\/(.*) b\/.*/;
  * @param currentFolder The folder that the diff-ed files should be resolved against.
  */
 export function getFilesChangedFromFullDiff(text: string | string[], currentFolder?: string): string[] {
-  const resolvedCurrentFolder: string = currentFolder || process.cwd();
   const lines: string[] = typeof text === "string" ? getLines(text) : text;
   const fileDiffLines: string[] = where(lines, (line: string) => line.startsWith(changedFileDiffLinePrefix));
   const result: string[] = [];
   for (const fileDiffLine of fileDiffLines) {
     const lineMatch: RegExpMatchArray | null = fileDiffLine.match(fullDiffGitLineRegex);
     if (lineMatch) {
-      result.push(joinPath(resolvedCurrentFolder, lineMatch[1]));
+      const relativeFilePath: string = lineMatch[1];
+      const filePath: string = currentFolder ? joinPath(currentFolder, relativeFilePath) : relativeFilePath;
+      result.push(filePath);
     }
   }
   return result;
