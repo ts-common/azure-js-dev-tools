@@ -38,6 +38,7 @@ const options: Options = {
     "Azure/autorest.typescript",
     "Azure/azure-sdk-for-js",
     "Azure/azure-sdk-for-node",
+    "Azure/logger-js",
     "Azure/ms-rest-azure-env",
     "Azure/ms-rest-azure-js",
     "Azure/ms-rest-browserauth",
