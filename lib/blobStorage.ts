@@ -7,7 +7,7 @@
 import * as azure from "@azure/storage-blob";
 import * as fs from "fs";
 import { map } from "./arrays";
-import { readEntireString, StringMap, replaceAll } from "./common";
+import { readEntireString, StringMap } from "./common";
 import { URLBuilder } from "./url";
 
 /**
@@ -721,11 +721,19 @@ interface InMemoryBlob {
   blobType: "block" | "append";
 }
 
+function encodeBlobName(blobName: string): string {
+  return encodeURIComponent(blobName);
+}
+
 /**
  * A BlobStorage system that is stored in memory.
  */
 export class InMemoryBlobStorage extends BlobStorage {
   private readonly containers: StringMap<InMemoryContainer> = {};
+
+  constructor(private readonly url = "https://fake.storage.com/") {
+    super();
+  }
 
   private getInMemoryContainer(containerName: string | BlobPath): Promise<InMemoryContainer> {
     containerName = typeof containerName === "string" ? containerName : containerName.containerName;
@@ -750,14 +758,17 @@ export class InMemoryBlobStorage extends BlobStorage {
     return this.getInMemoryContainer(blobPath.containerName)
       .then((container: InMemoryContainer) => {
         return validateBlobName(blobPath)
-          .then(() => blobName in container.blobs
-            ? Promise.resolve(container.blobs[blobName])
-            : Promise.reject(new Error("BlobNotFound: The specified blob does not exist.")));
+          .then(() => {
+            const encodedBlobName: string = encodeBlobName(blobName);
+            return encodedBlobName in container.blobs
+              ? Promise.resolve(container.blobs[encodedBlobName])
+              : Promise.reject(new Error("BlobNotFound: The specified blob does not exist."));
+          });
       });
   }
 
   public getURL(): string {
-    return "https://fake.storage.com/";
+    return this.url;
   }
 
   public getContainerURL(containerName: string): string {
@@ -766,7 +777,7 @@ export class InMemoryBlobStorage extends BlobStorage {
 
   public getBlobURL(blobPath: string | BlobPath): string {
     blobPath = BlobPath.parse(blobPath);
-    return `${this.getContainerURL(blobPath.containerName)}/${blobPath.blobName}`;
+    return `${this.getContainerURL(blobPath.containerName)}/${encodeBlobName(blobPath.blobName)}`;
   }
 
   private createInMemoryBlob(blobPath: string | BlobPath, blobType: "block" | "append", options: BlobContentOptions = {}): Promise<boolean> {
@@ -1004,33 +1015,25 @@ export class AzureBlobStorage extends BlobStorage {
     if (!options.sasToken) {
       result = URLBuilder.removeQuery(result).toString();
     }
-    return this.url;
+    return result;
   }
 
   public getContainerURL(containerName: string, options: GetURLOptions = {}): string {
     const containerUrl: azure.ContainerURL = this.getAzureContainerURL(containerName);
-    const url: URLBuilder = URLBuilder.parse(containerUrl.url);
-    const path: string | undefined = url.getPath();
-    if (path) {
-      url.setPath(replaceAll(path, "%2F", "/"));
-    }
+    let result: string = containerUrl.url;
     if (!options.sasToken) {
-      url.removeQuery();
+      result = URLBuilder.removeQuery(result).toString();
     }
-    return url.toString();
+    return result;
   }
 
   public getBlobURL(blobPath: string | BlobPath, options: GetURLOptions = {}): string {
     const blobUrl: azure.BlockBlobURL = this.getBlockBlobURL(blobPath);
-    const url: URLBuilder = URLBuilder.parse(blobUrl.url);
-    const path: string | undefined = url.getPath();
-    if (path) {
-      url.setPath(replaceAll(path, "%2F", "/"));
-    }
+    let result = blobUrl.url;
     if (!options.sasToken) {
-      url.removeQuery();
+      result = URLBuilder.removeQuery(result).toString();
     }
-    return url.toString();
+    return result;
   }
 
   public blobExists(blobPath: string | BlobPath): Promise<boolean> {
