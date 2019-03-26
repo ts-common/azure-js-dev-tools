@@ -535,9 +535,9 @@ export interface GetURLOptions {
    */
   sasToken?: boolean;
   /**
-   * Whether or not to decode the blob name in the URL (when there is a blob name).
+   * Whether or not to encode the blob name in the URL (when there is a blob name).
    */
-  decodeBlobName?: boolean;
+  encodeBlobName?: boolean;
 }
 
 /**
@@ -733,22 +733,25 @@ function decodeBlobName(blobName: string): string {
   return !blobName ? blobName : decodeURIComponent(blobName);
 }
 
-function processBlobUrl(url: string, options: GetURLOptions = {}): string {
-  if (!options.sasToken || options.decodeBlobName) {
-    const urlBuilder: URLBuilder = URLBuilder.parse(url);
-    if (!options.sasToken) {
-      urlBuilder.removeQuery();
-    }
-    if (options.decodeBlobName) {
-      const path: string | undefined = urlBuilder.getPath();
-      if (path) {
-        const blobPath: BlobPath = BlobPath.parse(path);
-        urlBuilder.setPath(`${blobPath.containerName}/${decodeBlobName(blobPath.blobName)}`);
-      }
-    }
-    url = urlBuilder.toString();
+function processBlobUrl(url: string, options: GetURLOptions): string {
+  if (!options.sasToken || options.encodeBlobName) {
+    url = processBlobUrlBuilder(URLBuilder.parse(url), options);
   }
   return url;
+}
+
+function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions): string {
+  if (!options.sasToken) {
+    urlBuilder.removeQuery();
+  }
+  if (options.encodeBlobName) {
+    const path: string | undefined = urlBuilder.getPath();
+    if (path) {
+      const blobPath: BlobPath = BlobPath.parse(path);
+      urlBuilder.setPath(`${blobPath.containerName}/${encodeBlobName(blobPath.blobName)}`);
+    }
+  }
+  return urlBuilder.toString();
 }
 
 /**
@@ -781,13 +784,12 @@ export class InMemoryBlobStorage extends BlobStorage {
   private getInMemoryBlob(blobPath: string | BlobPath): Promise<InMemoryBlob> {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
-    const encodedBlobName: string = encodeBlobName(blobName);
     return this.getInMemoryContainer(blobPath.containerName)
       .then((container: InMemoryContainer) => {
         return validateBlobName(blobPath)
           .then(() => {
-            return encodedBlobName in container.blobs
-              ? Promise.resolve(container.blobs[encodedBlobName])
+            return blobName in container.blobs
+              ? Promise.resolve(container.blobs[blobName])
               : Promise.reject(new Error("BlobNotFound: The specified blob does not exist."));
           });
       });
@@ -797,29 +799,28 @@ export class InMemoryBlobStorage extends BlobStorage {
     return processBlobUrl(this.url, options);
   }
 
-  public getContainerURL(containerName: string): string {
-    return processBlobUrl(`${this.getURL()}${containerName}`);
+  public getContainerURL(containerName: string, options: GetURLOptions = {}): string {
+    return processBlobUrl(`${this.url}${containerName}`, options);
   }
 
-  public getBlobURL(blobPath: string | BlobPath): string {
+  public getBlobURL(blobPath: string | BlobPath, options: GetURLOptions = {}): string {
     blobPath = BlobPath.parse(blobPath);
-    return processBlobUrl(`${this.getContainerURL(blobPath.containerName)}/${encodeBlobName(blobPath.blobName)}`);
+    return processBlobUrl(`${this.url}${blobPath.containerName}/${blobPath.blobName}`, options);
   }
 
   private createInMemoryBlob(blobPath: string | BlobPath, blobType: "block" | "append", options: BlobContentOptions = {}): Promise<boolean> {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
-    const encodedBlobName: string = encodeBlobName(blobName);
     return this.getInMemoryContainer(blobPath)
       .then((container: InMemoryContainer) => {
         let result: Promise<boolean>;
-        if (!encodedBlobName) {
+        if (!blobName) {
           result = Promise.reject(new Error("InvalidUri: The requested URI does not represent any resource on the server."));
-        } else if (encodedBlobName in container.blobs) {
+        } else if (blobName in container.blobs) {
           result = Promise.resolve(false);
         } else {
           result = Promise.resolve(true);
-          container.blobs[encodedBlobName] = {
+          container.blobs[blobName] = {
             contents: "",
             contentType: options.contentType || "application/octet-stream",
             blobType,
@@ -840,10 +841,9 @@ export class InMemoryBlobStorage extends BlobStorage {
   public blobExists(blobPath: string | BlobPath): Promise<boolean> {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
-    const encodedBlobName: string = encodeBlobName(blobName);
     return this.getInMemoryContainer(blobPath)
       .then((container: InMemoryContainer) => {
-        return encodedBlobName in container.blobs;
+        return blobName in container.blobs;
       })
       .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerNotFound", false));
   }
@@ -864,7 +864,7 @@ export class InMemoryBlobStorage extends BlobStorage {
 
     return this.getInMemoryContainer(blobPath)
       .then((container: InMemoryContainer) => {
-        const blob: InMemoryBlob | undefined = container.blobs[encodeBlobName(blobName)];
+        const blob: InMemoryBlob | undefined = container.blobs[blobName];
         if (!blob) {
           container.blobs[blobName] = {
             contents: blobContents,
@@ -884,7 +884,7 @@ export class InMemoryBlobStorage extends BlobStorage {
 
     return this.getInMemoryContainer(blockBlobPath)
       .then((container: InMemoryContainer) => {
-        const blockBlob: InMemoryBlob | undefined = container.blobs[encodeBlobName(blockBlobName)];
+        const blockBlob: InMemoryBlob | undefined = container.blobs[blockBlobName];
         if (!blockBlob) {
           container.blobs[blockBlobName] = {
             contents: fs.readFileSync(filePath, "utf8"),
@@ -920,15 +920,14 @@ export class InMemoryBlobStorage extends BlobStorage {
   public deleteBlob(blobPath: string | BlobPath): Promise<boolean> {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
-    const encodedBlobName: string = encodeBlobName(blobName);
     return validateBlobName(blobPath)
       .then(() => {
         return this.getInMemoryContainer(blobPath)
           .then((container: InMemoryContainer) => {
             let result = false;
-            if (encodedBlobName in container.blobs) {
+            if (blobName in container.blobs) {
               result = true;
-              delete container.blobs[encodedBlobName];
+              delete container.blobs[blobName];
             }
             return result;
           });
@@ -1039,29 +1038,25 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public getURL(options: GetURLOptions = {}): string {
-    let result: string = this.url;
-    if (!options.sasToken) {
-      result = URLBuilder.removeQuery(result).toString();
-    }
-    return result;
+    return processBlobUrl(this.url, options);
   }
 
   public getContainerURL(containerName: string, options: GetURLOptions = {}): string {
     const containerUrl: azure.ContainerURL = this.getAzureContainerURL(containerName);
-    let result: string = containerUrl.url;
-    if (!options.sasToken) {
-      result = URLBuilder.removeQuery(result).toString();
-    }
-    return result;
+    return processBlobUrl(containerUrl.url, options);
   }
 
   public getBlobURL(blobPath: string | BlobPath, options: GetURLOptions = {}): string {
     const blobUrl: azure.BlockBlobURL = this.getBlockBlobURL(blobPath);
-    let result = blobUrl.url;
-    if (!options.sasToken) {
-      result = URLBuilder.removeQuery(result).toString();
+    const urlBuilder: URLBuilder = URLBuilder.parse(blobUrl.url);
+    const path: string | undefined = urlBuilder.getPath();
+    if (path) {
+      const blobPath: BlobPath = BlobPath.parse(path);
+      if (blobPath.blobName) {
+        urlBuilder.setPath(`${blobPath.containerName}/${decodeBlobName(blobPath.blobName)}`);
+      }
     }
-    return result;
+    return processBlobUrlBuilder(urlBuilder, options);
   }
 
   public blobExists(blobPath: string | BlobPath): Promise<boolean> {
