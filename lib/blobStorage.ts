@@ -534,6 +534,10 @@ export interface GetURLOptions {
    * Whether or not to include the SAS token when getting the URL.
    */
   sasToken?: boolean;
+  /**
+   * Whether or not to decode the blob name in the URL (when there is a blob name).
+   */
+  decodeBlobName?: boolean;
 }
 
 /**
@@ -722,7 +726,29 @@ interface InMemoryBlob {
 }
 
 function encodeBlobName(blobName: string): string {
-  return encodeURIComponent(blobName);
+  return !blobName ? blobName : encodeURIComponent(blobName);
+}
+
+function decodeBlobName(blobName: string): string {
+  return !blobName ? blobName : decodeURIComponent(blobName);
+}
+
+function processBlobUrl(url: string, options: GetURLOptions = {}): string {
+  if (!options.sasToken || options.decodeBlobName) {
+    const urlBuilder: URLBuilder = URLBuilder.parse(url);
+    if (!options.sasToken) {
+      urlBuilder.removeQuery();
+    }
+    if (options.decodeBlobName) {
+      const path: string | undefined = urlBuilder.getPath();
+      if (path) {
+        const blobPath: BlobPath = BlobPath.parse(path);
+        urlBuilder.setPath(`${blobPath.containerName}/${decodeBlobName(blobPath.blobName)}`);
+      }
+    }
+    url = urlBuilder.toString();
+  }
+  return url;
 }
 
 /**
@@ -755,11 +781,11 @@ export class InMemoryBlobStorage extends BlobStorage {
   private getInMemoryBlob(blobPath: string | BlobPath): Promise<InMemoryBlob> {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
+    const encodedBlobName: string = encodeBlobName(blobName);
     return this.getInMemoryContainer(blobPath.containerName)
       .then((container: InMemoryContainer) => {
         return validateBlobName(blobPath)
           .then(() => {
-            const encodedBlobName: string = encodeBlobName(blobName);
             return encodedBlobName in container.blobs
               ? Promise.resolve(container.blobs[encodedBlobName])
               : Promise.reject(new Error("BlobNotFound: The specified blob does not exist."));
@@ -767,32 +793,33 @@ export class InMemoryBlobStorage extends BlobStorage {
       });
   }
 
-  public getURL(): string {
-    return this.url;
+  public getURL(options: GetURLOptions = {}): string {
+    return processBlobUrl(this.url, options);
   }
 
   public getContainerURL(containerName: string): string {
-    return `${this.getURL()}${containerName}`;
+    return processBlobUrl(`${this.getURL()}${containerName}`);
   }
 
   public getBlobURL(blobPath: string | BlobPath): string {
     blobPath = BlobPath.parse(blobPath);
-    return `${this.getContainerURL(blobPath.containerName)}/${encodeBlobName(blobPath.blobName)}`;
+    return processBlobUrl(`${this.getContainerURL(blobPath.containerName)}/${encodeBlobName(blobPath.blobName)}`);
   }
 
   private createInMemoryBlob(blobPath: string | BlobPath, blobType: "block" | "append", options: BlobContentOptions = {}): Promise<boolean> {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
+    const encodedBlobName: string = encodeBlobName(blobName);
     return this.getInMemoryContainer(blobPath)
       .then((container: InMemoryContainer) => {
         let result: Promise<boolean>;
-        if (!blobName) {
+        if (!encodedBlobName) {
           result = Promise.reject(new Error("InvalidUri: The requested URI does not represent any resource on the server."));
-        } else if (blobName in container.blobs) {
+        } else if (encodedBlobName in container.blobs) {
           result = Promise.resolve(false);
         } else {
           result = Promise.resolve(true);
-          container.blobs[blobName] = {
+          container.blobs[encodedBlobName] = {
             contents: "",
             contentType: options.contentType || "application/octet-stream",
             blobType,
@@ -813,9 +840,10 @@ export class InMemoryBlobStorage extends BlobStorage {
   public blobExists(blobPath: string | BlobPath): Promise<boolean> {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
+    const encodedBlobName: string = encodeBlobName(blobName);
     return this.getInMemoryContainer(blobPath)
       .then((container: InMemoryContainer) => {
-        return blobName in container.blobs;
+        return encodedBlobName in container.blobs;
       })
       .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerNotFound", false));
   }
@@ -836,7 +864,7 @@ export class InMemoryBlobStorage extends BlobStorage {
 
     return this.getInMemoryContainer(blobPath)
       .then((container: InMemoryContainer) => {
-        const blob: InMemoryBlob | undefined = container.blobs[blobName];
+        const blob: InMemoryBlob | undefined = container.blobs[encodeBlobName(blobName)];
         if (!blob) {
           container.blobs[blobName] = {
             contents: blobContents,
@@ -856,7 +884,7 @@ export class InMemoryBlobStorage extends BlobStorage {
 
     return this.getInMemoryContainer(blockBlobPath)
       .then((container: InMemoryContainer) => {
-        const blockBlob: InMemoryBlob | undefined = container.blobs[blockBlobName];
+        const blockBlob: InMemoryBlob | undefined = container.blobs[encodeBlobName(blockBlobName)];
         if (!blockBlob) {
           container.blobs[blockBlobName] = {
             contents: fs.readFileSync(filePath, "utf8"),
@@ -892,15 +920,15 @@ export class InMemoryBlobStorage extends BlobStorage {
   public deleteBlob(blobPath: string | BlobPath): Promise<boolean> {
     blobPath = BlobPath.parse(blobPath);
     const blobName: string = blobPath.blobName;
-
+    const encodedBlobName: string = encodeBlobName(blobName);
     return validateBlobName(blobPath)
       .then(() => {
         return this.getInMemoryContainer(blobPath)
           .then((container: InMemoryContainer) => {
             let result = false;
-            if (blobName in container.blobs) {
+            if (encodedBlobName in container.blobs) {
               result = true;
-              delete container.blobs[blobName];
+              delete container.blobs[encodedBlobName];
             }
             return result;
           });

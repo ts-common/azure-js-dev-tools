@@ -5,7 +5,7 @@ import { joinPath } from "../lib/path";
 import { URLBuilder } from "../lib/url";
 import { replaceAll } from "../lib";
 
-const realStorageUrl = "https://sdkautomationdev.blob.core.windows.net/";
+const realStorageUrl = "https://sdkautomationdev.blob.core.windows.net/?sv=2018-03-28&ss=bfqt&srt=sco&sp=rwdlacup&se=2019-03-27T02:29:32Z&st=2019-03-26T18:29:32Z&spr=https&sig=xIloz8cQk8JmQDLL0TIBsL1JC3n1k29vGhwm9%2BrMfi8%3D";
 
 const containerNameBase = "abc";
 let containerNameCount = 0;
@@ -1157,6 +1157,32 @@ describe("blobStorage.ts", function () {
             await blobStorage.deleteContainer(containerName);
           }
         });
+
+        it("when deep blob exists but doesn't have an assigned content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName));
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "application/octet-stream");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when deep blob exists and has an assigned content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
       });
 
       describe("setBlobContentType()", function () {
@@ -1210,6 +1236,34 @@ describe("blobStorage.ts", function () {
             await blobStorage.deleteContainer(containerName);
           }
         });
+
+        it("when deep blob exists but doesn't have an assigned content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName));
+            await blobStorage.setBlobContentType(new BlobPath(containerName, blobName), "abc");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when deep blob exists and has an assigned content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            await blobStorage.setBlobContentType(new BlobPath(containerName, blobName), "xyz");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "xyz");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
       });
 
       describe("deleteBlob()", function () {
@@ -1240,6 +1294,32 @@ describe("blobStorage.ts", function () {
           await blobStorage.createContainer(containerName);
           try {
             const blobName: string = getBlobName();
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName));
+            assert.strictEqual(await blobStorage.deleteBlob(new BlobPath(containerName, blobName)), true);
+            assert.strictEqual(await blobStorage.blobExists(new BlobPath(containerName, blobName)), false);
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when deep blob doesn't exist", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            assert.strictEqual(await blobStorage.deleteBlob(new BlobPath(containerName, blobName)), false);
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when deep blob exists", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
             await blobStorage.createBlockBlob(new BlobPath(containerName, blobName));
             assert.strictEqual(await blobStorage.deleteBlob(new BlobPath(containerName, blobName)), true);
             assert.strictEqual(await blobStorage.blobExists(new BlobPath(containerName, blobName)), false);
@@ -1355,6 +1435,25 @@ describe("blobStorage.ts", function () {
             await blobStorage.deleteContainer(containerName);
           }
         });
+
+        it("when deep blob exists with content type and the request has content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+
+            await blobStorage.setBlockBlobContentsFromString(new BlobPath(containerName, blobName), "hello", { contentType: "xyz" });
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "hello");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "xyz");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
       });
 
       describe("setBlockBlobContentsFromFile()", function () {
@@ -1466,6 +1565,24 @@ describe("blobStorage.ts", function () {
           await blobStorage.createContainer(containerName);
           try {
             const blobName: string = getBlobName();
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+
+            await blobStorage.setBlockBlobContentsFromFile(new BlobPath(containerName, blobName), __filename, { contentType: "xyz" });
+            assertEx.contains(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), `describe("setBlockBlobContentsFromFile()"`);
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "xyz");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when blob exists with content type and the request has content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
             await blobStorage.createBlockBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
             assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "");
             assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
