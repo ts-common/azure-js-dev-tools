@@ -1,9 +1,8 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
-import { AzureBlobStorage, BlobPath, BlobStorage, BlobStorageAppendBlob, BlobStorageBlockBlob, BlobStorageContainer, BlobStoragePrefix, getFileLengthInBytes, InMemoryBlobStorage, BlobStorageBlob } from "../lib/blobStorage";
+import { AzureBlobStorage, BlobPath, BlobStorage, BlobStorageAppendBlob, BlobStorageBlob, BlobStorageBlockBlob, BlobStorageContainer, BlobStoragePrefix, getFileLengthInBytes, InMemoryBlobStorage } from "../lib/blobStorage";
 import { joinPath } from "../lib/path";
 import { URLBuilder } from "../lib/url";
-import { replaceAll } from "../lib";
 
 const realStorageUrl = "https://sdkautomationdev.blob.core.windows.net/";
 
@@ -700,7 +699,7 @@ describe("blobStorage.ts", function () {
           const blobStorage: BlobStorage = createBlobStorage();
           const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${replaceAll(prefix.path.blobName, "/", "%2F")}`)
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
             .toString();
           assert.strictEqual(prefix.getURL(), expectedURL);
         });
@@ -709,7 +708,7 @@ describe("blobStorage.ts", function () {
           const blobStorage: BlobStorage = createBlobStorage();
           const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${replaceAll(prefix.path.blobName, "/", "%2F")}`)
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
             .toString();
           assert.strictEqual(prefix.getURL({}), expectedURL);
         });
@@ -718,7 +717,7 @@ describe("blobStorage.ts", function () {
           const blobStorage: BlobStorage = createBlobStorage();
           const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${replaceAll(prefix.path.blobName, "/", "%2F")}`)
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
             .toString();
           assert.strictEqual(prefix.getURL({ sasToken: false }), expectedURL);
         });
@@ -727,7 +726,7 @@ describe("blobStorage.ts", function () {
           const blobStorage: BlobStorage = createBlobStorage();
           const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL({ sasToken: true }))
-            .setPath(`${prefix.path.containerName}/${replaceAll(prefix.path.blobName, "/", "%2F")}`)
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
             .toString();
           assert.strictEqual(prefix.getURL({ sasToken: true }), expectedURL);
         });
@@ -736,7 +735,7 @@ describe("blobStorage.ts", function () {
           const blobStorage: BlobStorage = createBlobStorage();
           const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${replaceAll(prefix.path.blobName, "@", "%40")}`)
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
             .toString();
           assert.strictEqual(prefix.getURL(), expectedURL);
         });
@@ -745,7 +744,7 @@ describe("blobStorage.ts", function () {
           const blobStorage: BlobStorage = createBlobStorage();
           const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${replaceAll(prefix.path.blobName, "@", "%40")}`)
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
             .toString();
           assert.strictEqual(prefix.getURL({}), expectedURL);
         });
@@ -754,7 +753,7 @@ describe("blobStorage.ts", function () {
           const blobStorage: BlobStorage = createBlobStorage();
           const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${replaceAll(prefix.path.blobName, "@", "%40")}`)
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
             .toString();
           assert.strictEqual(prefix.getURL({ sasToken: false }), expectedURL);
         });
@@ -763,7 +762,7 @@ describe("blobStorage.ts", function () {
           const blobStorage: BlobStorage = createBlobStorage();
           const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL({ sasToken: true }))
-            .setPath(`${prefix.path.containerName}/${replaceAll(prefix.path.blobName, "@", "%40")}`)
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
             .toString();
           assert.strictEqual(prefix.getURL({ sasToken: true }), expectedURL);
         });
@@ -1157,6 +1156,32 @@ describe("blobStorage.ts", function () {
             await blobStorage.deleteContainer(containerName);
           }
         });
+
+        it("when deep blob exists but doesn't have an assigned content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName));
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "application/octet-stream");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when deep blob exists and has an assigned content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
       });
 
       describe("setBlobContentType()", function () {
@@ -1210,6 +1235,34 @@ describe("blobStorage.ts", function () {
             await blobStorage.deleteContainer(containerName);
           }
         });
+
+        it("when deep blob exists but doesn't have an assigned content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName));
+            await blobStorage.setBlobContentType(new BlobPath(containerName, blobName), "abc");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when deep blob exists and has an assigned content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            await blobStorage.setBlobContentType(new BlobPath(containerName, blobName), "xyz");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "xyz");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
       });
 
       describe("deleteBlob()", function () {
@@ -1240,6 +1293,32 @@ describe("blobStorage.ts", function () {
           await blobStorage.createContainer(containerName);
           try {
             const blobName: string = getBlobName();
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName));
+            assert.strictEqual(await blobStorage.deleteBlob(new BlobPath(containerName, blobName)), true);
+            assert.strictEqual(await blobStorage.blobExists(new BlobPath(containerName, blobName)), false);
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when deep blob doesn't exist", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            assert.strictEqual(await blobStorage.deleteBlob(new BlobPath(containerName, blobName)), false);
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
+        it("when deep blob exists", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
             await blobStorage.createBlockBlob(new BlobPath(containerName, blobName));
             assert.strictEqual(await blobStorage.deleteBlob(new BlobPath(containerName, blobName)), true);
             assert.strictEqual(await blobStorage.blobExists(new BlobPath(containerName, blobName)), false);
@@ -1355,6 +1434,25 @@ describe("blobStorage.ts", function () {
             await blobStorage.deleteContainer(containerName);
           }
         });
+
+        it("when deep blob exists with content type and the request has content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+
+            await blobStorage.setBlockBlobContentsFromString(new BlobPath(containerName, blobName), "hello", { contentType: "xyz" });
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "hello");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "xyz");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
+
       });
 
       describe("setBlockBlobContentsFromFile()", function () {
@@ -1477,6 +1575,24 @@ describe("blobStorage.ts", function () {
             await blobStorage.deleteContainer(containerName);
           }
         });
+
+        it("when blob exists with content type and the request has content type", async function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const containerName: string = getContainerName();
+          await blobStorage.createContainer(containerName);
+          try {
+            const blobName = `${getBlobName()}/a/deep/path`;
+            await blobStorage.createBlockBlob(new BlobPath(containerName, blobName), { contentType: "abc" });
+            assert.strictEqual(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), "");
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "abc");
+
+            await blobStorage.setBlockBlobContentsFromFile(new BlobPath(containerName, blobName), __filename, { contentType: "xyz" });
+            assertEx.contains(await blobStorage.getBlobContentsAsString(new BlobPath(containerName, blobName)), `describe("setBlockBlobContentsFromFile()"`);
+            assert.strictEqual(await blobStorage.getBlobContentType(new BlobPath(containerName, blobName)), "xyz");
+          } finally {
+            await blobStorage.deleteContainer(containerName);
+          }
+        });
       });
     });
   }
@@ -1538,7 +1654,7 @@ describe("blobStorage.ts", function () {
         const blobStorage: BlobStorage = createBlobStorage();
         const actualBlobUrl: string = blobStorage.getBlobURL("spam/apples/tomatoes");
         const expectedBlobUrl: string = URLBuilder.parse(realStorageUrl)
-          .setPath("spam/apples%2Ftomatoes")
+          .setPath("spam/apples/tomatoes")
           .removeQuery()
           .toString();
         assert.strictEqual(actualBlobUrl, expectedBlobUrl);
@@ -1563,7 +1679,7 @@ describe("blobStorage.ts", function () {
 
     it("getBlobURL()", function () {
       const blobStorage: BlobStorage = createBlobStorage();
-      assert.strictEqual(blobStorage.getBlobURL("spam/apples/tomatoes"), "https://fake.storage.com/spam/apples%2Ftomatoes");
+      assert.strictEqual(blobStorage.getBlobURL("spam/apples/tomatoes"), "https://fake.storage.com/spam/apples/tomatoes");
     });
   });
 });
