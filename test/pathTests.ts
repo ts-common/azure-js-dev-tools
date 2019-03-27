@@ -86,6 +86,22 @@ describe("path.ts", function () {
       assert.strictEqual(normalizePath("abc"), "abc");
     });
 
+    it(`with "/"`, function () {
+      assert.strictEqual(normalizePath("/"), "/");
+    });
+
+    it(`with "\\"`, function () {
+      assert.strictEqual(normalizePath("\\"), "/");
+    });
+
+    it(`with "C:/"`, function () {
+      assert.strictEqual(normalizePath("C:/"), "C:/");
+    });
+
+    it(`with "C:\\"`, function () {
+      assert.strictEqual(normalizePath("C:\\"), "C:/");
+    });
+
     it(`with "C:\\a\\b.txt"`, function () {
       assert.strictEqual(normalizePath("C:\\a\\b.txt"), "C:/a/b.txt");
     });
@@ -147,12 +163,28 @@ describe("path.ts", function () {
       assert.strictEqual(getRootPath("apples/kiwi"), undefined);
     });
 
+    it(`with "/"`, function () {
+      assert.strictEqual(getRootPath("/"), "/");
+    });
+
+    it(`with "\\"`, function () {
+      assert.strictEqual(getRootPath("\\"), "\\");
+    });
+
     it(`with "/apples/kiwi"`, function () {
       assert.strictEqual(getRootPath("/apples/kiwi"), "/");
     });
 
     it(`with "\\apples\\kiwi"`, function () {
       assert.strictEqual(getRootPath("\\apples\\kiwi"), "\\");
+    });
+
+    it(`with "Z:/"`, function () {
+      assert.strictEqual(getRootPath("Z:/"), "Z:/");
+    });
+
+    it(`with "Z:\\"`, function () {
+      assert.strictEqual(getRootPath("Z:\\"), "Z:\\");
     });
 
     it(`with "Z:/bananas"`, function () {
@@ -170,35 +202,39 @@ describe("path.ts", function () {
 
   describe("isRooted(string)", function () {
     it(`with ""`, function () {
-      assert(!isRooted(""));
+      assert.strictEqual(isRooted(""), false);
     });
 
     it(`with "abc"`, function () {
-      assert(!isRooted("abc"));
+      assert.strictEqual(isRooted("abc"), false);
     });
 
     it(`with "/"`, function () {
-      assert(isRooted("/"));
+      assert.strictEqual(isRooted("/"), true);
     });
 
     it(`with "\\"`, function () {
-      assert(isRooted("\\"));
+      assert.strictEqual(isRooted("\\"), true);
     });
 
     it(`with "C:/"`, function () {
-      assert(isRooted("C:/"));
+      assert.strictEqual(isRooted("C:/"), true);
     });
 
     it(`with "Z:\\"`, function () {
-      assert(isRooted("Z:\\"));
+      assert.strictEqual(isRooted("Z:\\"), true);
     });
 
     it(`with "Z:\\a/b\\c"`, function () {
-      assert(isRooted("Z:\\a/b\\c"));
+      assert.strictEqual(isRooted("Z:\\a/b\\c"), true);
     });
 
     it(`with "/folder/a"`, function () {
-      assert(isRooted("/folder/a"));
+      assert.strictEqual(isRooted("/folder/a"), true);
+    });
+
+    it(`with "\\folder\\a"`, function () {
+      assert.strictEqual(isRooted("\\folder\\a"), true);
     });
   });
 
