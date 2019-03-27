@@ -391,6 +391,12 @@ describe("fileSystem2.ts", function () {
       assert.strictEqual(folderPath, undefined);
     });
   });
+
+  describe("deleteFolder()", function () {
+    it("with folder that doesn't exist", async function () {
+      assert.strictEqual(await deleteFolder("i/dont/exist"), false);
+    });
+  });
 });
 
 async function assertEqualChildEntryPaths(actualFolderPath: string, expectedFolderPath: string): Promise<void> {
