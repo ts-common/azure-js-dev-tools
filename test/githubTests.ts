@@ -450,7 +450,7 @@ describe("github.ts", function () {
           await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "master", "fake-title"));
         });
 
-        it("with valid branches and changes", async function () {
+        it.skip("with valid branches and changes", async function () {
           this.timeout(30000);
 
           const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
@@ -486,7 +486,7 @@ describe("github.ts", function () {
           }
         });
 
-        it("with valid branches, changes, and description", async function () {
+        it.skip("with valid branches, changes, and description", async function () {
           this.timeout(30000);
 
           const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);

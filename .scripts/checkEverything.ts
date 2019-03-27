@@ -8,7 +8,8 @@ checkEverything({
   checkForSkipCallsOptions: {
     startPaths: testFolderPath,
     allowedSkips: {
-      "blobStorageTests": "all"
+      "blobStorageTests": "all",
+      "githubTests": "all",
     }
   },
   additionalChecks: [
