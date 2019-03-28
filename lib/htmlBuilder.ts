@@ -142,18 +142,24 @@ export class ElementBuilder {
   /**
    * Add the provided content to this element. This will close the start tag of the element if it
    * was open.
-   * @param content The content to add to the element.
+   * @param contentActions The content to add to the element.
    */
-  public content(content: string | (() => unknown)): ElementBuilder {
-    if (content) {
-      if (!this.hasContent) {
-        this.text.append(">");
-        this.hasContent = true;
-      }
-      if (typeof content === "string") {
-        this.text.append(content);
-      } else {
-        content();
+  public content(contentActions: string | ((element: ElementBuilder) => void) | (string | ((element: ElementBuilder) => void))[]): ElementBuilder {
+    if (typeof contentActions === "string" || typeof contentActions === "function") {
+      contentActions = [contentActions];
+    }
+    for (const contentAction of contentActions) {
+      if (contentAction) {
+        if (!this.hasContent) {
+          this.text.append(">");
+          this.hasContent = true;
+        }
+
+        if (typeof contentAction === "string") {
+          this.text.append(contentAction);
+        } else {
+          contentAction(this);
+        }
       }
     }
     return this;
@@ -362,6 +368,61 @@ export class TDBuilder extends ElementBuilder {
    */
   public rowspan(value: string | number): TDBuilder {
     this.attribute("rowspan", value);
+    return this;
+  }
+
+  /**
+   * Create an a element in this td element.
+   * @param aActions The actions to use to populate the a element.
+   */
+  public a(aActions?: string | ((aBuilder: ABuilder) => void) | (string | ((aBuilder: ABuilder) => void))[]): TDBuilder {
+    this.content(a(aActions));
+    return this;
+  }
+
+  /**
+   * Create a header element in this td element.
+   * @param level The level of the header.
+   * @param hActions The actions to use to populate the header element.
+   */
+  public h(level: number, hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[]): TDBuilder {
+    this.content(h(level, hActions));
+    return this;
+  }
+
+  /**
+   * Create a h1 element in this td element.
+   * @param hActions The actions to use to populate the header element.
+   */
+  public h1(hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[]): TDBuilder {
+    this.content(h1(hActions));
+    return this;
+  }
+
+  /**
+   * Create a h2 element in this td element.
+   * @param hActions The actions to use to populate the header element.
+   */
+  public h2(hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[]): TDBuilder {
+    this.content(h2(hActions));
+    return this;
+  }
+
+  /**
+   * Create a h3 element in this td element.
+   * @param hActions The actions to use to populate the header element.
+   */
+  public h3(hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[]): TDBuilder {
+    this.content(h3(hActions));
+    return this;
+  }
+
+  /**
+   * Create a h4 element in this td element.
+   * @param hActions The actions to use to populate the header element.
+   */
+  public h4(hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[]): TDBuilder {
+    this.content(h4(hActions));
     return this;
   }
 }
