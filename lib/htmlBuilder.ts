@@ -28,85 +28,85 @@ export class TextBuilder {
 /**
  * Create an html element string.
  */
-export function html(htmlAction?: string | ((htmlBuilder: HTMLBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return new HTMLBuilder(textBuilder).create(htmlAction);
+export function html(htmlActions?: string | ((htmlBuilder: HTMLBuilder) => void) | (string | ((htmlBuilder: HTMLBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return new HTMLBuilder(textBuilder).create(htmlActions);
 }
 
 /**
  * Create a body element string.
  */
-export function body(bodyAction?: string | ((bodyBuilder: BodyBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return new BodyBuilder(textBuilder).create(bodyAction);
+export function body(bodyActions?: string | ((bodyBuilder: BodyBuilder) => void) | (string | ((bodyBuilder: BodyBuilder) => void)), textBuilder: TextBuilder = new TextBuilder()): string {
+  return new BodyBuilder(textBuilder).create(bodyActions);
 }
 
 /**
  * Create a h element string.
  */
-export function h(level: number, hAction?: string | ((hBuilder: HBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return new HBuilder(level, textBuilder).create(hAction);
+export function h(level: number, hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return new HBuilder(level, textBuilder).create(hActions);
 }
 
 /**
  * Create a h1 element string.
  */
-export function h1(hAction?: string | ((hBuilder: HBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return h(1, hAction, textBuilder);
+export function h1(hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return h(1, hActions, textBuilder);
 }
 
 /**
  * Create a h2 element string.
  */
-export function h2(hAction?: string | ((hBuilder: HBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return h(2, hAction, textBuilder);
+export function h2(hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return h(2, hActions, textBuilder);
 }
 
 /**
  * Create a h3 element string.
  */
-export function h3(hAction?: string | ((hBuilder: HBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return h(3, hAction, textBuilder);
+export function h3(hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return h(3, hActions, textBuilder);
 }
 
 /**
  * Create a h4 element string.
  */
-export function h4(hAction?: string | ((hBuilder: HBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return h(4, hAction, textBuilder);
+export function h4(hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return h(4, hActions, textBuilder);
 }
 
 /**
  * Create a table element string.
  */
-export function table(tableAction?: string | ((tableBuilder: TableBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return new TableBuilder(textBuilder).create(tableAction);
+export function table(tableActions?: string | ((tableBuilder: TableBuilder) => void) | (string | ((tableBuilder: TableBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return new TableBuilder(textBuilder).create(tableActions);
 }
 
 /**
  * Create a tr element string.
  */
-export function tr(trAction?: string | ((trBuilder: TRBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return new TRBuilder(textBuilder).create(trAction);
+export function tr(trActions?: string | ((trBuilder: TRBuilder) => void) | (string | ((trBuilder: TRBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return new TRBuilder(textBuilder).create(trActions);
 }
 
 /**
  * Create a td element string.
  */
-export function td(tdAction?: string | ((tdBuilder: TDBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return new TDBuilder(textBuilder).create(tdAction);
+export function td(tdActions?: string | ((tdBuilder: TDBuilder) => void) | (string | ((tdBuilder: TDBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return new TDBuilder(textBuilder).create(tdActions);
 }
 
 /**
  * Create a a element string.
  */
-export function a(aAction?: string | ((aBuilder: ABuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return new ABuilder(textBuilder).create(aAction);
+export function a(aActions?: string | ((aBuilder: ABuilder) => void) | (string | ((aBuilder: ABuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return new ABuilder(textBuilder).create(aActions);
 }
 
 /**
  * Create a img element string.
  */
-export function img(imgAction?: string | ((imgBuilder: ImgBuilder) => void), textBuilder: TextBuilder = new TextBuilder()): string {
-  return new ImgBuilder(textBuilder).create(imgAction);
+export function img(imgActions?: string | ((imgBuilder: ImgBuilder) => void) | (string | ((imgBuilder: ImgBuilder) => void))[], textBuilder: TextBuilder = new TextBuilder()): string {
+  return new ImgBuilder(textBuilder).create(imgActions);
 }
 
 /**
@@ -179,6 +179,29 @@ export class ElementBuilder {
 }
 
 /**
+ * Create an element using the provided builder and actions.
+ * @param builder The builder to create.
+ * @param actions The actions to use to create the builder's element.
+ */
+function create<T extends ElementBuilder>(builder: T, actions?: string | ((builder: T) => void) | (string | ((builder: T) => void))[]): string {
+  builder.start();
+  if (actions) {
+    if (typeof actions === "string" || typeof actions === "function") {
+      actions = [actions];
+    }
+    for (const action of actions) {
+      if (typeof action === "string") {
+        builder.content(action);
+      } else if (typeof action === "function") {
+        action(builder);
+      }
+    }
+  }
+  builder.end();
+  return builder.toString();
+}
+
+/**
  * A class that can be used to build an html element.
  */
 export class HTMLBuilder extends ElementBuilder {
@@ -188,17 +211,10 @@ export class HTMLBuilder extends ElementBuilder {
 
   /**
    * Populate this element using the provided action.
-   * @param htmlAction The action that will populate this element.
+   * @param htmlActions The actions that will populate this element.
    */
-  public create(htmlAction?: string | ((htmlBuilder: HTMLBuilder) => void)): string {
-    this.start();
-    if (typeof htmlAction === "function") {
-      htmlAction(this);
-    } else if (htmlAction) {
-      this.content(htmlAction);
-    }
-    this.end();
-    return this.toString();
+  public create(htmlActions?: string | ((htmlBuilder: HTMLBuilder) => void) | (string | ((htmlBuilder: HTMLBuilder) => void))[]): string {
+    return create(this, htmlActions);
   }
 
   /**
@@ -221,25 +237,18 @@ export class BodyBuilder extends ElementBuilder {
 
   /**
    * Populate this element using the provided action.
-   * @param bodyAction The action that will populate this element.
+   * @param bodyActions The actions that will populate this element.
    */
-  public create(bodyAction?: string | ((bodyBuilder: BodyBuilder) => void)): string {
-    this.start();
-    if (typeof bodyAction === "function") {
-      bodyAction(this);
-    } else if (bodyAction) {
-      this.content(bodyAction);
-    }
-    this.end();
-    return this.toString();
+  public create(bodyActions?: string | ((bodyBuilder: BodyBuilder) => void) | (string | ((bodyBuilder: BodyBuilder) => void))[]): string {
+    return create(this, bodyActions);
   }
 
   /**
    * Add a table element to this body element's content.
    * @param tableAction The action that will create the table element.
    */
-  public table(tableAction?: (tableBuilder: TableBuilder) => void): BodyBuilder {
-    this.content(() => table(tableAction, this.text));
+  public table(tableActions?: (string | ((tableBuilder: TableBuilder) => void))[]): BodyBuilder {
+    this.content(() => table(tableActions, this.text));
     return this;
   }
 }
@@ -254,17 +263,19 @@ export class HBuilder extends ElementBuilder {
 
   /**
    * Populate this element using the provided action.
-   * @param hAction The action that will populate this element.
+   * @param hActions The actions that will populate this element.
    */
-  public create(hAction?: string | ((hBuilder: HBuilder) => void)): string {
-    this.start();
-    if (typeof hAction === "function") {
-      hAction(this);
-    } else if (hAction) {
-      this.content(hAction);
-    }
-    this.end();
-    return this.toString();
+  public create(hActions?: string | ((hBuilder: HBuilder) => void) | (string | ((hBuilder: HBuilder) => void))[]): string {
+    return create(this, hActions);
+  }
+
+  /**
+   * Add an a element to this h element's content.
+   * @param aAction The action that will create the tr element.
+   */
+  public a(aAction?: (aBuilder: ABuilder) => void): HBuilder {
+    this.content(() => a(aAction, this.text));
+    return this;
   }
 }
 
@@ -278,17 +289,10 @@ export class TableBuilder extends ElementBuilder {
 
   /**
    * Populate this element using the provided action.
-   * @param tableAction The action that will populate this element.
+   * @param tableActions The actions that will populate this element.
    */
-  public create(tableAction?: string | ((tableBuilder: TableBuilder) => void)): string {
-    this.start();
-    if (typeof tableAction === "function") {
-      tableAction(this);
-    } else if (tableAction) {
-      this.content(tableAction);
-    }
-    this.end();
-    return this.toString();
+  public create(tableActions?: string | ((tableBuilder: TableBuilder) => void) | (string | ((tableBuilder: TableBuilder) => void))[]): string {
+    return create(this, tableActions);
   }
 
   /**
@@ -311,17 +315,10 @@ export class TRBuilder extends ElementBuilder {
 
   /**
    * Populate this element using the provided action.
-   * @param trAction The action that will populate this element.
+   * @param trActions The actions that will populate this element.
    */
-  public create(trAction?: string | ((trBuilder: TRBuilder) => void)): string {
-    this.start();
-    if (typeof trAction === "function") {
-      trAction(this);
-    } else if (trAction) {
-      this.content(trAction);
-    }
-    this.end();
-    return this.toString();
+  public create(trActions?: string | ((trBuilder: TRBuilder) => void) | (string | ((trBuilder: TRBuilder) => void))[]): string {
+    return create(this, trActions);
   }
 
   /**
@@ -344,17 +341,10 @@ export class TDBuilder extends ElementBuilder {
 
   /**
    * Populate this element using the provided action.
-   * @param tdAction The action that will populate this element.
+   * @param tdActions The actions that will populate this element.
    */
-  public create(tdAction?: string | ((tdBuilder: TDBuilder) => void)): string {
-    this.start();
-    if (typeof tdAction === "function") {
-      tdAction(this);
-    } else if (tdAction) {
-      this.content(tdAction);
-    }
-    this.end();
-    return this.toString();
+  public create(tdActions?: string | ((tdBuilder: TDBuilder) => void) | (string | ((tdBuilder: TDBuilder) => void))[]): string {
+    return create(this, tdActions);
   }
 
   /**
@@ -386,17 +376,10 @@ export class ABuilder extends ElementBuilder {
 
   /**
    * Populate this element using the provided action.
-   * @param aAction The action that will populate this element.
+   * @param aActions The actions that will populate this element.
    */
-  public create(aAction?: string | ((aBuilder: ABuilder) => void)): string {
-    this.start();
-    if (typeof aAction === "function") {
-      aAction(this);
-    } else if (aAction) {
-      this.content(aAction);
-    }
-    this.end();
-    return this.toString();
+  public create(aActions?: string | ((aBuilder: ABuilder) => void) | (string | ((aBuilder: ABuilder) => void))[]): string {
+    return create(this, aActions);
   }
 
   /**
@@ -419,17 +402,10 @@ export class ImgBuilder extends ElementBuilder {
 
   /**
    * Populate this element using the provided action.
-   * @param imgAction The action that will populate this element.
+   * @param imgActions The actions that will populate this element.
    */
-  public create(imgAction?: string | ((imgBuilder: ImgBuilder) => void)): string {
-    this.start();
-    if (typeof imgAction === "function") {
-      imgAction(this);
-    } else if (imgAction) {
-      this.content(imgAction);
-    }
-    this.end();
-    return this.toString();
+  public create(imgActions?: string | ((imgBuilder: ImgBuilder) => void) | (string | ((imgBuilder: ImgBuilder) => void))[]): string {
+    return create(this, imgActions);
   }
 
   /**
