@@ -20,6 +20,7 @@ export * from "./dependencies";
 export * from "./fileSystem2";
 export * from "./git";
 export * from "./github";
+export * from "./htmlBuilder";
 export * from "./http";
 export * from "./mvn";
 export * from "./node";
