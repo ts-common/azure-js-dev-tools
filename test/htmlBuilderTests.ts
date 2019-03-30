@@ -1,5 +1,6 @@
 import { assert } from "chai";
-import { a, body, BodyBuilder, h, h1, h2, h3, h4, html, HTMLBuilder, img, table, td, TextBuilder, tr } from "../lib/htmlBuilder";
+import { a, body, BodyBuilder, h, h1, h2, h3, h4, html, HTMLBuilder, img, table, td, tr } from "../lib/htmlBuilder";
+import { TextBuilder } from "../lib/textBuilder";
 
 describe("htmlBuilder.ts", function () {
   describe("TextBuilder", function () {
