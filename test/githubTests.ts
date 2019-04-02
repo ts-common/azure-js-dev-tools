@@ -546,6 +546,37 @@ describe("github.ts", function () {
         it("with pull request number that doesn't exist", async function () {
           await assertEx.throwsAsync(github.closePullRequest("ts-common/azure-js-dev-tools", 1325097123));
         });
+
+        it("with pull request number that is already closed", async function () {
+          await github.closePullRequest("ts-common/azure-js-dev-tools", 113);
+        });
+      });
+
+      describe("mergePullRequest()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.mergePullRequest(undefined as any, 50));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.mergePullRequest(null as any, 50));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.mergePullRequest("", 50));
+        });
+
+        it("with repository that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.mergePullRequest("ImARepositoryThatDoesntExist", 50));
+        });
+
+        it("with pull request number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.mergePullRequest("ts-common/azure-js-dev-tools", 1325097123));
+        });
+
+        it("with pull request number that is already closed", async function () {
+          await assertEx.throwsAsync(github.mergePullRequest("ts-common/azure-js-dev-tools", 113));
+        });
       });
 
       describe("getPullRequest()", function () {
