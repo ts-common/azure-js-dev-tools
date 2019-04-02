@@ -448,6 +448,13 @@ export interface GitHub {
    */
   closePullRequest(repository: string | GitHubRepository, pullRequest: number | GitHubPullRequest): Promise<unknown>;
 
+  /**
+   * Merge and close the provided pull request.
+   * @param repository The repository that the pull request exists in.
+   * @param pullRequest The pull request number or the pull request object to merge.
+   */
+  mergePullRequest(repository: string | GitHubRepository, pullRequest: number | GitHubPullRequest): Promise<unknown>;
+
   addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<unknown>;
 
   /**
@@ -827,6 +834,20 @@ export class FakeGitHub implements GitHub {
     return this.getPullRequest(repository, getPullRequestNumber(pullRequestNumber))
       .then((existingPullRequest: FakeGitHubPullRequest) => {
         existingPullRequest.state = "closed";
+      });
+  }
+
+  public mergePullRequest(repository: string | GitHubRepository, pullRequest: number | GitHubPullRequest): Promise<unknown> {
+    return this.getPullRequest(repository, getPullRequestNumber(pullRequest))
+      .then((existingPullRequest: FakeGitHubPullRequest) => {
+        let result: Promise<unknown>;
+        if (existingPullRequest.state === "closed") {
+          result = Promise.reject(new Error(`The pull request (${getRepositoryFullName(repository)}/${existingPullRequest.number}) is already closed.`));
+        } else {
+          existingPullRequest.state = "closed";
+          result = Promise.resolve();
+        }
+        return result;
       });
   }
 
@@ -1329,6 +1350,19 @@ export class RealGitHub implements GitHub {
       state: "closed",
     };
     return this.github.pullRequests.update(githubArguments)
+      .then((response: Octokit.AnyResponse) => {
+        return response.data;
+      });
+  }
+
+  public mergePullRequest(repository: string | GitHubRepository, pullRequest: number | GitHubPullRequest): Promise<unknown> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.PullRequestsMergeParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      number: getPullRequestNumber(pullRequest),
+    };
+    return this.github.pullRequests.merge(githubArguments)
       .then((response: Octokit.AnyResponse) => {
         return response.data;
       });
