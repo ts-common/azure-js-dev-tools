@@ -812,7 +812,7 @@ export class GitScope {
     });
   }
 
-  public remoteBranches(options: RunOptions = {}): Promise<GitRunResult> {
+  public remoteBranches(options: RunOptions = {}): Promise<GitRemoteBranchesResult> {
     return gitRemoteBranches({
       ...this.options,
       ...options
