@@ -57,11 +57,17 @@ describe("blobStorage.ts", function () {
         return (blobStorage || createBlobStorage()).getContainer(containerName || getContainerName());
       }
 
+      it("getContainer()", function () {
+        const blobStorage: BlobStorage = createBlobStorage();
+        const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
+        assert.strictEqual(container.getContainer(), container);
+      });
+
       it("getURL()", function () {
         const blobStorage: BlobStorage = createBlobStorage();
         const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
         const expectedURL: URLBuilder = URLBuilder.parse(blobStorage.getURL({ sasToken: false }))
-          .setPath(container.name);
+          .setPath(`${container.name}/`);
         assert.strictEqual(container.getURL({ sasToken: false }), expectedURL.toString());
       });
 
@@ -766,6 +772,13 @@ describe("blobStorage.ts", function () {
             .toString();
           assert.strictEqual(prefix.getURL({ sasToken: true }), expectedURL);
         });
+      });
+
+      it("getContainer()", function () {
+        const prefix: BlobStoragePrefix = getPrefix();
+        const container: BlobStorageContainer = prefix.getContainer();
+        assert.strictEqual(container.name, prefix.path.containerName);
+        assert.strictEqual(container.storage, prefix.storage);
       });
     });
 
