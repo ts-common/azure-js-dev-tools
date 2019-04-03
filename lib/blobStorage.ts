@@ -72,6 +72,14 @@ export class BlobPath {
   }
 
   /**
+   * Concatenate the provided blobName onto this BlobPath.
+   * @param blobName The blobName to concatenate to this BlobPath.
+   */
+  public concatenate(blobName: string): BlobPath {
+    return new BlobPath(this.containerName, this.blobName + (blobName || ""));
+  }
+
+  /**
    * Get the string representation of this BlobPath object.
    */
   public toString(): string {
@@ -92,181 +100,6 @@ export class BlobPath {
       result = new BlobPath(blobPath.substring(0, firstSlashIndex), blobPath.substring(firstSlashIndex + 1));
     }
     return result;
-  }
-}
-
-export class BlobStorageContainer {
-  /**
-   * The BlobStorage system that this blob came from.
-   */
-  public readonly storage: BlobStorage;
-  /**
-   * The name of this container.
-   */
-  public readonly name: string;
-
-  /**
-   * Create a new reference to a container within the provided BlobStorage system.
-   * @param storage The BlobStorage system that this container belongs to.
-   * @param name The name of the container.
-   */
-  constructor(storage: BlobStorage, name: string) {
-    this.storage = storage;
-    this.name = name;
-  }
-
-  /**
-   * Get the URL for this container.
-   */
-  public getURL(options: GetURLOptions = {}): string {
-    return this.storage.getContainerURL(this.name, options);
-  }
-
-  /**
-   * Get a reference to a blob from the context of this container.
-   * @param blobName The name of the blob.
-   */
-  public getBlob(blobName: string): BlobStorageBlob {
-    return this.storage.getBlob(new BlobPath(this.name, blobName));
-  }
-
-  /**
-   * Get a reference to a block blob from the context of this container.
-   * @param blockBlobName The name of the block blob.
-   */
-  public getBlockBlob(blockBlobName: string): BlobStorageBlockBlob {
-    return this.storage.getBlockBlob(new BlobPath(this.name, blockBlobName));
-  }
-
-  /**
-   * Get a reference to an append blob from the context of this container.
-   * @param appendBlobName The name of the append blob.
-   */
-  public getAppendBlob(appendBlobName: string): BlobStorageAppendBlob {
-    return this.storage.getAppendBlob(new BlobPath(this.name, appendBlobName));
-  }
-
-  /**
-   * Get a prefix that can be used to perform blob operations relative to the provided path.
-   * @param path The path to the prefix.
-   */
-  public getPrefix(path: string): BlobStoragePrefix {
-    return this.storage.getPrefix(new BlobPath(this.name, path));
-  }
-
-  /**
-   * Create this container. This method will return false when the container already exists.
-   */
-  public create(options: CreateContainerOptions = {}): Promise<boolean> {
-    return this.storage.createContainer(this.name, options);
-  }
-
-  /**
-   * Get whether or not this container exists.
-   */
-  public exists(): Promise<boolean> {
-    return this.storage.containerExists(this.name);
-  }
-
-  /**
-   * Get the access policy for this container.
-   */
-  public getAccessPolicy(): Promise<ContainerAccessPolicy> {
-    return this.storage.getContainerAccessPolicy(this.name);
-  }
-
-  /**
-   * Set the access policy for this container.
-   * @param policy The new access policy for this container.
-   */
-  public setAccessPolicy(policy: ContainerAccessPolicy): Promise<unknown> {
-    return this.storage.setContainerAccessPolicy(this.name, policy);
-  }
-
-  /**
-   * Delete this container. This method returns whether or not the container was deleted. Returning
-   * false means that the container didn't exist before this method was called.
-   */
-  public delete(): Promise<boolean> {
-    return this.storage.deleteContainer(this.name);
-  }
-
-  /**
-   * Create a block blob relative to this container with the provided name.
-   * @param blockBlobName The name of the blob relative to this container.
-   */
-  public createBlockBlob(blockBlobName: string, options: BlobContentOptions = {}): Promise<boolean> {
-    return this.storage.createBlockBlob(new BlobPath(this.name, blockBlobName), options);
-  }
-
-  /**
-   * Create an append blob relative to this container with the provided name.
-   * @param appendBlobName The name of the append blob relative to this container.
-   */
-  public createAppendBlob(appendBlobName: string, options: BlobContentOptions = {}): Promise<boolean> {
-    return this.storage.createAppendBlob(new BlobPath(this.name, appendBlobName), options);
-  }
-
-  /**
-   * Get whether or not a blob exists with the provided name relative to this container.
-   * @param blobName The name of the blob relative to this container.
-   */
-  public blobExists(blobName: string): Promise<boolean> {
-    return this.storage.blobExists(new BlobPath(this.name, blobName));
-  }
-
-  /**
-   * Get the content type that has been assigned to the provided blob.
-   * @param blobName The name of to the blob.
-   */
-  public getBlobContentType(blobName: string): Promise<string | undefined> {
-    return this.storage.getBlobContentType(new BlobPath(this.name, blobName));
-  }
-
-  /**
-   * Assign the provided content type to the provided blob.
-   * @param blobName The name of the blob.
-   * @param contentType The content type to assign to the provided blob.
-   */
-  public setBlobContentType(blobName: string, contentType: string): Promise<unknown> {
-    return this.storage.setBlobContentType(new BlobPath(this.name, blobName), contentType);
-  }
-
-  /**
-   * Get the contents of the blob with the provided name relative to this container.
-   * @param blobName The name of the blob relative to this container.
-   */
-  public getBlobContentsAsString(blobName: string): Promise<string | undefined> {
-    return this.storage.getBlobContentsAsString(new BlobPath(this.name, blobName));
-  }
-
-  /**
-   * Set the contents of the blob with the provided name relative to this container.
-   * @param blockBlobName The name of the blob relative to this container.
-   * @param blobContents The contents to set.
-   */
-  public setBlockBlobContentsFromString(blockBlobName: string, blobContents: string): Promise<unknown> {
-    return this.storage.setBlockBlobContentsFromString(new BlobPath(this.name, blockBlobName), blobContents);
-  }
-
-  /**
-   * Add the provided blob contents to append to the append blob with the provided name relative to
-   * this container.
-   * @param appendBlobName The name of the append blob relative to this container.
-   * @param blobContentsToAppend The contents to add the append blob.
-   */
-  public addToAppendBlobContentsFromString(appendBlobName: string, blobContentsToAppend: string): Promise<unknown> {
-    return this.storage.addToAppendBlobContentsFromString(new BlobPath(this.name, appendBlobName), blobContentsToAppend);
-  }
-
-  /**
-   * Delete the blob with the provided name relative to this container. This method returns whether
-   * or not the blob was deleted. Returning false means that the blob didn't exist before this
-   * method was called.
-   * @param blobPath The path to the blob to delete relative to this container.
-   */
-  public deleteBlob(blobName: string): Promise<boolean> {
-    return this.storage.deleteBlob(new BlobPath(this.name, blobName));
   }
 }
 
@@ -312,7 +145,7 @@ export class BlobStoragePrefix {
    * @param blobName The name to append to this prefix.
    */
   public getBlob(blobName: string): BlobStorageBlob {
-    return this.getContainer().getBlob(this.path.blobName + blobName);
+    return this.storage.getBlob(this.path.concatenate(blobName));
   }
 
   /**
@@ -320,7 +153,7 @@ export class BlobStoragePrefix {
    * @param blockBlobName The name to append to this prefix.
    */
   public getBlockBlob(blockBlobName: string): BlobStorageBlockBlob {
-    return this.getContainer().getBlockBlob(this.path.blobName + blockBlobName);
+    return this.storage.getBlockBlob(this.path.concatenate(blockBlobName));
   }
 
   /**
@@ -328,31 +161,31 @@ export class BlobStoragePrefix {
    * @param appendBlobName The name to append to this prefix.
    */
   public getAppendBlob(appendBlobName: string): BlobStorageAppendBlob {
-    return this.getContainer().getAppendBlob(this.path.blobName + appendBlobName);
+    return this.storage.getAppendBlob(this.path.concatenate(appendBlobName));
   }
 
   /**
    * Get a prefix that can be used to perform blob operations relative to the provided path.
-   * @param path The path to the prefix.
+   * @param blobName The path to the prefix.
    */
-  public getPrefix(path: string): BlobStoragePrefix {
-    return this.getContainer().getPrefix(this.path.blobName + path);
+  public getPrefix(blobName: string): BlobStoragePrefix {
+    return this.storage.getPrefix(this.path.concatenate(blobName));
   }
 
   /**
-   * Create a block blob relative to this prefix with the provided name.
-   * @param blockBlobName The name of the block blob relative to this prefix.
+   * Create a block blob relative to this container with the provided name.
+   * @param blockBlobName The name of the blob relative to this container.
    */
-  public createBlockBlob(blockBlobName: string): Promise<boolean> {
-    return this.getContainer().createBlockBlob(this.path.blobName + blockBlobName);
+  public createBlockBlob(blockBlobName: string, options: BlobContentOptions = {}): Promise<boolean> {
+    return this.storage.createBlockBlob(this.path.concatenate(blockBlobName), options);
   }
 
   /**
-   * Create a append blob relative to this prefix with the provided name.
-   * @param appendBlobName The name of the append blob relative to this prefix.
+   * Create an append blob relative to this container with the provided name.
+   * @param appendBlobName The name of the append blob relative to this container.
    */
-  public createAppendBlob(appendBlobName: string): Promise<boolean> {
-    return this.getContainer().createAppendBlob(this.path.blobName + appendBlobName);
+  public createAppendBlob(appendBlobName: string, options: BlobContentOptions = {}): Promise<boolean> {
+    return this.storage.createAppendBlob(this.path.concatenate(appendBlobName), options);
   }
 
   /**
@@ -360,7 +193,24 @@ export class BlobStoragePrefix {
    * @param blobName The name of the blob relative to this prefix.
    */
   public blobExists(blobName: string): Promise<boolean> {
-    return this.getContainer().blobExists(this.path.blobName + blobName);
+    return this.storage.blobExists(this.path.concatenate(blobName));
+  }
+
+  /**
+   * Get the content type that has been assigned to the provided blob.
+   * @param blobName The name of to the blob.
+   */
+  public getBlobContentType(blobName: string): Promise<string | undefined> {
+    return this.storage.getBlobContentType(this.path.concatenate(blobName));
+  }
+
+  /**
+   * Assign the provided content type to the provided blob.
+   * @param blobName The name of the blob.
+   * @param contentType The content type to assign to the provided blob.
+   */
+  public setBlobContentType(blobName: string, contentType: string): Promise<unknown> {
+    return this.storage.setBlobContentType(this.path.concatenate(blobName), contentType);
   }
 
   /**
@@ -368,7 +218,7 @@ export class BlobStoragePrefix {
    * @param blobName The name of the blob relative to this prefix.
    */
   public getBlobContentsAsString(blobName: string): Promise<string | undefined> {
-    return this.getContainer().getBlobContentsAsString(this.path.blobName + blobName);
+    return this.storage.getBlobContentsAsString(this.path.concatenate(blobName));
   }
 
   /**
@@ -377,7 +227,7 @@ export class BlobStoragePrefix {
    * @param blobContents The contents to set.
    */
   public setBlockBlobContentsFromString(blockBlobName: string, blobContents: string): Promise<unknown> {
-    return this.getContainer().setBlockBlobContentsFromString(this.path.blobName + blockBlobName, blobContents);
+    return this.storage.setBlockBlobContentsFromString(this.path.concatenate(blockBlobName), blobContents);
   }
 
   /**
@@ -387,7 +237,7 @@ export class BlobStoragePrefix {
    * @param blobContentsToAppend The contents to add the append blob.
    */
   public addToAppendBlobContentsFromString(appendBlobName: string, blobContentsToAppend: string): Promise<unknown> {
-    return this.getContainer().addToAppendBlobContentsFromString(this.path.blobName + appendBlobName, blobContentsToAppend);
+    return this.storage.addToAppendBlobContentsFromString(this.path.concatenate(appendBlobName), blobContentsToAppend);
   }
 
   /**
@@ -397,7 +247,69 @@ export class BlobStoragePrefix {
    * @param blobPath The path to the blob to delete relative to this prefix.
    */
   public deleteBlob(blobName: string): Promise<boolean> {
-    return this.getContainer().deleteBlob(this.path.blobName + blobName);
+    return this.storage.deleteBlob(this.path.concatenate(blobName));
+  }
+}
+
+export class BlobStorageContainer extends BlobStoragePrefix {
+  /**
+   * The name of this container.
+   */
+  public readonly name: string;
+
+  /**
+   * Create a new reference to a container within the provided BlobStorage system.
+   * @param storage The BlobStorage system that this container belongs to.
+   * @param name The name of the container.
+   */
+  constructor(storage: BlobStorage, name: string) {
+    super(storage, new BlobPath(name, ""));
+
+    this.name = name;
+  }
+
+  /**
+   * Get the container that this prefix belongs to.
+   */
+  public getContainer(): BlobStorageContainer {
+    return this;
+  }
+
+  /**
+   * Create this container. This method will return false when the container already exists.
+   */
+  public create(options: CreateContainerOptions = {}): Promise<boolean> {
+    return this.storage.createContainer(this.name, options);
+  }
+
+  /**
+   * Get whether or not this container exists.
+   */
+  public exists(): Promise<boolean> {
+    return this.storage.containerExists(this.name);
+  }
+
+  /**
+   * Get the access policy for this container.
+   */
+  public getAccessPolicy(): Promise<ContainerAccessPolicy> {
+    return this.storage.getContainerAccessPolicy(this.name);
+  }
+
+  /**
+   * Set the access policy for this container.
+   * @param policy The new access policy for this container.
+   */
+  public setAccessPolicy(policy: ContainerAccessPolicy): Promise<unknown> {
+    return this.storage.setContainerAccessPolicy(this.name, policy);
+  }
+
+  /**
+   * Delete this container. This method returns whether or not the container was deleted. Returning
+   * false means that the container didn't exist before this method was called.
+   */
+  public delete(): Promise<boolean> {
+    return this.storage.deleteContainer(this.name);
   }
 }
 
