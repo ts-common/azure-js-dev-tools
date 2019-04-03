@@ -6,6 +6,7 @@
 
 import * as http from "http";
 import * as https from "https";
+import { first } from "./arrays";
 import { URLBuilder } from "./url";
 
 /**
@@ -157,6 +158,8 @@ export class HttpHeaders {
   }
 }
 
+export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "HEAD" | "OPTIONS";
+
 /**
  * An HTTP request to send to an HTTP server.
  */
@@ -164,7 +167,7 @@ export interface HttpRequest {
   /**
    * The HTTP method that this request will be sent with.
    */
-  method: "GET" | "POST" | "PUT" | "DELETE" | "HEAD" | "OPTIONS";
+  method: HttpMethod;
   /**
    * The URL that this request will be sent to.
    */
@@ -314,12 +317,48 @@ export class NodeHttpClient implements HttpClient {
     this.handleRedirects = options.handleRedirects == undefined ? true : options.handleRedirects;
   }
 
-  async sendRequest(request: HttpRequest): Promise<HttpResponse> {
+  public async sendRequest(request: HttpRequest): Promise<HttpResponse> {
     let response: HttpResponse = await sendNodeHttpClientRequest(request);
     while (this.handleRedirects && 300 <= response.statusCode && response.statusCode < 400 && response.headers.contains("location")) {
       request.url = response.headers.get("location")!;
       response = await sendNodeHttpClientRequest(request);
     }
     return response;
+  }
+}
+
+/**
+ * A fake HttpClient that can registered pre-determined HttpResponses for HttpRequests.
+ */
+export class FakeHttpClient implements HttpClient {
+  private readonly fakeResponses: HttpResponse[] = [];
+
+  public add(requestMethod: HttpMethod, requestUrl: string | URLBuilder, responseStatusCode?: number, responseHeaders?: HttpHeaders, responseBody?: string): FakeHttpClient {
+    this.fakeResponses.push({
+      request: {
+        method: requestMethod,
+        url: requestUrl
+      },
+      statusCode: responseStatusCode || 200,
+      headers: responseHeaders || new HttpHeaders(),
+      body: responseBody,
+    });
+    return this;
+  }
+
+  public sendRequest(request: HttpRequest): Promise<HttpResponse> {
+    let result: HttpResponse | undefined = first(this.fakeResponses, (fakeResponse: HttpResponse) => {
+      const fakeRequest: HttpRequest = fakeResponse.request;
+      return fakeRequest.method === request.method &&
+        fakeRequest.url.toString() === request.url.toString();
+    });
+    if (!result) {
+      result = {
+        request,
+        statusCode: 404,
+        headers: new HttpHeaders(),
+      };
+    }
+    return Promise.resolve(result);
   }
 }

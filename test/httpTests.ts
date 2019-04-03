@@ -1,6 +1,6 @@
 import { assert } from "chai";
 import { assertEx } from "../lib";
-import { getHeaderKey, HttpHeaders, NodeHttpClient, HttpResponse, HttpRequest, HttpClient, getDefaultHttpClient } from "../lib/http";
+import { getHeaderKey, HttpHeaders, NodeHttpClient, HttpResponse, HttpRequest, HttpClient, getDefaultHttpClient, FakeHttpClient } from "../lib/http";
 
 describe("http.ts", function () {
   this.timeout(5000);
@@ -380,6 +380,46 @@ describe("http.ts", function () {
       assert.strictEqual(response.statusCode, 200);
       assert.strictEqual(response.headers.get("location"), undefined);
       assertEx.contains(response.body, `diff --git a/specification/network/resource-manager/readme.go.md b/specification/network/resource-manager/readme.go.md`);
+    });
+  });
+
+  describe("FakeHttpClient", function () {
+    describe("sendRequest()", function () {
+      it("with no matching response", async function () {
+        const httpClient = new FakeHttpClient();
+        const response: HttpResponse = await httpClient.sendRequest({ method: "GET", "url": "https://www.bing.com" });
+        assert.strictEqual(response.statusCode, 404);
+      });
+
+      it("with wrong method", async function () {
+        const httpClient = new FakeHttpClient();
+        httpClient.add("POST", "https://www.bing.com");
+        const response: HttpResponse = await httpClient.sendRequest({ method: "GET", "url": "https://www.bing.com" });
+        assert.strictEqual(response.statusCode, 404);
+      });
+
+      it("with wrong url", async function () {
+        const httpClient = new FakeHttpClient();
+        httpClient.add("POST", "https://www.bing.com/apples/and/bananas");
+        const response: HttpResponse = await httpClient.sendRequest({ method: "GET", "url": "https://www.bing.com" });
+        assert.strictEqual(response.statusCode, 404);
+      });
+
+      it("with different URL casing", async function () {
+        const httpClient = new FakeHttpClient();
+        httpClient.add("POST", "https://www.BING.com/");
+        const response: HttpResponse = await httpClient.sendRequest({ method: "GET", "url": "https://www.bing.com" });
+        assert.strictEqual(response.statusCode, 404);
+      });
+
+      it("with matching response", async function () {
+        const httpClient = new FakeHttpClient();
+        httpClient.add("GET", "https://www.bing.com", 205, new HttpHeaders({ "a": "B" }), "hello");
+        const response: HttpResponse = await httpClient.sendRequest({ method: "GET", "url": "https://www.bing.com" });
+        assert.strictEqual(response.statusCode, 205);
+        assert.deepEqual(response.headers, new HttpHeaders({ "a": "B" }));
+        assert.strictEqual(response.body, "hello");
+      });
     });
   });
 });
