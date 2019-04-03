@@ -76,7 +76,7 @@ export class BlobPath {
    * @param blobName The blobName to concatenate to this BlobPath.
    */
   public concatenate(blobName: string): BlobPath {
-    return new BlobPath(this.containerName, this.blobName + (blobName || ""));
+    return !blobName ? this : new BlobPath(this.containerName, this.blobName + blobName);
   }
 
   /**
@@ -97,7 +97,11 @@ export class BlobPath {
       result = blobPath;
     } else {
       const firstSlashIndex: number = blobPath.indexOf("/");
-      result = new BlobPath(blobPath.substring(0, firstSlashIndex), blobPath.substring(firstSlashIndex + 1));
+      if (firstSlashIndex === -1) {
+        result = new BlobPath(blobPath, "");
+      } else {
+        result = new BlobPath(blobPath.substring(0, firstSlashIndex), blobPath.substring(firstSlashIndex + 1));
+      }
     }
     return result;
   }
@@ -169,7 +173,7 @@ export class BlobStoragePrefix {
    * @param blobName The path to the prefix.
    */
   public getPrefix(blobName: string): BlobStoragePrefix {
-    return this.storage.getPrefix(this.path.concatenate(blobName));
+    return !blobName ? this : this.storage.getPrefix(this.path.concatenate(blobName));
   }
 
   /**

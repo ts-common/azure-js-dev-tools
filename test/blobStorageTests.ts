@@ -49,6 +49,81 @@ describe("blobStorage.ts", function () {
       assert.strictEqual(blobPath.blobName, "b");
       assert.strictEqual(blobPath.toString(), "a/b");
     });
+
+    describe("parse()", function () {
+      it(`with BlobPath`, function () {
+        const blobPath: BlobPath = new BlobPath("abc", "def");
+        assert.strictEqual(BlobPath.parse(blobPath), blobPath);
+      });
+
+      it(`with ""`, function () {
+        const blobPath: BlobPath = BlobPath.parse("");
+        assert.strictEqual(blobPath.containerName, "");
+        assert.strictEqual(blobPath.blobName, "");
+      });
+
+      it(`with "abc"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("abc");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "");
+      });
+
+      it(`with "abc/"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("abc/");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "");
+      });
+
+      it(`with "abc/def"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("abc/def");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "def");
+      });
+
+      it(`with "abc/def/"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("abc/def/");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "def/");
+      });
+
+      it(`with "abc/def/g"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("abc/def/g");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "def/g");
+      });
+    });
+
+    describe("concatenate()", function () {
+      it(`with "a" and ""`, function () {
+        const path1: BlobPath = BlobPath.parse("a");
+        const path2: BlobPath = path1.concatenate("");
+        assert.strictEqual(path2, path1);
+      });
+
+      it(`with "a/b" and ""`, function () {
+        const path1: BlobPath = BlobPath.parse("a/b");
+        const path2: BlobPath = path1.concatenate("");
+        assert.strictEqual(path2, path1);
+      });
+
+      it(`with "a" and "b"`, function () {
+        const path1: BlobPath = BlobPath.parse("a");
+        const path2: BlobPath = path1.concatenate("b");
+        assert.deepEqual(path2, new BlobPath("a", "b"));
+      });
+
+      it(`with "a" and "b/"`, function () {
+        const path1: BlobPath = BlobPath.parse("a");
+        const path2: BlobPath = path1.concatenate("b/");
+        assert.deepEqual(path2, new BlobPath("a", "b/"));
+      });
+
+      it(`with "a" and "b/c"`, function () {
+        const path1: BlobPath = BlobPath.parse("a");
+        const path2: BlobPath = path1.concatenate("b/c");
+        assert.deepEqual(path2, new BlobPath("a", "b/c"));
+      });
+    });
   });
 
   function blobStorageTests(createBlobStorage: () => BlobStorage): void {
@@ -95,12 +170,47 @@ describe("blobStorage.ts", function () {
         assert.strictEqual(appendBlob.storage, container.storage);
       });
 
-      it("getPrefix()", function () {
-        const container: BlobStorageContainer = getContainer();
-        const prefix: BlobStoragePrefix = container.getPrefix("def");
-        assertEx.defined(prefix, "prefix");
-        assert.deepEqual(prefix.path, BlobPath.parse(`${container.name}/def`));
-        assert.strictEqual(prefix.storage, container.storage);
+      describe("getPrefix()", function () {
+        it(`with ""`, function () {
+          const container: BlobStorageContainer = getContainer();
+          const prefix: BlobStoragePrefix = container.getPrefix("");
+          assert.strictEqual(prefix, container);
+        });
+
+        it(`with "a"`, function () {
+          const container: BlobStorageContainer = getContainer();
+          const prefix: BlobStoragePrefix = container.getPrefix("a");
+          assert.deepEqual(prefix.path, new BlobPath(container.name, "a"));
+          assert.strictEqual(prefix.storage, container.storage);
+        });
+
+        it(`with "a/"`, function () {
+          const container: BlobStorageContainer = getContainer();
+          const prefix: BlobStoragePrefix = container.getPrefix("a/");
+          assert.deepEqual(prefix.path, new BlobPath(container.name, "a/"));
+          assert.strictEqual(prefix.storage, container.storage);
+        });
+
+        it(`with "a/b"`, function () {
+          const container: BlobStorageContainer = getContainer();
+          const prefix: BlobStoragePrefix = container.getPrefix("a/b");
+          assert.deepEqual(prefix.path, new BlobPath(container.name, "a/b"));
+          assert.strictEqual(prefix.storage, container.storage);
+        });
+
+        it(`with "a/b/"`, function () {
+          const container: BlobStorageContainer = getContainer();
+          const prefix: BlobStoragePrefix = container.getPrefix("a/b/");
+          assert.deepEqual(prefix.path, new BlobPath(container.name, "a/b/"));
+          assert.strictEqual(prefix.storage, container.storage);
+        });
+
+        it(`with "a/b/c"`, function () {
+          const container: BlobStorageContainer = getContainer();
+          const prefix: BlobStoragePrefix = container.getPrefix("a/b/c");
+          assert.deepEqual(prefix.path, new BlobPath(container.name, "a/b/c"));
+          assert.strictEqual(prefix.storage, container.storage);
+        });
       });
 
       describe("create()", function () {
@@ -808,12 +918,46 @@ describe("blobStorage.ts", function () {
         assert.strictEqual(appendBlob.storage, blobStorage);
       });
 
-      it("getPrefix()", function () {
-        const blobStorage: BlobStorage = createBlobStorage();
-        const prefix: BlobStoragePrefix = blobStorage.getPrefix("abc/xyz");
-        assert.strictEqual(prefix.path.containerName, "abc");
-        assert.strictEqual(prefix.path.blobName, "xyz");
-        assert.strictEqual(prefix.storage, blobStorage);
+      describe("getPrefix()", function () {
+        it(`with ""`, function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = blobStorage.getPrefix("");
+          assert.strictEqual(prefix.path.containerName, "");
+          assert.strictEqual(prefix.path.blobName, "");
+          assert.strictEqual(prefix.storage, blobStorage);
+        });
+
+        it(`with "abc"`, function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = blobStorage.getPrefix("abc");
+          assert.strictEqual(prefix.path.containerName, "abc");
+          assert.strictEqual(prefix.path.blobName, "");
+          assert.strictEqual(prefix.storage, blobStorage);
+        });
+
+        it(`with "abc/"`, function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = blobStorage.getPrefix("abc/");
+          assert.strictEqual(prefix.path.containerName, "abc");
+          assert.strictEqual(prefix.path.blobName, "");
+          assert.strictEqual(prefix.storage, blobStorage);
+        });
+
+        it(`with "abc/def"`, function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = blobStorage.getPrefix("abc/def");
+          assert.strictEqual(prefix.path.containerName, "abc");
+          assert.strictEqual(prefix.path.blobName, "def");
+          assert.strictEqual(prefix.storage, blobStorage);
+        });
+
+        it(`with "abc/def/"`, function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = blobStorage.getPrefix("abc/def/");
+          assert.strictEqual(prefix.path.containerName, "abc");
+          assert.strictEqual(prefix.path.blobName, "def/");
+          assert.strictEqual(prefix.storage, blobStorage);
+        });
       });
 
       describe("containerExists()", function () {
