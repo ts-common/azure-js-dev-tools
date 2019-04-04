@@ -463,8 +463,23 @@ export interface GitHub {
    * @param githubPullRequest The GitHubPullRequest that the labels will be added to.
    * @param labelNamesToAdd The name of the label or labels to add to the pull request.
    */
-  addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<unknown>;
+  addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<string[]>;
 
+  /**
+   * Remove the provided labels from the provided pull request.
+   * @param repository The repository where the pull request exists.
+   * @param githubPullRequest The pull request that the labels will be removed from.
+   * @param labelNames The names of the labels to remove from the pull request.
+   * @returns The names of the labels that were removed.
+   */
+  removePullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<string[]>;
+
+  /**
+   * Set the milestone that the provided pull request is assigned to.
+   * @param repository The repository where the pull request exists.
+   * @param githubPullRequest The pull request to assign.
+   * @param milestone The milestone to assign to the pull request.
+   */
   setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, milestone: number | string | GitHubMilestone): Promise<unknown>;
 
   /**
@@ -912,27 +927,37 @@ export class FakeGitHub implements GitHub {
       });
   }
 
-  public addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<unknown> {
+  public async addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<string[]> {
+    const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
+    const labelNamesArray: string[] = (Array.isArray(labelNames) ? labelNames : [labelNames]);
+
+    const repositoryLabels: GitHubLabel[] = await this.getLabels(repository);
+    for (const labelName of labelNamesArray) {
+      if (!contains(repositoryLabels, (repositoryLabel: GitHubLabel) => repositoryLabel.name === labelName)) {
+        repositoryLabels.push(await this.createLabel(repository, labelName, "ededed"));
+      }
+    }
+
+    const pullRequest: FakeGitHubPullRequest = await this.getPullRequest(repository, pullRequestNumber);
+    const pullRequestLabels: GitHubLabel[] = pullRequest.labels;
+    const pullRequestLabelNames: string[] = map(pullRequestLabels, (label: GitHubLabel) => label.name);
+    const labelNamesAddedToPullRequest: string[] = where(labelNamesArray, (labelName: string) => !contains(pullRequestLabelNames, labelName));
+    if (labelNamesAddedToPullRequest.length > 0) {
+      pullRequest.labels.push(...await Promise.all(map(labelNamesAddedToPullRequest, (labelName: string) => this.getLabel(repository, labelName))));
+    }
+
+    return labelNamesAddedToPullRequest;
+  }
+
+  public removePullRequestLabels(repository: string | GitHubRepository, githubPullRequest: number | GitHubPullRequest, labelNames: string | string[]): Promise<string[]> {
     const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
     return this.getPullRequest(repository, pullRequestNumber)
       .then((pullRequest: FakeGitHubPullRequest) => {
-        const labelNamesArray: string[] = (Array.isArray(labelNames) ? labelNames : [labelNames]);
-
-        const labels: GitHubLabel[] = [];
-        let collectLabels: Promise<unknown> = Promise.resolve();
-        for (const labelName of labelNamesArray) {
-          collectLabels = collectLabels.then(() => this.getLabel(repository, labelName)
-            .then((label: GitHubLabel) => {
-              labels.push(label);
-            }));
-        }
-
-        return collectLabels.then(() => {
-          if (!pullRequest.labels) {
-            pullRequest.labels = [];
-          }
-          pullRequest.labels.push(...labels);
-        });
+        const labelNamesToRemove: string[] = (Array.isArray(labelNames) ? labelNames : [labelNames]);
+        const currentLabelNames: string[] = map(pullRequest.labels, (label: GitHubLabel) => label.name);
+        const removedLabelNames: string[] = where(currentLabelNames, (labelName: string) => contains(labelNamesToRemove, labelName));
+        pullRequest.labels = where(pullRequest.labels, (label: GitHubLabel) => !contains(labelNamesToRemove, label.name));
+        return removedLabelNames;
       });
   }
 
@@ -1440,31 +1465,66 @@ export class RealGitHub implements GitHub {
     });
   }
 
-  public addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<unknown> {
+  public addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<string[]> {
     return new Promise((resolve, reject) => {
       const labelNamesArray: string[] = (typeof labelNames === "string" ? [labelNames] : labelNames);
+      const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
+      return this.getPullRequest(repository, pullRequestNumber)
+        .then((pullRequest: GitHubPullRequest) => {
+          const currentLabelNames: string[] = map(pullRequest.labels, (label: GitHubLabel) => label.name);
+          const labelNamesToAdd: string[] = where(labelNamesArray, (labelName: string) => !contains(currentLabelNames, labelName));
 
-      const currentLabelNames: string[] = typeof githubPullRequest === "number" ? [] : map(githubPullRequest.labels, (label: GitHubLabel) => label.name);
-      const labelNamesToAdd: string[] = where(labelNamesArray, (labelName: string) => !contains(currentLabelNames, labelName));
-
-      if (labelNamesToAdd.length === 0) {
-        resolve();
-      } else {
-        const updatedLabelNamesArray: string[] = [...currentLabelNames, ...labelNamesToAdd];
-        const githubRepository: GitHubRepository = getGitHubRepository(repository);
-        this.github.issues.edit({
-          owner: githubRepository.organization,
-          repo: githubRepository.name,
-          number: getPullRequestNumber(githubPullRequest),
-          labels: updatedLabelNamesArray
-        }, (error: Error | null) => {
-          if (error) {
-            reject(error);
+          if (labelNamesToAdd.length === 0) {
+            resolve(labelNamesToAdd);
           } else {
-            resolve();
+            const updatedLabelNamesArray: string[] = [...currentLabelNames, ...labelNamesToAdd];
+            const githubRepository: GitHubRepository = getGitHubRepository(repository);
+            this.github.issues.edit({
+              owner: githubRepository.organization,
+              repo: githubRepository.name,
+              number: getPullRequestNumber(githubPullRequest),
+              labels: updatedLabelNamesArray
+            }, (error: Error | null) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(labelNamesToAdd);
+              }
+            });
           }
-        });
-      }
+        })
+        .catch(reject);
+    });
+  }
+
+  public removePullRequestLabels(repository: string | GitHubRepository, githubPullRequest: number | GitHubPullRequest, labelNames: string | string[]): Promise<string[]> {
+    return new Promise(async (resolve, reject) => {
+      const labelNamesArray: string[] = (typeof labelNames === "string" ? [labelNames] : labelNames);
+      const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
+      return this.getPullRequest(repository, pullRequestNumber)
+        .then((pullRequest: GitHubPullRequest) => {
+          const currentLabelNames: string[] = map(pullRequest.labels, (label: GitHubLabel) => label.name);
+          const removedLabelNames: string[] = where(currentLabelNames, (currentLabelName: string) => contains(labelNamesArray, currentLabelName));
+          if (removedLabelNames.length === 0) {
+            resolve(removedLabelNames);
+          } else {
+            const updatedLabelNamesArray: string[] = where(currentLabelNames, (currentLabelName: string) => !contains(labelNamesArray, currentLabelName));
+            const githubRepository: GitHubRepository = getGitHubRepository(repository);
+            this.github.issues.edit({
+              owner: githubRepository.organization,
+              repo: githubRepository.name,
+              number: pullRequestNumber,
+              labels: updatedLabelNamesArray
+            }, (error: Error | null) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(removedLabelNames);
+              }
+            });
+          }
+        })
+        .catch(reject);
     });
   }
 

@@ -624,6 +624,80 @@ describe("github.ts", function () {
         });
       });
 
+      describe("addPullRequestLabels()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.addPullRequestLabels(undefined as any, 50, ["nope"]));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.addPullRequestLabels(null as any, 50, ["nope"]));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.addPullRequestLabels("", 50, ["nope"]));
+        });
+
+        it("with repository that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.addPullRequestLabels("ImARepositoryThatDoesntExist", 50, ["nope"]));
+        });
+
+        it("with pull request number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.addPullRequestLabels("ts-common/azure-js-dev-tools", 1325097123, ["nope"]));
+        });
+
+        it("with label that doesn't exist in the repository", async function () {
+          assert.deepEqual(await github.addPullRequestLabels("ts-common/azure-js-dev-tools", 113, "nope"), [
+            "nope"
+          ]);
+          const repositoryLabels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
+          assert.strictEqual(contains(repositoryLabels, (label: GitHubLabel) => label.name === "nope"), true);
+          assert.deepEqual(await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, "nope"), [
+            "nope"
+          ]);
+          await github.deleteLabel("ts-common/azure-js-dev-tools", "nope");
+        });
+      });
+
+      describe("removePullRequestLabels()", function () {
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.removePullRequestLabels(undefined as any, 50, ["nope"]));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.removePullRequestLabels(null as any, 50, ["nope"]));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.removePullRequestLabels("", 50, ["nope"]));
+        });
+
+        it("with repository that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.removePullRequestLabels("ImARepositoryThatDoesntExist", 50, ["nope"]));
+        });
+
+        it("with pull request number that doesn't exist", async function () {
+          await assertEx.throwsAsync(github.removePullRequestLabels("ts-common/azure-js-dev-tools", 1325097123, ["nope"]));
+        });
+
+        it("with label that doesn't exist in the repository", async function () {
+          const removedLabelNames: string[] = await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, ["nope"]);
+          assert.deepEqual(removedLabelNames, []);
+        });
+
+        it("with label that hasn't been added to the pull request", async function () {
+          const removedLabelNames: string[] = await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, ["in progress"]);
+          assert.deepEqual(removedLabelNames, []);
+        });
+
+        it("with label that has been added to the pull request", async function () {
+          await github.addPullRequestLabels("ts-common/azure-js-dev-tools", 113, "in progress");
+          const removedLabelNames: string[] = await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, ["in progress"]);
+          assert.deepEqual(removedLabelNames, ["in progress"]);
+        });
+      });
+
       describe("getPullRequestComments()", function () {
         it("with undefined repository", async function () {
           await assertEx.throwsAsync(github.getPullRequestComments(undefined as any, 50));
