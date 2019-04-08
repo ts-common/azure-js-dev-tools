@@ -1,18 +1,22 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "13.5.0",
+  "version": "13.6.0",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
   "scripts": {
-    "build": "run-p tslint build:tsc",
-    "build:tsc": "tsc -p tsconfig.json",
-    "local": "ts-node ./.scripts/local.ts",
-    "latest": "ts-node ./.scripts/latest.ts",
+    "build": "run-p build:sources build:scripts",
+    "build:sources": "run-p tsc:sources tslint:sources",
+    "tsc:sources": "tsc -p tsconfig.json",
+    "tslint:sources": "tslint -p . -c tslint.json",
+    "build:scripts": "run-p tsc:scripts tslint:scripts",
+    "tsc:scripts": "tsc -p ./.scripts/tsconfig.json",
+    "tslint:scripts": "tslint -p ./.scripts/ -c tslint.json",
     "prepack": "npm install && npm run build",
     "test": "mocha",
     "coverage": "nyc mocha",
-    "tslint": "tslint -p . -c tslint.json",
+    "tsc": "run-p tsc:sources tsc:scripts",
+    "tslint": "run-p tslint:sources tslint:scripts",
     "check:packagejsonversion": "ts-node ./.scripts/checkPackageJsonVersion.ts",
     "check:foronlycalls": "ts-node ./.scripts/checkForOnlyCalls.ts",
     "check:forskipcalls": "ts-node ./.scripts/checkForSkipCalls.ts",
@@ -79,22 +83,20 @@
   "pre-commit": [
     "check:everything"
   ],
+  "mocha": {
+    "colors": true,
+    "require": [
+      "source-map-support/register"
+    ],
+    "reporter": "mocha-multi-reporters",
+    "reporter-options": "configFile=mocha.config.json",
+    "spec": "dist/test/**/*.js"
+  },
   "nyc": {
-    "extension": [
-      ".ts",
-      ".tsx"
-    ],
-    "exclude": [
-      "coverage",
-      "dist"
-    ],
     "reporter": [
       "text",
       "html",
       "cobertura"
-    ],
-    "sourceMap": true,
-    "produce-source-map": true,
-    "all": true
+    ]
   }
 }
