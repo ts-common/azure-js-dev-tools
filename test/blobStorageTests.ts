@@ -1,6 +1,7 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
 import { AzureBlobStorage, BlobPath, BlobStorage, BlobStorageAppendBlob, BlobStorageBlob, BlobStorageBlockBlob, BlobStorageContainer, BlobStoragePrefix, getFileLengthInBytes, InMemoryBlobStorage } from "../lib/blobStorage";
+import { findFileInPath } from "../lib/fileSystem2";
 import { joinPath } from "../lib/path";
 import { URLBuilder } from "../lib/url";
 
@@ -37,7 +38,7 @@ describe("blobStorage.ts", function () {
     });
 
     it("with file that exists", async function () {
-      const fileLength: number = await getFileLengthInBytes(joinPath(__dirname, "../LICENSE"));
+      const fileLength: number = await getFileLengthInBytes((await findFileInPath("LICENSE"))!);
       assert(fileLength === 1056 || fileLength === 1077, `Expected fileLength (${fileLength}) to be either 1056 or 1077.`);
     });
   });
