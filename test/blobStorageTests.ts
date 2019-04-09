@@ -4,6 +4,8 @@ import { AzureBlobStorage, BlobPath, BlobStorage, BlobStorageAppendBlob, BlobSto
 import { findFileInPath } from "../lib/fileSystem2";
 import { joinPath } from "../lib/path";
 import { URLBuilder } from "../lib/url";
+import { Credential, SharedKeyCredential } from "@azure/storage-blob";
+import { Duration } from "../lib/duration";
 
 const realStorageUrl = "https://sdkautomationdev.blob.core.windows.net/";
 
@@ -27,6 +29,10 @@ const blobNameBase = "xyz";
 let blobNameCount = 0;
 function getBlobName(): string {
   return `${blobNameBase}${++blobNameCount}`;
+}
+
+function getBlobPath(): BlobPath {
+  return new BlobPath(getContainerName(), getBlobName());
 }
 
 describe("blobStorage.ts", function () {
@@ -92,6 +98,42 @@ describe("blobStorage.ts", function () {
         assert.strictEqual(blobPath.containerName, "abc");
         assert.strictEqual(blobPath.blobName, "def/g");
       });
+
+      it(`with "/"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("/");
+        assert.strictEqual(blobPath.containerName, "");
+        assert.strictEqual(blobPath.blobName, "");
+      });
+
+      it(`with "/abc"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("/abc");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "");
+      });
+
+      it(`with "/abc/"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("/abc/");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "");
+      });
+
+      it(`with "/abc/def"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("/abc/def");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "def");
+      });
+
+      it(`with "/abc/def/"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("/abc/def/");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "def/");
+      });
+
+      it(`with "/abc/def/g"`, function () {
+        const blobPath: BlobPath = BlobPath.parse("/abc/def/g");
+        assert.strictEqual(blobPath.containerName, "abc");
+        assert.strictEqual(blobPath.blobName, "def/g");
+      });
     });
 
     describe("concatenate()", function () {
@@ -127,10 +169,133 @@ describe("blobStorage.ts", function () {
     });
   });
 
-  function blobStorageTests(createBlobStorage: () => BlobStorage): void {
+  function blobStorageTests(createBlobStorage: (credential?: Credential) => BlobStorage): void {
+    describe("BlobStoragePrefix", function () {
+      function getPrefix(prefixPath?: string | BlobPath, blobStorage?: BlobStorage): BlobStoragePrefix {
+        return (blobStorage || createBlobStorage()).getPrefix(prefixPath || getPrefixPath());
+      }
+
+      describe("getURL()", function () {
+        it("with regular path and no options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(getPrefixPath(), blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL(), expectedURL);
+        });
+
+        it("with regular path and {} options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(getPrefixPath(), blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL({}), expectedURL);
+        });
+
+        it("with regular path and { sasToken: false } options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(getPrefixPath(), blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL({ sasToken: false }), expectedURL);
+        });
+
+        it("with regular path and { sasToken: true } options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(getPrefixPath(), blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL({ sasToken: true }))
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL({ sasToken: true }), expectedURL);
+        });
+
+        it("with deep path and no options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL(), expectedURL);
+        });
+
+        it("with deep path and {} options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL({}), expectedURL);
+        });
+
+        it("with deep path and { sasToken: false } options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL({ sasToken: false }), expectedURL);
+        });
+
+        it("with deep path and { sasToken: true } options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL({ sasToken: true }))
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL({ sasToken: true }), expectedURL);
+        });
+
+        it("with @ path and no options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL(), expectedURL);
+        });
+
+        it("with @ path and {} options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL({}), expectedURL);
+        });
+
+        it("with @ path and { sasToken: false } options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL({ sasToken: false }), expectedURL);
+        });
+
+        it("with @ path and { sasToken: true } options", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
+          const expectedURL: string = URLBuilder.parse(blobStorage.getURL({ sasToken: true }))
+            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .toString();
+          assert.strictEqual(prefix.getURL({ sasToken: true }), expectedURL);
+        });
+      });
+
+      it("getContainer()", function () {
+        const prefix: BlobStoragePrefix = getPrefix();
+        const container: BlobStorageContainer = prefix.getContainer();
+        assert.strictEqual(container.name, prefix.path.containerName);
+        assert.strictEqual(container.storage, prefix.storage);
+      });
+    });
+
     describe("BlobStorageContainer", function () {
-      function getContainer(containerName?: string, blobStorage?: BlobStorage): BlobStorageContainer {
-        return (blobStorage || createBlobStorage()).getContainer(containerName || getContainerName());
+      function getContainer(containerName?: string, blobStorage?: BlobStorage, credential?: Credential): BlobStorageContainer {
+        return (blobStorage || createBlobStorage(credential)).getContainer(containerName || getContainerName());
       }
 
       it("getContainer()", function () {
@@ -139,12 +304,90 @@ describe("blobStorage.ts", function () {
         assert.strictEqual(container.getContainer(), container);
       });
 
-      it("getURL()", function () {
-        const blobStorage: BlobStorage = createBlobStorage();
-        const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
-        const expectedURL: URLBuilder = URLBuilder.parse(blobStorage.getURL({ sasToken: false }))
-          .setPath(`${container.name}/`);
-        assert.strictEqual(container.getURL({ sasToken: false }), expectedURL.toString());
+      describe("getURL()", function () {
+        it("with no options argument", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
+          const expectedContainerUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL())
+            .setPath(container.name);
+          assert.strictEqual(container.getURL(), expectedContainerUrl.toString());
+        });
+
+        it("with undefined options argument", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
+          const expectedContainerUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL())
+            .setPath(container.name);
+          assert.strictEqual(container.getURL(undefined), expectedContainerUrl.toString());
+        });
+
+        it("with sasToken: false", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
+          const expectedContainerUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL({ sasToken: false }))
+            .setPath(container.name);
+          assert.strictEqual(container.getURL({ sasToken: false }), expectedContainerUrl.toString());
+        });
+
+        it("with sasToken: true", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
+          const expectedContainerUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL({ sasToken: true }))
+            .setPath(container.name);
+          assert.strictEqual(container.getURL({ sasToken: true }), expectedContainerUrl.toString());
+        });
+
+        it("with endTime and AnonymousCredential", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
+          const error: Error = assertEx.throws(() => container.getURL({ sasToken: { endTime: new Date() } }));
+          assert.strictEqual(error.message, "Cannot create a new SAS token if the BlobStorage credentials are not a SharedKeyCredential.");
+        });
+
+        it("with endTime and SharedKeyCredential", function () {
+          const blobStorage: BlobStorage = createBlobStorage(new SharedKeyCredential("fake-account-name", "fake-account-key"));
+          const blobStorageUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL());
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
+          const containerSasUrl: string = container.getURL({
+            sasToken: {
+              endTime: new Date()
+            }
+          });
+          const containerUrl: URLBuilder = URLBuilder.parse(containerSasUrl);
+          assert.strictEqual(containerUrl.getScheme(), blobStorageUrl.getScheme());
+          assert.strictEqual(containerUrl.getHost(), blobStorageUrl.getHost());
+          assert.strictEqual(containerUrl.getPort(), undefined);
+          assert.strictEqual(containerUrl.getPath(), `/${container.name}`);
+          assertEx.definedAndNotEmpty(containerUrl.getQueryParameterValue("se") as string, "se");
+          assert.strictEqual(containerUrl.getQueryParameterValue("sr") as string, "c");
+          assertEx.definedAndNotEmpty(containerUrl.getQueryParameterValue("sv") as string, "sv");
+          assertEx.definedAndNotEmpty(containerUrl.getQueryParameterValue("sig") as string, "sig");
+          assert.strictEqual(containerUrl.getQueryParameterValue("st"), undefined);
+          assert.strictEqual(containerUrl.getQueryParameterValue("sp"), "r");
+        });
+
+        it("with startTime, endTime, and SharedKeyCredential", function () {
+          const blobStorage: BlobStorage = createBlobStorage(new SharedKeyCredential("fake-account-name", "fake-account-key"));
+          const blobStorageUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL());
+          const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
+          const containerSasUrl: string = container.getURL({
+            sasToken: {
+              startTime: Duration.minutes(-1).fromNow(),
+              endTime: Duration.minutes(10).fromNow(),
+            }
+          });
+          const containerUrl: URLBuilder = URLBuilder.parse(containerSasUrl);
+          assert.strictEqual(containerUrl.getScheme(), blobStorageUrl.getScheme());
+          assert.strictEqual(containerUrl.getHost(), blobStorageUrl.getHost());
+          assert.strictEqual(containerUrl.getPort(), undefined);
+          assert.strictEqual(containerUrl.getPath(), `/${container.name}`);
+          assertEx.definedAndNotEmpty(containerUrl.getQueryParameterValue("se") as string, "se");
+          assert.strictEqual(containerUrl.getQueryParameterValue("sr") as string, "c");
+          assertEx.definedAndNotEmpty(containerUrl.getQueryParameterValue("sv") as string, "sv");
+          assertEx.definedAndNotEmpty(containerUrl.getQueryParameterValue("sig") as string, "sig");
+          assertEx.definedAndNotEmpty(containerUrl.getQueryParameterValue("st") as string, "st");
+          assert.strictEqual(containerUrl.getQueryParameterValue("sp"), "r");
+        });
       });
 
       it("getBlob()", function () {
@@ -770,132 +1013,183 @@ describe("blobStorage.ts", function () {
       });
     });
 
-    describe("BlobStoragePrefix", function () {
-      function getPrefix(prefixPath?: string | BlobPath, blobStorage?: BlobStorage): BlobStoragePrefix {
-        return (blobStorage || createBlobStorage()).getPrefix(prefixPath || getPrefixPath());
+    describe("BlobStorageBlob", function () {
+      function getBlob(blobPath?: string | BlobPath, blobStorage?: BlobStorage, credential?: Credential): BlobStorageBlob {
+        if (!blobPath) {
+          blobPath = new BlobPath(getContainerName(), getBlobName());
+        }
+        blobPath = BlobPath.parse(blobPath);
+
+        if (!blobStorage) {
+          blobStorage = createBlobStorage(credential);
+        }
+
+        const container: BlobStorageContainer = blobStorage.getContainer(blobPath.containerName);
+        return container.getBlob(blobPath.blobName);
       }
 
       describe("getURL()", function () {
         it("with regular path and no options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(getPrefixPath(), blobStorage);
+          const blob: BlobStorageBlob = getBlob(getBlobPath(), blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL(), expectedURL);
+          assert.strictEqual(blob.getURL(), expectedURL);
         });
 
         it("with regular path and {} options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(getPrefixPath(), blobStorage);
+          const blob: BlobStorageBlob = getBlob(getBlobPath(), blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL({}), expectedURL);
+          assert.strictEqual(blob.getURL({}), expectedURL);
         });
 
         it("with regular path and { sasToken: false } options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(getPrefixPath(), blobStorage);
+          const blob: BlobStorageBlob = getBlob(getBlobPath(), blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL({ sasToken: false }), expectedURL);
+          assert.strictEqual(blob.getURL({ sasToken: false }), expectedURL);
         });
 
         it("with regular path and { sasToken: true } options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(getPrefixPath(), blobStorage);
+          const blob: BlobStorageBlob = getBlob(getBlobPath(), blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL({ sasToken: true }))
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL({ sasToken: true }), expectedURL);
+          assert.strictEqual(blob.getURL({ sasToken: true }), expectedURL);
+        });
+
+        it("with regular path and { sasToken: { endTime } } } options with AnonymousCredential", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          const blob: BlobStorageBlob = getBlob(getBlobPath(), blobStorage);
+          const error: Error = assertEx.throws(() => blob.getURL({ sasToken: { endTime: Duration.minutes(10).fromNow() } }));
+          assert.strictEqual(error.message, "Cannot create a new SAS token if the BlobStorage credentials are not a SharedKeyCredential.");
+        });
+
+        it("with regular path and { sasToken: { endTime } } } options with SharedKeyCredential", function () {
+          const blobStorage: BlobStorage = createBlobStorage(new SharedKeyCredential("fake-account-name", "fake-account-key"));
+          const blob: BlobStorageBlob = getBlob(getBlobPath(), blobStorage);
+          const blobStorageUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL());
+          const blobSasUrl: URLBuilder = URLBuilder.parse(blob.getURL({
+            sasToken: {
+              endTime: Duration.minutes(10).fromNow(),
+            }
+          }));
+          assert.strictEqual(blobSasUrl.getScheme(), blobStorageUrl.getScheme());
+          assert.strictEqual(blobSasUrl.getHost(), blobStorageUrl.getHost());
+          assert.strictEqual(blobSasUrl.getPort(), blobStorageUrl.getPort());
+          assert.strictEqual(blobSasUrl.getPath(), `/${blob.path.containerName}/${blob.path.blobName}`);
+          assert.strictEqual(blobSasUrl.getQueryParameterValue("st"), undefined);
+          assertEx.definedAndNotEmpty(blobSasUrl.getQueryParameterValue("se") as string, "se");
+          assert.strictEqual(blobSasUrl.getQueryParameterValue("sr"), "b");
+          assertEx.definedAndNotEmpty(blobSasUrl.getQueryParameterValue("sig") as string, "sig");
+          assertEx.definedAndNotEmpty(blobSasUrl.getQueryParameterValue("sv") as string, "sv");
+          assert.strictEqual(blobSasUrl.getQueryParameterValue("sp"), "r");
+        });
+
+        it("with regular path and { sasToken: { startTime, endTime } } } options with SharedKeyCredential", function () {
+          const blobStorage: BlobStorage = createBlobStorage(new SharedKeyCredential("fake-account-name", "fake-account-key"));
+          const blob: BlobStorageBlob = getBlob(getBlobPath(), blobStorage);
+          const blobStorageUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL());
+          const blobSasUrl: URLBuilder = URLBuilder.parse(blob.getURL({
+            sasToken: {
+              startTime: Duration.minutes(-5).fromNow(),
+              endTime: Duration.minutes(10).fromNow(),
+            }
+          }));
+          assert.strictEqual(blobSasUrl.getScheme(), blobStorageUrl.getScheme());
+          assert.strictEqual(blobSasUrl.getHost(), blobStorageUrl.getHost());
+          assert.strictEqual(blobSasUrl.getPort(), blobStorageUrl.getPort());
+          assert.strictEqual(blobSasUrl.getPath(), `/${blob.path.containerName}/${blob.path.blobName}`);
+          assertEx.definedAndNotEmpty(blobSasUrl.getQueryParameterValue("st") as string, "st");
+          assertEx.definedAndNotEmpty(blobSasUrl.getQueryParameterValue("se") as string, "se");
+          assert.strictEqual(blobSasUrl.getQueryParameterValue("sr"), "b");
+          assertEx.definedAndNotEmpty(blobSasUrl.getQueryParameterValue("sig") as string, "sig");
+          assertEx.definedAndNotEmpty(blobSasUrl.getQueryParameterValue("sv") as string, "sv");
+          assert.strictEqual(blobSasUrl.getQueryParameterValue("sp"), "r");
         });
 
         it("with deep path and no options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
+          const blob: BlobStorageBlob = getBlob(`${getBlobPath()}/a/deep/path`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL(), expectedURL);
+          assert.strictEqual(blob.getURL(), expectedURL);
         });
 
         it("with deep path and {} options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
+          const blob: BlobStorageBlob = getBlob(`${getBlobPath()}/a/deep/path`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL({}), expectedURL);
+          assert.strictEqual(blob.getURL({}), expectedURL);
         });
 
         it("with deep path and { sasToken: false } options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
+          const blob: BlobStorageBlob = getBlob(`${getBlobPath()}/a/deep/path`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL({ sasToken: false }), expectedURL);
+          assert.strictEqual(blob.getURL({ sasToken: false }), expectedURL);
         });
 
         it("with deep path and { sasToken: true } options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}/a/deep/path`, blobStorage);
+          const blob: BlobStorageBlob = getBlob(`${getBlobPath()}/a/deep/path`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL({ sasToken: true }))
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL({ sasToken: true }), expectedURL);
+          assert.strictEqual(blob.getURL({ sasToken: true }), expectedURL);
         });
 
         it("with @ path and no options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
+          const blob: BlobStorageBlob = getBlob(`${getBlobPath()}@`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL(), expectedURL);
+          assert.strictEqual(blob.getURL(), expectedURL);
         });
 
         it("with @ path and {} options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
+          const blob: BlobStorageBlob = getBlob(`${getBlobPath()}@`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL({}), expectedURL);
+          assert.strictEqual(blob.getURL({}), expectedURL);
         });
 
         it("with @ path and { sasToken: false } options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
+          const blob: BlobStorageBlob = getBlob(`${getBlobPath()}@`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL())
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL({ sasToken: false }), expectedURL);
+          assert.strictEqual(blob.getURL({ sasToken: false }), expectedURL);
         });
 
         it("with @ path and { sasToken: true } options", function () {
           const blobStorage: BlobStorage = createBlobStorage();
-          const prefix: BlobStoragePrefix = getPrefix(`${getPrefixPath()}@`, blobStorage);
+          const blob: BlobStorageBlob = getBlob(`${getBlobPath()}@`, blobStorage);
           const expectedURL: string = URLBuilder.parse(blobStorage.getURL({ sasToken: true }))
-            .setPath(`${prefix.path.containerName}/${prefix.path.blobName}`)
+            .setPath(`${blob.path.containerName}/${blob.path.blobName}`)
             .toString();
-          assert.strictEqual(prefix.getURL({ sasToken: true }), expectedURL);
+          assert.strictEqual(blob.getURL({ sasToken: true }), expectedURL);
         });
-      });
-
-      it("getContainer()", function () {
-        const prefix: BlobStoragePrefix = getPrefix();
-        const container: BlobStorageContainer = prefix.getContainer();
-        assert.strictEqual(container.name, prefix.path.containerName);
-        assert.strictEqual(container.storage, prefix.storage);
       });
     });
 
     describe("BlobStorage", function () {
-      this.timeout(5000);
-
       it("getContainer()", function () {
         const blobStorage: BlobStorage = createBlobStorage();
         const container: BlobStorageContainer = blobStorage.getContainer("xyz");
@@ -1756,7 +2050,7 @@ describe("blobStorage.ts", function () {
   }
 
   (URLBuilder.parse(realStorageUrl).getQuery() ? describe : describe.skip)("AzureBlobStorage", function () {
-    const createBlobStorage = () => new AzureBlobStorage(realStorageUrl);
+    const createBlobStorage = (credential?: Credential) => new AzureBlobStorage(realStorageUrl, credential);
 
     blobStorageTests(createBlobStorage);
 
@@ -1821,7 +2115,7 @@ describe("blobStorage.ts", function () {
   });
 
   describe("InMemoryBlobStorage", function () {
-    const createBlobStorage = () => new InMemoryBlobStorage();
+    const createBlobStorage = (credential?: Credential) => new InMemoryBlobStorage("https://fake.storage.com/", credential);
 
     blobStorageTests(createBlobStorage);
 

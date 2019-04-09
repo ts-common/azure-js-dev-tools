@@ -4,7 +4,7 @@
  * license information.
  */
 
-type URLQueryParseState = "ParameterName" | "ParameterValue" | "Invalid";
+type URLQueryParseState = "ParameterName" | "ParameterValue";
 
 /**
  * A class that handles the query portion of a URLBuilder.
@@ -104,12 +104,6 @@ export class URLQuery {
 
           case "ParameterValue":
             switch (currentCharacter) {
-              case "=":
-                parameterName = "";
-                parameterValue = "";
-                currentState = "Invalid";
-                break;
-
               case "&":
                 result.set(parameterName, parameterValue);
                 parameterName = "";
@@ -120,12 +114,6 @@ export class URLQuery {
               default:
                 parameterValue += currentCharacter;
                 break;
-            }
-            break;
-
-          case "Invalid":
-            if (currentCharacter === "&") {
-              currentState = "ParameterName";
             }
             break;
 

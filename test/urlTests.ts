@@ -93,16 +93,36 @@ describe("url.ts", function () {
         assert.strictEqual(URLQuery.parse("A=B").toString(), "A=B");
       });
 
+      it(`with "A=B="`, function () {
+        const query: URLQuery = URLQuery.parse("A=B=");
+        assert.strictEqual(query.toString(), "A=B=");
+        assert.strictEqual(query.get("A"), "B=");
+      });
+
+      it(`with "A==B==C"`, function () {
+        const query: URLQuery = URLQuery.parse("A==B==C");
+        assert.strictEqual(query.toString(), "A==B==C");
+        assert.strictEqual(query.get("A"), "=B==C");
+      });
+
       it(`with "A=&"`, function () {
         assert.strictEqual(URLQuery.parse("A=").toString(), "A=");
       });
 
       it(`with "A=="`, function () {
-        assert.strictEqual(URLQuery.parse("A==").toString(), "");
+        assert.strictEqual(URLQuery.parse("A==").toString(), "A==");
       });
 
       it(`with "A=&B=C"`, function () {
         assert.strictEqual(URLQuery.parse("A=&B=C").toString(), "A=&B=C");
+      });
+
+      it(`with "A=B&C=D&E=F&G=H"`, function () {
+        assert.strictEqual(URLQuery.parse("A=B&C=D&E=F&G=H").toString(), "A=B&C=D&E=F&G=H");
+      });
+
+      it(`with "A&B&C"`, function () {
+        assert.strictEqual(URLQuery.parse("A&B&C").toString(), "");
       });
     });
   });
