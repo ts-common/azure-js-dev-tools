@@ -243,5 +243,39 @@ describe("duration.ts", function () {
         assert.strictEqual(duration.toWeeks(), duration);
       });
     });
+
+    describe("plus(Duration)", function () {
+      it("with 5 minutes and -1 minute", function () {
+        assert.deepEqual(Duration.minutes(5).plus(Duration.minutes(-1)), Duration.minutes(4));
+      });
+
+      it("with 5 minutes and 60 seconds", function () {
+        assert.deepEqual(Duration.minutes(5).plus(Duration.seconds(60)), Duration.minutes(6));
+      });
+    });
+
+    describe("plus(Date)", function () {
+      it("with 1 day", function () {
+        const duration: Duration = Duration.days(1);
+        const date = new Date(2018, 1, 2);
+        assert.deepEqual(duration.plus(date), new Date(2018, 1, 3));
+      });
+
+      it("with 2 week", function () {
+        const duration: Duration = Duration.weeks(2);
+        const date = new Date(2018, 1, 2);
+        assert.deepEqual(duration.plus(date), new Date(2018, 1, 16));
+      });
+    });
+
+    describe("fromNow()", function () {
+      it("with 1 second", function () {
+        assert.deepEqual(Duration.seconds(1).fromNow().getSeconds(), (new Date().getSeconds() + 1) % 60);
+      });
+
+      it("with 3 minutes", function () {
+        assert.deepEqual(Duration.minutes(3).fromNow().getMinutes(), (new Date().getMinutes() + 3) % 60);
+      });
+    });
   });
 });

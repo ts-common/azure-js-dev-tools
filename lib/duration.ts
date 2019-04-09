@@ -301,4 +301,24 @@ export class Duration {
   public toString(): string {
     return `${this.value} ${this.units}`;
   }
+
+  /**
+   * Add this Duration to the provided Date.
+   * @param date The Date to add this Duration to.
+   * @returns The result of adding this Duration to the provided Date.
+   */
+  public plus(duration: Duration): Duration;
+  public plus(date: Date): Date;
+  public plus(rhs: Duration | Date): Duration | Date {
+    return rhs instanceof Duration
+      ? new Duration(this.value + rhs.convertTo(this.units).value, this.units)
+      : new Date(rhs.valueOf() + this.toMilliseconds().value);
+  }
+
+  /**
+   * Get the current Date plus this Duration.
+   */
+  public fromNow(): Date {
+    return this.plus(new Date());
+  }
 }

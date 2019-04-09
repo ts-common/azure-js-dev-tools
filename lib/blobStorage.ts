@@ -4,7 +4,7 @@
  * license information.
  */
 
-import * as azure from "@azure/storage-blob";
+import { Aborter, AnonymousCredential, AppendBlobURL, BlockBlobURL, ContainerGetAccessPolicyResponse, ContainerURL, Credential, generateBlobSASQueryParameters, IBlobSASSignatureValues, Models, Pipeline, SASQueryParameters, ServiceURL, SharedKeyCredential, StorageURL } from "@azure/storage-blob";
 import * as fs from "fs";
 import { map } from "./arrays";
 import { readEntireString, StringMap } from "./common";
@@ -95,7 +95,12 @@ export class BlobPath {
     let result: BlobPath;
     if (blobPath instanceof BlobPath) {
       result = blobPath;
+    } else if (!blobPath) {
+      result = new BlobPath("", "");
     } else {
+      if (blobPath.startsWith("/")) {
+        blobPath = blobPath.substring(1);
+      }
       const firstSlashIndex: number = blobPath.indexOf("/");
       if (firstSlashIndex === -1) {
         result = new BlobPath(blobPath, "");
@@ -133,7 +138,7 @@ export class BlobStoragePrefix {
   /**
    * Get the URL for this prefix.
    */
-  public getURL(options: GetURLOptions = {}): string {
+  public getURL(options: GetPrefixURLOptions = {}): string {
     return this.storage.getBlobURL(this.path, options);
   }
 
@@ -270,6 +275,13 @@ export class BlobStorageContainer extends BlobStoragePrefix {
     super(storage, new BlobPath(name, ""));
 
     this.name = name;
+  }
+
+  /**
+   * Get the URL for this prefix.
+   */
+  public getURL(options: GetURLOptions = {}): string {
+    return this.storage.getContainerURL(this.name, options);
   }
 
   /**
@@ -445,15 +457,48 @@ export class BlobStorageAppendBlob extends BlobStorageBlob {
   }
 }
 
+export interface SASTokenPermissions {
+  read?: boolean;
+  add?: boolean;
+  create?: boolean;
+  write?: boolean;
+  delete?: boolean;
+}
+
+/**
+ * Options that can be used to create a SAS token.
+ */
+export interface CreateSASTokenOptions {
+  /**
+   * The time that the SAS token will start being valid.
+   */
+  startTime?: Date;
+  /**
+   * The time that the SAS token will stop being valid.
+   */
+  endTime: Date;
+  /**
+   * The permissions that will be permitted to the SAS token.
+   */
+  permissions?: SASTokenPermissions;
+}
+
 export interface GetURLOptions {
   /**
    * Whether or not to include the SAS token when getting the URL.
    */
-  sasToken?: boolean;
+  sasToken?: boolean | CreateSASTokenOptions;
   /**
    * Whether or not to encode the blob name in the URL (when there is a blob name).
    */
   encodeBlobName?: boolean;
+}
+
+export interface GetPrefixURLOptions extends GetURLOptions {
+  /**
+   * Whether or not to include the SAS token when getting the URL.
+   */
+  sasToken?: boolean;
 }
 
 /**
@@ -649,17 +694,80 @@ function decodeBlobName(blobName: string): string {
   return !blobName ? blobName : decodeURIComponent(blobName);
 }
 
-function processBlobUrl(url: string, options: GetURLOptions): string {
-  if (!options.sasToken || options.encodeBlobName) {
-    url = processBlobUrlBuilder(URLBuilder.parse(url), options);
+function processBlobUrl(url: string, options: GetURLOptions, credentials: Credential): string {
+  if (options.sasToken !== true || options.encodeBlobName) {
+    url = processBlobUrlBuilder(URLBuilder.parse(url), options, credentials);
   }
   return url;
 }
 
-function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions): string {
-  if (!options.sasToken) {
+function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions, credentials: Credential): string {
+  if (options.sasToken !== true) {
     urlBuilder.removeQuery();
+    if (options.sasToken && typeof options.sasToken !== "boolean") {
+      if (!(credentials instanceof SharedKeyCredential)) {
+        throw new Error(`Cannot create a new SAS token if the BlobStorage credentials are not a SharedKeyCredential.`);
+      } else {
+        const urlPath: string | undefined = urlBuilder.getPath();
+        if (!urlPath) {
+          throw new Error(`Cannot create a new SAS token when the provided URL does not contain a path.`);
+        } else {
+          const blobPath: BlobPath = BlobPath.parse(urlPath);
+          const sasSignatureValues: IBlobSASSignatureValues = {
+            blobName: blobPath.blobName,
+            containerName: blobPath.containerName,
+            expiryTime: options.sasToken.endTime,
+            startTime: options.sasToken.startTime,
+            permissions: "r",
+          };
+          const sasQueryParameters: SASQueryParameters = generateBlobSASQueryParameters(sasSignatureValues, credentials as SharedKeyCredential);
+          if (sasQueryParameters.cacheControl) {
+            urlBuilder.setQueryParameter("rscc", sasQueryParameters.cacheControl);
+          }
+          if (sasQueryParameters.contentDisposition) {
+            urlBuilder.setQueryParameter("rscd", sasQueryParameters.contentDisposition);
+          }
+          if (sasQueryParameters.contentEncoding) {
+            urlBuilder.setQueryParameter("rsce", sasQueryParameters.contentEncoding);
+          }
+          if (sasQueryParameters.contentLanguage) {
+            urlBuilder.setQueryParameter("rscl", sasQueryParameters.contentLanguage);
+          }
+          if (sasQueryParameters.contentType) {
+            urlBuilder.setQueryParameter("rsct", sasQueryParameters.contentType);
+          }
+          if (sasQueryParameters.expiryTime) {
+            urlBuilder.setQueryParameter("se", sasQueryParameters.expiryTime.toISOString());
+          }
+          if (sasQueryParameters.identifier) {
+            urlBuilder.setQueryParameter("si", sasQueryParameters.identifier);
+          }
+          if (sasQueryParameters.permissions) {
+            urlBuilder.setQueryParameter("sp", sasQueryParameters.permissions);
+          }
+          if (sasQueryParameters.protocol) {
+            urlBuilder.setQueryParameter("spr", sasQueryParameters.protocol);
+          }
+          if (sasQueryParameters.resource) {
+            urlBuilder.setQueryParameter("sr", sasQueryParameters.resource);
+          }
+          if (sasQueryParameters.services) {
+            urlBuilder.setQueryParameter("ss", sasQueryParameters.services);
+          }
+          if (sasQueryParameters.signature) {
+            urlBuilder.setQueryParameter("sig", sasQueryParameters.signature);
+          }
+          if (sasQueryParameters.startTime) {
+            urlBuilder.setQueryParameter("st", sasQueryParameters.startTime.toISOString());
+          }
+          if (sasQueryParameters.version) {
+            urlBuilder.setQueryParameter("sv", sasQueryParameters.version);
+          }
+        }
+      }
+    }
   }
+
   if (options.encodeBlobName) {
     const path: string | undefined = urlBuilder.getPath();
     if (path) {
@@ -667,6 +775,7 @@ function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions): 
       urlBuilder.setPath(`${blobPath.containerName}/${encodeBlobName(blobPath.blobName)}`);
     }
   }
+
   return urlBuilder.toString();
 }
 
@@ -675,9 +784,12 @@ function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions): 
  */
 export class InMemoryBlobStorage extends BlobStorage {
   private readonly containers: StringMap<InMemoryContainer> = {};
+  private readonly credentials: Credential;
 
-  constructor(private readonly url = "https://fake.storage.com/") {
+  constructor(private readonly url = "https://fake.storage.com/", credentials?: Credential) {
     super();
+
+    this.credentials = credentials || new AnonymousCredential();
   }
 
   private getInMemoryContainer(containerName: string | BlobPath): Promise<InMemoryContainer> {
@@ -712,16 +824,16 @@ export class InMemoryBlobStorage extends BlobStorage {
   }
 
   public getURL(options: GetURLOptions = {}): string {
-    return processBlobUrl(this.url, options);
+    return processBlobUrl(this.url, options, this.credentials);
   }
 
   public getContainerURL(containerName: string, options: GetURLOptions = {}): string {
-    return processBlobUrl(`${this.url}${containerName}`, options);
+    return processBlobUrl(`${this.url}${containerName}`, options, this.credentials);
   }
 
   public getBlobURL(blobPath: string | BlobPath, options: GetURLOptions = {}): string {
     blobPath = BlobPath.parse(blobPath);
-    return processBlobUrl(`${this.url}${blobPath.containerName}/${blobPath.blobName}`, options);
+    return processBlobUrl(`${this.url}${blobPath.containerName}/${blobPath.blobName}`, options, this.credentials);
   }
 
   private createInMemoryBlob(blobPath: string | BlobPath, blobType: "block" | "append", options: BlobContentOptions = {}): Promise<boolean> {
@@ -922,48 +1034,50 @@ export function getAzureContainerAccessPermissions(permissions?: ContainerAccess
  */
 export class AzureBlobStorage extends BlobStorage {
   private readonly url: string;
-  private readonly serviceUrl: azure.ServiceURL;
+  private readonly serviceUrl: ServiceURL;
+  private readonly credentials: Credential;
 
-  constructor(storageAccountUrl: string | URLBuilder, credentials?: azure.Credential) {
+  constructor(storageAccountUrl: string | URLBuilder, credentials?: Credential) {
     super();
 
     if (!credentials) {
-      credentials = new azure.AnonymousCredential();
+      credentials = new AnonymousCredential();
     }
 
     this.url = storageAccountUrl.toString();
 
-    const pipeline: azure.Pipeline = azure.StorageURL.newPipeline(credentials);
-    this.serviceUrl = new azure.ServiceURL(this.url, pipeline);
+    const pipeline: Pipeline = StorageURL.newPipeline(credentials);
+    this.serviceUrl = new ServiceURL(this.url, pipeline);
+    this.credentials = credentials;
   }
 
-  private getAzureContainerURL(containerName: string): azure.ContainerURL {
-    return azure.ContainerURL.fromServiceURL(this.serviceUrl, containerName);
+  private getAzureContainerURL(containerName: string): ContainerURL {
+    return ContainerURL.fromServiceURL(this.serviceUrl, containerName);
   }
 
-  private getBlockBlobURL(blockBlobPath: string | BlobPath): azure.BlockBlobURL {
+  private getBlockBlobURL(blockBlobPath: string | BlobPath): BlockBlobURL {
     blockBlobPath = BlobPath.parse(blockBlobPath);
-    const containerUrl: azure.ContainerURL = this.getAzureContainerURL(blockBlobPath.containerName);
-    return azure.BlockBlobURL.fromContainerURL(containerUrl, blockBlobPath.blobName);
+    const containerUrl: ContainerURL = this.getAzureContainerURL(blockBlobPath.containerName);
+    return BlockBlobURL.fromContainerURL(containerUrl, blockBlobPath.blobName);
   }
 
-  private getAppendBlobURL(appendBlobPath: string | BlobPath): azure.AppendBlobURL {
+  private getAppendBlobURL(appendBlobPath: string | BlobPath): AppendBlobURL {
     appendBlobPath = BlobPath.parse(appendBlobPath);
-    const containerUrl: azure.ContainerURL = this.getAzureContainerURL(appendBlobPath.containerName);
-    return azure.AppendBlobURL.fromContainerURL(containerUrl, appendBlobPath.blobName);
+    const containerUrl: ContainerURL = this.getAzureContainerURL(appendBlobPath.containerName);
+    return AppendBlobURL.fromContainerURL(containerUrl, appendBlobPath.blobName);
   }
 
   public getURL(options: GetURLOptions = {}): string {
-    return processBlobUrl(this.url, options);
+    return processBlobUrl(this.url, options, this.credentials);
   }
 
   public getContainerURL(containerName: string, options: GetURLOptions = {}): string {
-    const containerUrl: azure.ContainerURL = this.getAzureContainerURL(containerName);
-    return processBlobUrl(containerUrl.url, options);
+    const containerUrl: ContainerURL = this.getAzureContainerURL(containerName);
+    return processBlobUrl(containerUrl.url, options, this.credentials);
   }
 
   public getBlobURL(blobPath: string | BlobPath, options: GetURLOptions = {}): string {
-    const blobUrl: azure.BlockBlobURL = this.getBlockBlobURL(blobPath);
+    const blobUrl: BlockBlobURL = this.getBlockBlobURL(blobPath);
     const urlBuilder: URLBuilder = URLBuilder.parse(blobUrl.url);
     const path: string | undefined = urlBuilder.getPath();
     if (path) {
@@ -972,12 +1086,12 @@ export class AzureBlobStorage extends BlobStorage {
         urlBuilder.setPath(`${blobPath.containerName}/${decodeBlobName(blobPath.blobName)}`);
       }
     }
-    return processBlobUrlBuilder(urlBuilder, options);
+    return processBlobUrlBuilder(urlBuilder, options, this.credentials);
   }
 
   public blobExists(blobPath: string | BlobPath): Promise<boolean> {
     return this.getBlockBlobURL(blobPath)
-      .getProperties(azure.Aborter.none)
+      .getProperties(Aborter.none)
       .then(() => true)
       .catch((error: Error) => resolveIfErrorStatusCodeEquals(error, 404, false));
   }
@@ -986,8 +1100,8 @@ export class AzureBlobStorage extends BlobStorage {
     return validateBlobName(blobPath)
       .then(() => {
         return this.getBlockBlobURL(blobPath)
-          .download(azure.Aborter.none, 0, undefined)
-          .then((blobDownloadResponse: azure.Models.BlobDownloadResponse) => {
+          .download(Aborter.none, 0, undefined)
+          .then((blobDownloadResponse: Models.BlobDownloadResponse) => {
             return blobDownloadResponse.readableStreamBody;
           })
           .then(readEntireString)
@@ -997,7 +1111,7 @@ export class AzureBlobStorage extends BlobStorage {
 
   public setBlockBlobContentsFromString(blockBlobPath: string | BlobPath, blockBlobContents: string, options: BlobContentOptions = {}): Promise<unknown> {
     return this.getBlockBlobURL(blockBlobPath)
-      .upload(azure.Aborter.none, blockBlobContents, Buffer.byteLength(blockBlobContents, "utf-8"), {
+      .upload(Aborter.none, blockBlobContents, Buffer.byteLength(blockBlobContents, "utf-8"), {
         blobHTTPHeaders: {
           blobContentType: options.contentType
         }
@@ -1008,7 +1122,7 @@ export class AzureBlobStorage extends BlobStorage {
     return getFileLengthInBytes(filePath)
       .then((fileLengthInBytes: number) => {
         return this.getBlockBlobURL(blobPath)
-          .upload(azure.Aborter.none, (() => fs.createReadStream(filePath)), fileLengthInBytes, {
+          .upload(Aborter.none, (() => fs.createReadStream(filePath)), fileLengthInBytes, {
             blobHTTPHeaders: {
               blobContentType: options && options.contentType
             }
@@ -1019,15 +1133,15 @@ export class AzureBlobStorage extends BlobStorage {
   public addToAppendBlobContentsFromString(appendBlobPath: string | BlobPath, blobContentsToAppend: string): Promise<unknown> {
     const buffer = new Buffer(blobContentsToAppend, "utf8");
     return this.getAppendBlobURL(appendBlobPath)
-      .appendBlock(azure.Aborter.none, buffer, buffer.byteLength);
+      .appendBlock(Aborter.none, buffer, buffer.byteLength);
   }
 
   public getBlobContentType(blobPath: string | BlobPath): Promise<string | undefined> {
     blobPath = BlobPath.parse(blobPath);
     const containerName: string = blobPath.containerName;
     return this.getBlockBlobURL(blobPath)
-      .getProperties(azure.Aborter.none)
-      .then((properties: azure.Models.BlobGetPropertiesResponse) => properties.contentType)
+      .getProperties(Aborter.none)
+      .then((properties: Models.BlobGetPropertiesResponse) => properties.contentType)
       .catch((error: Error) => {
         return (error as any).statusCode !== 404
           ? Promise.reject(error)
@@ -1043,7 +1157,7 @@ export class AzureBlobStorage extends BlobStorage {
     return validateBlobName(blobPath)
       .then(() => {
         return this.getBlockBlobURL(blobPath)
-          .setHTTPHeaders(azure.Aborter.none, {
+          .setHTTPHeaders(Aborter.none, {
             blobContentType: contentType
           });
       });
@@ -1051,27 +1165,27 @@ export class AzureBlobStorage extends BlobStorage {
 
   public containerExists(containerName: string): Promise<boolean> {
     return this.getAzureContainerURL(containerName)
-      .getProperties(azure.Aborter.none)
+      .getProperties(Aborter.none)
       .then(() => true)
       .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerNotFound", false));
   }
 
   public getContainerAccessPolicy(containerName: string): Promise<ContainerAccessPolicy> {
     return this.getAzureContainerURL(containerName)
-      .getAccessPolicy(azure.Aborter.none)
-      .then((accessPolicy: azure.ContainerGetAccessPolicyResponse) => accessPolicy.blobPublicAccess || "private");
+      .getAccessPolicy(Aborter.none)
+      .then((accessPolicy: ContainerGetAccessPolicyResponse) => accessPolicy.blobPublicAccess || "private");
   }
 
   public setContainerAccessPolicy(containerName: string, permissions: ContainerAccessPolicy): Promise<unknown> {
     return this.getAzureContainerURL(containerName)
-      .setAccessPolicy(azure.Aborter.none, getAzureContainerAccessPermissions(permissions));
+      .setAccessPolicy(Aborter.none, getAzureContainerAccessPermissions(permissions));
   }
 
   public createBlockBlob(blockBlobPath: string | BlobPath, options: BlobContentOptions = {}): Promise<boolean> {
     return validateBlobName(blockBlobPath)
       .then(() => {
         return this.getBlockBlobURL(blockBlobPath)
-          .upload(azure.Aborter.none, "", 0, {
+          .upload(Aborter.none, "", 0, {
             accessConditions: {
               modifiedAccessConditions: {
                 ifNoneMatch: "*"
@@ -1090,7 +1204,7 @@ export class AzureBlobStorage extends BlobStorage {
     return validateBlobName(appendBlobPath)
       .then(() => {
         return this.getAppendBlobURL(appendBlobPath)
-          .create(azure.Aborter.none, {
+          .create(Aborter.none, {
             accessConditions: {
               modifiedAccessConditions: {
                 ifNoneMatch: "*"
@@ -1109,7 +1223,7 @@ export class AzureBlobStorage extends BlobStorage {
     return validateBlobName(blobPath)
       .then(() => {
         return this.getBlockBlobURL(blobPath)
-          .delete(azure.Aborter.none)
+          .delete(Aborter.none)
           .then(() => true)
           .catch((error: Error) => resolveIfErrorMessageContains(error, "BlobNotFound", false));
       });
@@ -1117,7 +1231,7 @@ export class AzureBlobStorage extends BlobStorage {
 
   public createContainer(containerName: string, options?: CreateContainerOptions): Promise<boolean> {
     return this.getAzureContainerURL(containerName)
-      .create(azure.Aborter.none, {
+      .create(Aborter.none, {
         access: getAzureContainerAccessPermissions(options && options.accessPolicy)
       })
       .then(() => true)
@@ -1126,7 +1240,7 @@ export class AzureBlobStorage extends BlobStorage {
 
   public deleteContainer(containerName: string): Promise<boolean> {
     return this.getAzureContainerURL(containerName)
-      .delete(azure.Aborter.none)
+      .delete(Aborter.none)
       .then(() => true)
       .catch((error: Error) => resolveIfErrorStatusCodeEquals(error, 404, false));
   }
@@ -1134,12 +1248,12 @@ export class AzureBlobStorage extends BlobStorage {
   public async listContainers(): Promise<BlobStorageContainer[]> {
     const result: BlobStorageContainer[] = [];
 
-    let listContainersResponse: azure.Models.ListContainersSegmentResponse = await this.serviceUrl.listContainersSegment(azure.Aborter.none);
-    result.push(...map(listContainersResponse.containerItems, (containerItem: azure.Models.ContainerItem) => new BlobStorageContainer(this, containerItem.name)));
+    let listContainersResponse: Models.ListContainersSegmentResponse = await this.serviceUrl.listContainersSegment(Aborter.none);
+    result.push(...map(listContainersResponse.containerItems, (containerItem: Models.ContainerItem) => new BlobStorageContainer(this, containerItem.name)));
 
     while (listContainersResponse.nextMarker) {
-      listContainersResponse = await this.serviceUrl.listContainersSegment(azure.Aborter.none, listContainersResponse.nextMarker);
-      result.push(...map(listContainersResponse.containerItems, (containerItem: azure.Models.ContainerItem) => new BlobStorageContainer(this, containerItem.name)));
+      listContainersResponse = await this.serviceUrl.listContainersSegment(Aborter.none, listContainersResponse.nextMarker);
+      result.push(...map(listContainersResponse.containerItems, (containerItem: Models.ContainerItem) => new BlobStorageContainer(this, containerItem.name)));
     }
 
     return result;
