@@ -17,6 +17,7 @@ export * from "./commandLine";
 export { endsWith, getLines, main, padLeft, readEntireString, replaceAll, startsWith, StringMap } from "./common";
 export * from "./compressor";
 export * from "./dependencies";
+export * from "./duration";
 export * from "./fileSystem2";
 export * from "./git";
 export * from "./github";
