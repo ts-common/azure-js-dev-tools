@@ -8,7 +8,27 @@ describe("path.ts", function () {
     });
 
     it(`with "/" and "/my/path"`, function () {
-      assert.strictEqual(pathRelativeTo("/", "/my/path"), "../..");
+      assert.strictEqual(pathRelativeTo("/", "/my/path"), "../../");
+    });
+
+    it(`with "\\" and "\\my\\path"`, function () {
+      assert.strictEqual(pathRelativeTo("\\", "\\my\\path"), "../../");
+    });
+
+    it(`with "/a" and "/a/my/path"`, function () {
+      assert.strictEqual(pathRelativeTo("/a", "/a/my/path"), "../../");
+    });
+
+    it(`with "\\a" and "\\a\\my\\path"`, function () {
+      assert.strictEqual(pathRelativeTo("\\a", "\\a\\my\\path"), "../../");
+    });
+
+    it(`with "/a/" and "/a/my/path"`, function () {
+      assert.strictEqual(pathRelativeTo("/a/", "/a/my/path"), "../../");
+    });
+
+    it(`with "\\a\\" and "\\a\\my\\path"`, function () {
+      assert.strictEqual(pathRelativeTo("/a/", "/a/my/path"), "../../");
     });
 
     it(`with "/a/b" and "/my/path"`, function () {

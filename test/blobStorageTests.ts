@@ -7,7 +7,7 @@ import { URLBuilder } from "../lib/url";
 import { Credential, SharedKeyCredential } from "@azure/storage-blob";
 import { Duration } from "../lib/duration";
 
-const realStorageUrl = "https://sdkautomationdev.blob.core.windows.net/";
+const blobStorageUrl = "https://sdkautomationdev.blob.core.windows.net/";
 
 const containerNameBase = "abc";
 let containerNameCount = 0;
@@ -1190,6 +1190,33 @@ describe("blobStorage.ts", function () {
     });
 
     describe("BlobStorage", function () {
+      describe("getURL()", function () {
+        it("with no arguments", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          assert.strictEqual(blobStorage.getURL(), URLBuilder.removeQuery(blobStorageUrl).toString());
+        });
+
+        it("with {}", function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          assert.strictEqual(blobStorage.getURL({}), URLBuilder.removeQuery(blobStorageUrl).toString());
+        });
+
+        it(`with { sasToken: undefined }`, function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          assert.strictEqual(blobStorage.getURL({ sasToken: undefined }), URLBuilder.removeQuery(blobStorageUrl).toString());
+        });
+
+        it(`with { sasToken: false }`, function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          assert.strictEqual(blobStorage.getURL({ sasToken: false }), URLBuilder.removeQuery(blobStorageUrl).toString());
+        });
+
+        it(`with { sasToken: true }`, function () {
+          const blobStorage: BlobStorage = createBlobStorage();
+          assert.strictEqual(blobStorage.getURL({ sasToken: true }), blobStorageUrl);
+        });
+      });
+
       it("getContainer()", function () {
         const blobStorage: BlobStorage = createBlobStorage();
         const container: BlobStorageContainer = blobStorage.getContainer("xyz");
@@ -2049,53 +2076,31 @@ describe("blobStorage.ts", function () {
     });
   }
 
-  (URLBuilder.parse(realStorageUrl).getQuery() ? describe : describe.skip)("AzureBlobStorage", function () {
-    const createBlobStorage = (credential?: Credential) => new AzureBlobStorage(realStorageUrl, credential);
+  (URLBuilder.parse(blobStorageUrl).getQuery() ? describe : describe.skip)("AzureBlobStorage", function () {
+    const createBlobStorage = (credential?: Credential) => new AzureBlobStorage(blobStorageUrl, credential);
 
     blobStorageTests(createBlobStorage);
 
     describe("constructor()", function () {
       it("with empty storageAccountUrl", function () {
-        const blobStorage = new AzureBlobStorage("");
-        assert.strictEqual(blobStorage.getURL(), "");
+        const error: Error = assertEx.throws(() => new AzureBlobStorage(""));
+        assert.strictEqual(error.message, "Cannot construct a storage account URL with an empty or undefined storage account name or URL argument.");
       });
 
       it("with valid storageAccountUrl", function () {
-        const blobStorage = new AzureBlobStorage(realStorageUrl);
-        assert.strictEqual(blobStorage.getURL(), URLBuilder.removeQuery(realStorageUrl).toString());
-      });
-    });
-
-    describe("getURL()", function () {
-      it("with no arguments", function () {
-        const blobStorage: BlobStorage = createBlobStorage();
-        assert.strictEqual(blobStorage.getURL(), URLBuilder.removeQuery(realStorageUrl).toString());
+        const blobStorage = new AzureBlobStorage(blobStorageUrl);
+        assert.strictEqual(blobStorage.getURL(), URLBuilder.removeQuery(blobStorageUrl).toString());
       });
 
-      it("with {}", function () {
-        const blobStorage: BlobStorage = createBlobStorage();
-        assert.strictEqual(blobStorage.getURL({}), URLBuilder.removeQuery(realStorageUrl).toString());
-      });
-
-      it(`with { sasToken: undefined }`, function () {
-        const blobStorage: BlobStorage = createBlobStorage();
-        assert.strictEqual(blobStorage.getURL({ sasToken: undefined }), URLBuilder.removeQuery(realStorageUrl).toString());
-      });
-
-      it(`with { sasToken: false }`, function () {
-        const blobStorage: BlobStorage = createBlobStorage();
-        assert.strictEqual(blobStorage.getURL({ sasToken: false }), URLBuilder.removeQuery(realStorageUrl).toString());
-      });
-
-      it(`with { sasToken: true }`, function () {
-        const blobStorage: BlobStorage = createBlobStorage();
-        assert.strictEqual(blobStorage.getURL({ sasToken: true }), realStorageUrl);
+      it("with storage account name", function () {
+        const blobStorage = new AzureBlobStorage("fakestorageaccountname");
+        assert.strictEqual(blobStorage.getURL(), "https://fakestorageaccountname.blob.core.windows.net");
       });
     });
 
     it("getContainerURL()", function () {
       const blobStorage: BlobStorage = createBlobStorage();
-      const url: URLBuilder = URLBuilder.parse(realStorageUrl)
+      const url: URLBuilder = URLBuilder.parse(blobStorageUrl)
         .setPath("spam")
         .removeQuery();
       assert.strictEqual(blobStorage.getContainerURL("spam"), url.toString());
@@ -2105,7 +2110,7 @@ describe("blobStorage.ts", function () {
       it("with no options argument", function () {
         const blobStorage: BlobStorage = createBlobStorage();
         const actualBlobUrl: string = blobStorage.getBlobURL("spam/apples/tomatoes");
-        const expectedBlobUrl: string = URLBuilder.parse(realStorageUrl)
+        const expectedBlobUrl: string = URLBuilder.parse(blobStorageUrl)
           .setPath("spam/apples/tomatoes")
           .removeQuery()
           .toString();
@@ -2115,23 +2120,35 @@ describe("blobStorage.ts", function () {
   });
 
   describe("InMemoryBlobStorage", function () {
-    const createBlobStorage = (credential?: Credential) => new InMemoryBlobStorage("https://fake.storage.com/", credential);
+    const createBlobStorage = (credential?: Credential) => new InMemoryBlobStorage(blobStorageUrl, credential);
 
     blobStorageTests(createBlobStorage);
 
-    it("getURL()", function () {
-      const blobStorage: BlobStorage = createBlobStorage();
-      assert.strictEqual(blobStorage.getURL(), "https://fake.storage.com/");
+    describe("constructor()", function () {
+      it("with empty storageAccountUrl", function () {
+        const error: Error = assertEx.throws(() => new InMemoryBlobStorage(""));
+        assert.strictEqual(error.message, "Cannot construct a storage account URL with an empty or undefined storage account name or URL argument.");
+      });
+
+      it("with valid storageAccountUrl", function () {
+        const blobStorage = new InMemoryBlobStorage(blobStorageUrl);
+        assert.strictEqual(blobStorage.getURL(), URLBuilder.removeQuery(blobStorageUrl).toString());
+      });
+
+      it("with storage account name", function () {
+        const blobStorage = new InMemoryBlobStorage("fakestorageaccountname");
+        assert.strictEqual(blobStorage.getURL(), "https://fakestorageaccountname.blob.core.windows.net");
+      });
     });
 
     it("getContainerURL()", function () {
       const blobStorage: BlobStorage = createBlobStorage();
-      assert.strictEqual(blobStorage.getContainerURL("spam"), "https://fake.storage.com/spam");
+      assert.strictEqual(blobStorage.getContainerURL("spam"), "https://sdkautomationdev.blob.core.windows.net/spam");
     });
 
     it("getBlobURL()", function () {
       const blobStorage: BlobStorage = createBlobStorage();
-      assert.strictEqual(blobStorage.getBlobURL("spam/apples/tomatoes"), "https://fake.storage.com/spam/apples/tomatoes");
+      assert.strictEqual(blobStorage.getBlobURL("spam/apples/tomatoes"), "https://sdkautomationdev.blob.core.windows.net/spam/apples/tomatoes");
     });
   });
 });
