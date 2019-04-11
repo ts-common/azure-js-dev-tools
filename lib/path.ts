@@ -29,7 +29,7 @@ export function resolvePath(...pathSegments: string[]): string {
  * pathRelativeTo("/my/path", "/") will return "my/path".
  */
 export function pathRelativeTo(absolutePath: string, basePath: string): string {
-  let result: string = normalizePath(path.relative(basePath, absolutePath));
+  let result: string = normalizePath(path.relative(normalizePath(basePath), normalizePath(absolutePath)));
   if (result.endsWith("/..")) {
     result += "/";
   }
