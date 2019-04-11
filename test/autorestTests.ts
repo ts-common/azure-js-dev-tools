@@ -78,9 +78,9 @@ describe("autorest.ts", function () {
       const result: RunResult = await autorest("", {}, { autorestPath: "./node_modules/.bin/autorest" });
       assertEx.defined(result, "result");
       assert.strictEqual(result.error, undefined);
-      assert.strictEqual(result.exitCode, 1);
+      assertEx.defined(result.exitCode, "result.existCode");
       assertEx.defined(result.processId, "result.processId");
-      assert.strictEqual(result.stderr, "");
+      assertEx.defined(result.stderr, "");
       assertEx.contains(result.stdout, "AutoRest code generation utility");
       assertEx.contains(result.stdout, "https://aka.ms/autorest");
       assertEx.contains(result.stdout, "No input files provided.");
