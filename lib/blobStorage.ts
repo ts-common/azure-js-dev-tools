@@ -779,17 +779,58 @@ function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions, c
   return urlBuilder.toString();
 }
 
+export function constructBlobStorageURL(storageAccountNameOrUrl: string | URLBuilder): string {
+  const urlBuilder: URLBuilder = typeof storageAccountNameOrUrl === "string" ? URLBuilder.parse(storageAccountNameOrUrl) : storageAccountNameOrUrl;
+
+  if (!urlBuilder.getScheme()) {
+    urlBuilder.setScheme("https");
+  }
+
+  const host: string | undefined = urlBuilder.getHost();
+  if (!host) {
+    throw new Error("Cannot construct a storage account URL with an empty or undefined storage account name or URL argument.");
+  }
+  const hostDotIndex: number = host.indexOf(".");
+  if (hostDotIndex === -1) {
+    urlBuilder.setHost(`${host}.blob.core.windows.net`);
+  }
+
+  return urlBuilder.toString();
+}
+
+export function getStorageAccountName(storageAccountNameOrUrl: string): string {
+  const urlBuilder: URLBuilder = URLBuilder.parse(storageAccountNameOrUrl);
+  const host: string | undefined = urlBuilder.getHost();
+  if (!host) {
+    throw new Error("Cannot get a storage account's name with an storage account URL argument with an empty or undefined host.");
+  }
+  const hostDotIndex: number = host.indexOf(".");
+  return host.substring(0, hostDotIndex);
+}
+
+export function constructBlobStorageCredentials(storageAccountUrl: string, credentials?: Credential | string): Credential {
+  if (!credentials) {
+    credentials = new AnonymousCredential();
+  } else if (typeof credentials === "string") {
+    const storageAccountName: string = getStorageAccountName(storageAccountUrl);
+    credentials = new SharedKeyCredential(storageAccountName, credentials);
+  }
+  return credentials;
+}
+
 /**
  * A BlobStorage system that is stored in memory.
  */
 export class InMemoryBlobStorage extends BlobStorage {
+  private readonly url: string;
   private readonly containers: StringMap<InMemoryContainer> = {};
   private readonly credentials: Credential;
 
-  constructor(private readonly url = "https://fake.storage.com/", credentials?: Credential) {
+  constructor(storageAccountNameOrUrl = "https://fake.storage.com/", credentials?: Credential) {
     super();
 
-    this.credentials = credentials || new AnonymousCredential();
+    this.url = constructBlobStorageURL(storageAccountNameOrUrl);
+    this.credentials = constructBlobStorageCredentials(this.url, credentials);
   }
 
   private getInMemoryContainer(containerName: string | BlobPath): Promise<InMemoryContainer> {
@@ -828,12 +869,16 @@ export class InMemoryBlobStorage extends BlobStorage {
   }
 
   public getContainerURL(containerName: string, options: GetURLOptions = {}): string {
-    return processBlobUrl(`${this.url}${containerName}`, options, this.credentials);
+    const urlBuilder: URLBuilder = URLBuilder.parse(this.url);
+    urlBuilder.setPath(containerName);
+    return processBlobUrlBuilder(urlBuilder, options, this.credentials);
   }
 
   public getBlobURL(blobPath: string | BlobPath, options: GetURLOptions = {}): string {
     blobPath = BlobPath.parse(blobPath);
-    return processBlobUrl(`${this.url}${blobPath.containerName}/${blobPath.blobName}`, options, this.credentials);
+    const urlBuilder: URLBuilder = URLBuilder.parse(this.url);
+    urlBuilder.setPath(blobPath.toString());
+    return processBlobUrlBuilder(urlBuilder, options, this.credentials);
   }
 
   private createInMemoryBlob(blobPath: string | BlobPath, blobType: "block" | "append", options: BlobContentOptions = {}): Promise<boolean> {
@@ -1037,18 +1082,14 @@ export class AzureBlobStorage extends BlobStorage {
   private readonly serviceUrl: ServiceURL;
   private readonly credentials: Credential;
 
-  constructor(storageAccountUrl: string | URLBuilder, credentials?: Credential) {
+  constructor(storageAccountNameOrUrl: string | URLBuilder, credentials?: Credential | string) {
     super();
 
-    if (!credentials) {
-      credentials = new AnonymousCredential();
-    }
+    this.url = constructBlobStorageURL(storageAccountNameOrUrl);
+    this.credentials = constructBlobStorageCredentials(this.url, credentials);
 
-    this.url = storageAccountUrl.toString();
-
-    const pipeline: Pipeline = StorageURL.newPipeline(credentials);
+    const pipeline: Pipeline = StorageURL.newPipeline(this.credentials);
     this.serviceUrl = new ServiceURL(this.url, pipeline);
-    this.credentials = credentials;
   }
 
   private getAzureContainerURL(containerName: string): ContainerURL {
