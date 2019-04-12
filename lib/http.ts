@@ -6,7 +6,7 @@
 
 import * as http from "http";
 import * as https from "https";
-import { first } from "./arrays";
+import { last } from "./arrays";
 import { URLBuilder } from "./url";
 
 /**
@@ -347,7 +347,7 @@ export class FakeHttpClient implements HttpClient {
   }
 
   public sendRequest(request: HttpRequest): Promise<HttpResponse> {
-    let result: HttpResponse | undefined = first(this.fakeResponses, (fakeResponse: HttpResponse) => {
+    let result: HttpResponse | undefined = last(this.fakeResponses, (fakeResponse: HttpResponse) => {
       const fakeRequest: HttpRequest = fakeResponse.request;
       return fakeRequest.method === request.method &&
         fakeRequest.url.toString() === request.url.toString();

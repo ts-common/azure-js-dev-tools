@@ -38,6 +38,31 @@ export function first<T>(values: T[] | undefined, condition?: T | ((value: T) =>
 }
 
 /**
+ * Get the last value in the provided array of values that matches the provided condition.
+ * @param values The array of values to search through.
+ * @param condition The condition to use when looking through the array of values.
+ */
+export function last<T>(values: T[] | undefined, condition?: T | ((value: T) => boolean)): T | undefined {
+  let result: T | undefined;
+  if (values) {
+    if (condition instanceof Function) {
+      for (let i = values.length - 1; 0 <= i; --i) {
+        const value: T = values[i];
+        if (condition(value)) {
+          result = value;
+          break;
+        }
+      }
+    } else if (condition !== undefined) {
+      result = last(values, (value: T) => value === condition);
+    } else {
+      result = values[values.length - 1];
+    }
+  }
+  return result;
+}
+
+/**
  * Get whether or not the provided array of values contains a value that matches the provided
  * condition.
  * @param values The array of values to search through.
