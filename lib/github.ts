@@ -122,13 +122,15 @@ export interface GitHubLabel {
   default: boolean;
 }
 
+export type GitHubMilestoneState = "open" | "closed";
+
 export interface GitHubMilestone {
   title: string;
   due_on: string;
   number: number;
   open_issues: number;
   closed_issues: number;
-  state: "open" | "closed";
+  state: GitHubMilestoneState;
 }
 
 export interface GitHubSprintLabel {
@@ -146,6 +148,8 @@ export interface GitHubSprintMilestone {
   open: boolean;
 }
 
+export type GitHubPullRequestState = "open" | "closed";
+
 export interface GitHubPullRequest {
   base: GitHubPullRequestCommit;
   head: GitHubPullRequestCommit;
@@ -153,7 +157,7 @@ export interface GitHubPullRequest {
   id: number;
   labels: GitHubLabel[];
   number: number;
-  state: "open" | "closed";
+  state: GitHubPullRequestState;
   title: string;
   url: string;
   html_url: string;
@@ -1238,7 +1242,7 @@ export class RealGitHub implements GitHub {
    * @returns All of the milestones that exist in the provided repository.
    */
   public getMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubMilestone[]> {
-    let milestoneState: "open" | "closed" | "all" = "all";
+    let milestoneState: GitHubMilestoneState | "all" = "all";
     if (options) {
       if (options.open === true) {
         milestoneState = "open";
@@ -1409,7 +1413,7 @@ export class RealGitHub implements GitHub {
   }
 
   public getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<GitHubPullRequest[]> {
-    let pullRequestState: "open" | "closed" | "all" = "all";
+    let pullRequestState: GitHubPullRequestState | "all" = "all";
     if (options) {
       if (options.open === true) {
         pullRequestState = "open";
