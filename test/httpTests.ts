@@ -420,6 +420,16 @@ describe("http.ts", function () {
         assert.deepEqual(response.headers, new HttpHeaders({ "a": "B" }));
         assert.strictEqual(response.body, "hello");
       });
+
+      it("with multiple matching responses", async function () {
+        const httpClient = new FakeHttpClient();
+        httpClient.add("GET", "https://www.bing.com", 205, new HttpHeaders({ "a": "B" }), "hello");
+        httpClient.add("GET", "https://www.bing.com", 206, new HttpHeaders({ "c": "D" }), "hola");
+        const response: HttpResponse = await httpClient.sendRequest({ method: "GET", "url": "https://www.bing.com" });
+        assert.strictEqual(response.statusCode, 206);
+        assert.deepEqual(response.headers, new HttpHeaders({ "c": "D" }));
+        assert.strictEqual(response.body, "hola");
+      });
     });
   });
 });
