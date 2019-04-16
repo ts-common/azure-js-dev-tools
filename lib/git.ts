@@ -694,6 +694,37 @@ export async function gitStatus(options: RunOptions = {}): Promise<GitStatusResu
   };
 }
 
+/**
+ * The result of running gitGetConfig().
+ */
+export interface GitGetConfigResult extends GitRunResult {
+  /**
+   * The requested configuration value or undefined if the value was not found.
+   */
+  configurationValue?: string;
+}
+
+/**
+ * Get the configuration value for the provided configuration value name.
+ * @param configurationValueName The name of the configuration value to get.
+ * @param options The options that can configure how the command will run.
+ */
+export async function gitConfigGet(configurationValueName: string, options?: RunOptions): Promise<GitGetConfigResult> {
+  const result: GitGetConfigResult = await git(["config", "--get", configurationValueName], options);
+  if (result.exitCode === 0 && result.stdout) {
+    result.configurationValue = result.stdout;
+  }
+  return result;
+}
+
+/**
+ * Get the URL of the current repository.
+ * @param options The options that can configure how the command will run.
+ */
+export async function gitGetRepositoryUrl(options?: RunOptions): Promise<string | undefined> {
+  return (await gitConfigGet("remote.origin.url", options)).configurationValue;
+}
+
 export class GitScope {
   constructor(private options: RunOptions) {
   }
@@ -830,6 +861,29 @@ export class GitScope {
     return gitStatus({
       ...this.options,
       ...options,
+    });
+  }
+
+  /**
+   * Get the configuration value for the provided configuration value name.
+   * @param configurationValueName The name of the configuration value to get.
+   * @param options The options that can configure how the command will run.
+   */
+  public configGet(configurationValueName: string, options?: RunOptions): Promise<GitGetConfigResult> {
+    return gitConfigGet(configurationValueName, {
+      ...this.options,
+      ...options
+    });
+  }
+
+  /**
+   * Get the URL of the current repository.
+   * @param options The options that can configure how the command will run.
+   */
+  public getRepositoryUrl(options?: RunOptions): Promise<string | undefined> {
+    return gitGetRepositoryUrl({
+      ...this.options,
+      ...options
     });
   }
 }
