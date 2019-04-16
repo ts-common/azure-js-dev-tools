@@ -54,6 +54,16 @@ describe("run.ts", function () {
         });
       });
 
+      it("with multiple registered commands", async function () {
+        const runner = new FakeRunner();
+        runner.set({ command: "fake-command", result: { exitCode: 2 } });
+        runner.set({ command: "fake-command", result: { exitCode: 3 } });
+        const result: RunResult = await runner.run("fake-command");
+        assert.deepEqual(result, {
+          exitCode: 3
+        });
+      });
+
       it("with passthroughUnrecognized() called", async function () {
         const runner = new FakeRunner();
         runner.passthroughUnrecognized();
