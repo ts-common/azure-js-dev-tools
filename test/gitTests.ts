@@ -878,7 +878,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
     it("inside git repository", async function () {
       const result: string | undefined = await gitGetRepositoryUrl();
-      assert.strictEqual(result, "https://github.com/ts-common/azure-js-dev-tools.git\n");
+      assert.strictEqual(result, "https://github.com/ts-common/azure-js-dev-tools.git");
     });
 
     it("outside git repository", async function () {

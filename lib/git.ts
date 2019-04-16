@@ -722,7 +722,11 @@ export async function gitConfigGet(configurationValueName: string, options?: Run
  * @param options The options that can configure how the command will run.
  */
 export async function gitGetRepositoryUrl(options?: RunOptions): Promise<string | undefined> {
-  return (await gitConfigGet("remote.origin.url", options)).configurationValue;
+  let result: string | undefined = (await gitConfigGet("remote.origin.url", options)).configurationValue;
+  if (result) {
+    result = result.trimEnd();
+  }
+  return result;
 }
 
 export class GitScope {
