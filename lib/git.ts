@@ -724,7 +724,7 @@ export async function gitConfigGet(configurationValueName: string, options?: Run
 export async function gitGetRepositoryUrl(options?: RunOptions): Promise<string | undefined> {
   let result: string | undefined = (await gitConfigGet("remote.origin.url", options)).configurationValue;
   if (result) {
-    result = result.trimEnd();
+    result = result.trim();
   }
   return result;
 }
