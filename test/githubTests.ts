@@ -2,7 +2,7 @@ import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
 import { writeFileContents } from "../lib/fileSystem2";
 import { GitScope } from "../lib/git";
-import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub } from "../lib/github";
+import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub, getGitHubRepositoryFromUrl } from "../lib/github";
 import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
 import { contains } from "../lib/arrays";
@@ -260,6 +260,86 @@ describe("github.ts", function () {
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
       assert.deepEqual(repository.pullRequests, []);
+    });
+  });
+
+  describe("getGitHubRepositoryFromUrl()", function () {
+    it("with undefined", function () {
+      assert.strictEqual(getGitHubRepositoryFromUrl(undefined as any), undefined);
+    });
+
+    it("with null", function () {
+      // tslint:disable-next-line:no-null-keyword
+      assert.strictEqual(getGitHubRepositoryFromUrl(null as any), undefined);
+    });
+
+    it(`with ""`, function () {
+      assert.strictEqual(getGitHubRepositoryFromUrl(""), undefined);
+    });
+
+    it(`with non-GitHub URL`, function () {
+      assert.strictEqual(getGitHubRepositoryFromUrl("https://www.bing.com/search?q=Kepler-47+third+planet"), undefined);
+    });
+
+    it(`with "https://github.com"`, function () {
+      assert.strictEqual(getGitHubRepositoryFromUrl("https://github.com"), undefined);
+    });
+
+    it(`with "https://github.com/"`, function () {
+      assert.strictEqual(getGitHubRepositoryFromUrl("https://github.com/"), undefined);
+    });
+
+    it(`with "https://github.com/.git"`, function () {
+      assert.strictEqual(getGitHubRepositoryFromUrl("https://github.com/.git"), undefined);
+    });
+
+    it(`with "https://github.com/hello"`, function () {
+      assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/hello"), {
+        organization: "",
+        name: "hello",
+      });
+    });
+
+    it(`with "https://github.com/hello.git"`, function () {
+      assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/hello.git"), {
+        organization: "",
+        name: "hello",
+      });
+    });
+
+    it(`with "https://github.com/hello/"`, function () {
+      assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/hello/"), {
+        organization: "",
+        name: "hello",
+      });
+    });
+
+    it(`with "https://github.com/Azure/azure-rest-api-specs"`, function () {
+      assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/Azure/azure-rest-api-specs"), {
+        organization: "Azure",
+        name: "azure-rest-api-specs",
+      });
+    });
+
+    it(`with "https://github.com/Azure/azure-rest-api-specs.git"`, function () {
+      assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/Azure/azure-rest-api-specs.git"), {
+        organization: "Azure",
+        name: "azure-rest-api-specs",
+      });
+    });
+
+    it(`with "https://github.com/ts-common/azure-js-dev-tools/blob/master/.gitignore"`, function () {
+      assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/ts-common/azure-js-dev-tools/blob/master/.gitignore"), {
+        organization: "ts-common",
+        name: "azure-js-dev-tools",
+      });
+    });
+
+    it(`with "https://github.com/ts-common/blob/master/.gitignore"`, function () {
+      assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/ts-common/blob/master/.gitignore"), {
+        organization: "",
+        name: "ts-common",
+      });
     });
   });
 

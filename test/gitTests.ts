@@ -1,8 +1,8 @@
 import { assert } from "chai";
 import { joinPath } from "../lib";
 import { assertEx } from "../lib/assertEx";
-import { findFileInPathSync } from "../lib/fileSystem2";
-import { getGitRemoteBranch, getRemoteBranchFullName, git, gitAddAll, gitCheckout, gitClone, gitCommit, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitDiff, GitDiffResult, gitFetch, gitLocalBranches, GitLocalBranchesResult, gitMergeOriginMaster, gitPull, gitPush, GitRemoteBranch, gitRemoteBranches, GitRemoteBranchesResult, GitRunResult, gitStatus, GitStatusResult } from "../lib/git";
+import { findFileInPath, findFileInPathSync } from "../lib/fileSystem2";
+import { getGitRemoteBranch, getRemoteBranchFullName, git, gitAddAll, gitCheckout, gitClone, gitCommit, gitConfigGet, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitDiff, GitDiffResult, gitFetch, GitGetConfigResult as GitConfigGetResult, gitGetRepositoryUrl, gitLocalBranches, GitLocalBranchesResult, gitMergeOriginMaster, gitPull, gitPush, GitRemoteBranch, gitRemoteBranches, GitRemoteBranchesResult, GitRunResult, gitStatus, GitStatusResult } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
 
 const runPushRemoteBranchTests: boolean = !!findFileInPathSync("github.auth");
@@ -804,6 +804,87 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
           "/mock/folder/a/b.txt"
         ]
       });
+    });
+  });
+
+  describe("gitConfigGet()", function () {
+    it("command line arguments", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+      runner.set({ command: "git", args: ["config", "--get", "a"], result: expectedResult });
+      assert.deepEqual(await gitConfigGet("a", { runner }), expectedResult);
+    });
+
+    it("with undefined configurationValueName", async function () {
+      const result: GitConfigGetResult = await gitConfigGet(undefined as any);
+      assertEx.defined(result, "result");
+      assert.strictEqual(result.exitCode, 1);
+      assertEx.defined(result.processId, "result.processId");
+      assert.strictEqual(result.stdout, "");
+      assert.strictEqual(result.stderr, "error: key does not contain a section: undefined\n");
+      assert.strictEqual(result.configurationValue, undefined);
+    });
+
+    it("with null configurationValueName", async function () {
+      // tslint:disable-next-line:no-null-keyword
+      const result: GitConfigGetResult = await gitConfigGet(null as any);
+      assertEx.defined(result, "result");
+      assert.strictEqual(result.exitCode, 1);
+      assertEx.defined(result.processId, "result.processId");
+      assert.strictEqual(result.stdout, "");
+      assert.strictEqual(result.stderr, "error: key does not contain a section: null\n");
+      assert.strictEqual(result.configurationValue, undefined);
+    });
+
+    it("with non-existing configurationValueName", async function () {
+      const result: GitConfigGetResult = await gitConfigGet("blah");
+      assertEx.defined(result, "result");
+      assert.strictEqual(result.exitCode, 1);
+      assertEx.defined(result.processId, "result.processId");
+      assert.strictEqual(result.stdout, "");
+      assert.strictEqual(result.stderr, "error: key does not contain a section: blah\n");
+      assert.strictEqual(result.configurationValue, undefined);
+    });
+
+    it("with existing configurationValueName", async function () {
+      const result: GitConfigGetResult = await gitConfigGet("remote.origin.url");
+      assertEx.defined(result, "result");
+      assert.strictEqual(result.exitCode, 0);
+      assertEx.defined(result.processId, "result.processId");
+      assertEx.oneOf(result.stdout, ["https://github.com/ts-common/azure-js-dev-tools.git\n", "https://github.com/ts-common/azure-js-dev-tools\n"]);
+      assert.strictEqual(result.stderr, "");
+      assertEx.oneOf(result.configurationValue, ["https://github.com/ts-common/azure-js-dev-tools.git\n", "https://github.com/ts-common/azure-js-dev-tools\n"]);
+    });
+
+    it("outside git repository", async function () {
+      const folderPath: string = joinPath((await findFileInPath("package.json"))!, "../..");
+      const result: GitConfigGetResult = await gitConfigGet("remote.origin.url", { executionFolderPath: folderPath });
+      assertEx.defined(result, "result");
+      assert.strictEqual(result.exitCode, 1);
+      assertEx.defined(result.processId, "result.processId");
+      assert.strictEqual(result.stdout, "");
+      assert.strictEqual(result.stderr, "");
+      assert.strictEqual(result.configurationValue, undefined);
+    });
+  });
+
+  describe("gitGetRepositoryUrl()", function () {
+    it("command line arguments", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitConfigGetResult = { exitCode: 2, stdout: "c", stderr: "d", configurationValue: "e" };
+      runner.set({ command: "git", args: ["config", "--get", "remote.origin.url"], result: expectedResult });
+      assert.deepEqual(await gitGetRepositoryUrl({ runner }), expectedResult.configurationValue);
+    });
+
+    it("inside git repository", async function () {
+      const result: string | undefined = await gitGetRepositoryUrl();
+      assertEx.oneOf(result, ["https://github.com/ts-common/azure-js-dev-tools.git", "https://github.com/ts-common/azure-js-dev-tools"]);
+    });
+
+    it("outside git repository", async function () {
+      const folderPath: string = joinPath((await findFileInPath("package.json"))!, "../..");
+      const result: string | undefined = await gitGetRepositoryUrl({ executionFolderPath: folderPath });
+      assert.strictEqual(result, undefined);
     });
   });
 });

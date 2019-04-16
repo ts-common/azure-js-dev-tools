@@ -134,4 +134,20 @@ export namespace assertEx {
     defined(expectedLowerBound, "expectedLowerBound");
     assert(value > expectedLowerBound, `${expressionName || "value"} (${value}) must be greater than ${expectedLowerBound}.`);
   }
+
+  /**
+   * Assert that the provided value is equal to one of the provided expectedValues.
+   * @param value The value to look for.
+   * @param expectedValues The expected values that value could be.
+   */
+  export function oneOf<T>(value: T, expectedValues: T[]): void {
+    let found = false;
+    for (const expectedValue of expectedValues) {
+      if (value === expectedValue) {
+        found = true;
+        break;
+      }
+    }
+    assert(found, `Expected ${value} to be one of the following values: ${JSON.stringify(expectedValues)}`);
+  }
 }
