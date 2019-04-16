@@ -851,9 +851,9 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       assertEx.defined(result, "result");
       assert.strictEqual(result.exitCode, 0);
       assertEx.defined(result.processId, "result.processId");
-      assert.strictEqual(result.stdout, "https://github.com/ts-common/azure-js-dev-tools.git\n");
+      assertEx.oneOf(result.stdout, ["https://github.com/ts-common/azure-js-dev-tools.git\n", "https://github.com/ts-common/azure-js-dev-tools\n"]);
       assert.strictEqual(result.stderr, "");
-      assert.strictEqual(result.configurationValue, "https://github.com/ts-common/azure-js-dev-tools.git\n");
+      assertEx.oneOf(result.configurationValue, ["https://github.com/ts-common/azure-js-dev-tools.git\n", "https://github.com/ts-common/azure-js-dev-tools\n"]);
     });
 
     it("outside git repository", async function () {
@@ -878,7 +878,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
     it("inside git repository", async function () {
       const result: string | undefined = await gitGetRepositoryUrl();
-      assert.strictEqual(result, "https://github.com/ts-common/azure-js-dev-tools.git");
+      assertEx.oneOf(result, ["https://github.com/ts-common/azure-js-dev-tools.git", "https://github.com/ts-common/azure-js-dev-tools"]);
     });
 
     it("outside git repository", async function () {

@@ -7,6 +7,7 @@
 import Octokit from "@octokit/rest";
 import * as fs from "fs";
 import { contains, first, map, removeFirst, where } from "./arrays";
+import { URLBuilder } from "./url";
 
 /**
  * The name and optional organization that the repository belongs to.
@@ -1720,4 +1721,49 @@ function addOffset(date: string): string {
     }
   }
   return date;
+}
+
+/**
+ * Get the GitHubRepository object from the provided repository URL.
+ * @param repositoryUrl The repository URL to get the GitHubRepository object from.
+ */
+export function getGitHubRepositoryFromUrl(repositoryUrl: string): GitHubRepository | undefined {
+  let result: GitHubRepository | undefined;
+  const repositoryUrlBuilder: URLBuilder = URLBuilder.parse(repositoryUrl);
+  const host: string | undefined = repositoryUrlBuilder.getHost();
+  const path: string | undefined = repositoryUrlBuilder.getPath();
+  if (host === "github.com" && path) {
+    let organization: string;
+    let name: string;
+    const pathFirstSlashIndex: number = path.indexOf("/", 1);
+    if (pathFirstSlashIndex === -1) {
+      organization = "";
+      name = path.substring(1);
+    } else {
+      organization = path.substring(1, pathFirstSlashIndex);
+      const pathSecondSlashIndex: number = path.indexOf("/", pathFirstSlashIndex + 1);
+      if (pathSecondSlashIndex === -1) {
+        name = path.substring(pathFirstSlashIndex + 1);
+      } else {
+        name = path.substring(pathFirstSlashIndex + 1, pathSecondSlashIndex);
+      }
+
+      if (!name || name === "blob") {
+        name = organization;
+        organization = "";
+      }
+    }
+
+    if (name.endsWith(".git")) {
+      name = name.substring(0, name.length - ".git".length);
+    }
+
+    if (name) {
+      result = {
+        organization,
+        name
+      };
+    }
+  }
+  return result;
 }
