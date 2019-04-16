@@ -6,8 +6,9 @@
 
 import { ChildProcess, spawn, StdioOptions } from "child_process";
 import * as os from "os";
-import { normalizePath } from "./path";
+import { last } from "./arrays";
 import { StringMap } from "./common";
+import { normalizePath } from "./path";
 
 /**
  * An object that runs a provided command.
@@ -219,15 +220,10 @@ export class FakeRunner implements Runner {
   public async run(command: string, args?: string | string[], options?: RunOptions): Promise<RunResult> {
     const commandString: string = getCommandString(command, args);
 
-    let fakeCommand: FakeCommand | undefined;
     const executionFolderPath: string = getExecutionFolderPath(options);
-    for (const registeredFakeCommand of this.fakeCommands) {
-      if (commandString === getCommandString(registeredFakeCommand.command, registeredFakeCommand.args) &&
-        (!registeredFakeCommand.executionFolderPath || executionFolderPath === registeredFakeCommand.executionFolderPath)) {
-        fakeCommand = registeredFakeCommand;
-        break;
-      }
-    }
+    const fakeCommand: FakeCommand | undefined = last(this.fakeCommands, (registeredFakeCommand: FakeCommand) =>
+      commandString === getCommandString(registeredFakeCommand.command, registeredFakeCommand.args) &&
+      (!registeredFakeCommand.executionFolderPath || executionFolderPath === registeredFakeCommand.executionFolderPath));
 
     let result: Promise<RunResult>;
     if (!fakeCommand) {
