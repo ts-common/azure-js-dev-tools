@@ -293,6 +293,10 @@ export interface GitDiffOptions extends RunOptions {
    * whitespace changes be ignored.
    */
   ignoreSpace?: "at-eol" | "change" | "all";
+  /**
+   * Whether or not to show all changes that are staged.
+   */
+  staged?: boolean;
 }
 
 /**
@@ -314,6 +318,10 @@ export async function gitDiff(options: GitDiffOptions = {}): Promise<GitDiffResu
 
   if (options.commit2) {
     command += ` ${options.commit2}`;
+  }
+
+  if (options.staged) {
+    command += ` --staged`;
   }
 
   if (options.nameOnly) {
@@ -729,6 +737,14 @@ export async function gitGetRepositoryUrl(options?: RunOptions): Promise<string 
   return result;
 }
 
+/**
+ * Unstage all staged files.
+ * @param options The options that can configure how the command will run.
+ */
+export async function gitResetAll(options?: RunOptions): Promise<GitRunResult> {
+  return git(["reset", "*"], options);
+}
+
 export class GitScope {
   constructor(private options: RunOptions) {
   }
@@ -876,7 +892,7 @@ export class GitScope {
   public configGet(configurationValueName: string, options?: RunOptions): Promise<GitGetConfigResult> {
     return gitConfigGet(configurationValueName, {
       ...this.options,
-      ...options
+      ...options,
     });
   }
 
@@ -887,7 +903,18 @@ export class GitScope {
   public getRepositoryUrl(options?: RunOptions): Promise<string | undefined> {
     return gitGetRepositoryUrl({
       ...this.options,
-      ...options
+      ...options,
+    });
+  }
+
+  /**
+   * Unstage all staged files.
+   * @param options The options that can configure how the command will run.
+   */
+  public async resetAll(options?: RunOptions): Promise<GitRunResult> {
+    return gitResetAll({
+      ...this.options,
+      ...options,
     });
   }
 }

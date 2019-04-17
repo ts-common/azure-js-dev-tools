@@ -2,7 +2,7 @@ import { assert } from "chai";
 import { joinPath } from "../lib";
 import { assertEx } from "../lib/assertEx";
 import { findFileInPath, findFileInPathSync } from "../lib/fileSystem2";
-import { getGitRemoteBranch, getRemoteBranchFullName, git, gitAddAll, gitCheckout, gitClone, gitCommit, gitConfigGet, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitDiff, GitDiffResult, gitFetch, GitGetConfigResult as GitConfigGetResult, gitGetRepositoryUrl, gitLocalBranches, GitLocalBranchesResult, gitMergeOriginMaster, gitPull, gitPush, GitRemoteBranch, gitRemoteBranches, GitRemoteBranchesResult, GitRunResult, gitStatus, GitStatusResult } from "../lib/git";
+import { getGitRemoteBranch, getRemoteBranchFullName, git, gitAddAll, gitCheckout, gitClone, gitCommit, gitConfigGet, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitDiff, GitDiffResult, gitFetch, GitGetConfigResult as GitConfigGetResult, gitGetRepositoryUrl, gitLocalBranches, GitLocalBranchesResult, gitMergeOriginMaster, gitPull, gitPush, GitRemoteBranch, gitRemoteBranches, GitRemoteBranchesResult, GitRunResult, gitStatus, GitStatusResult, gitResetAll } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
 
 const runPushRemoteBranchTests: boolean = !!findFileInPathSync("github.auth");
@@ -502,6 +502,18 @@ describe("git.ts", function () {
       assert.deepEqual(await gitDiff({ runner, nameOnly: true }), expectedResult);
     });
 
+    it("command line arguments with staged", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitDiffResult = {
+        exitCode: 2,
+        stdout: "c",
+        stderr: "d",
+        filesChanged: []
+      };
+      runner.set({ command: "git", args: ["diff", "--staged"], result: expectedResult });
+      assert.deepEqual(await gitDiff({ runner, staged: true }), expectedResult);
+    });
+
     it("command line arguments with ignoreSpace: all", async function () {
       const runner = new FakeRunner();
       const expectedResult: GitDiffResult = {
@@ -885,6 +897,15 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       const folderPath: string = joinPath((await findFileInPath("package.json"))!, "../..");
       const result: string | undefined = await gitGetRepositoryUrl({ executionFolderPath: folderPath });
       assert.strictEqual(result, undefined);
+    });
+  });
+
+  describe("gitResetAll()", function () {
+    it("command line arguments", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitRunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+      runner.set({ command: "git", args: ["reset", "*"], result: expectedResult });
+      assert.strictEqual(await gitResetAll({ runner }), expectedResult);
     });
   });
 });
