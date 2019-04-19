@@ -43,7 +43,7 @@ export interface CreateContainerOptions {
  */
 export function getFileLengthInBytes(filePath: string): Promise<number> {
   return new Promise((resolve, reject) => {
-    fs.lstat(filePath, (error: NodeJS.ErrnoException, stats: fs.Stats) => {
+    fs.lstat(filePath, (error: NodeJS.ErrnoException | null, stats: fs.Stats) => {
       if (error) {
         reject(error);
       } else {
