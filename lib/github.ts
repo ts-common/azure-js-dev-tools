@@ -1090,24 +1090,22 @@ export function getSprintLabels(labels: GitHubLabel[]): GitHubSprintLabel[] {
  * A class that wraps @octokit/rest to interact with github.com.
  */
 export class RealGitHub implements GitHub {
-  private readonly github: Octokit;
+  private constructor(private readonly github: Octokit) {
+  }
 
-  /**
-   * Create a new GitHub object using the provided authentication token to authenticate.
-   * @param authenticationToken The token that will be used to authenticate with GitHub.
-   */
-  constructor(authenticationToken?: string) {
-    this.github = new Octokit();
+  public static fromOctokit(github: Octokit): RealGitHub {
+    return new RealGitHub(github);
+  }
+
+  public static fromToken(authenticationToken: string): RealGitHub {
+    const github = new Octokit();
     if (authenticationToken) {
-      this.github.authenticate({
+      github.authenticate({
         type: "token",
         token: authenticationToken
       });
     }
-  }
-
-  public static fromToken(authenticationToken: string): RealGitHub {
-    return new RealGitHub(authenticationToken);
+    return new RealGitHub(github);
   }
 
   public static fromTokenFile(tokenFilePath: string): RealGitHub {
@@ -1117,7 +1115,7 @@ export class RealGitHub implements GitHub {
 
     const githubAuthToken: string = fs.readFileSync(tokenFilePath, { encoding: "utf-8" });
 
-    return new RealGitHub(githubAuthToken);
+    return RealGitHub.fromToken(githubAuthToken);
   }
 
   public getCurrentUser(): Promise<GitHubUser> {

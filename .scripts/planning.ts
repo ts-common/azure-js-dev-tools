@@ -1,7 +1,6 @@
-import * as fs from "fs";
 import * as arrays from "../lib/arrays";
 import { padLeft } from "../lib/common";
-import { getSprintMilestoneName, GitHub, GitHubSprintMilestone, RealGitHub, GitHubRepository, getRepositoryFullName, getGitHubRepository } from "../lib/github";
+import { getGitHubRepository, getRepositoryFullName, getSprintMilestoneName, GitHub, GitHubRepository, GitHubSprintMilestone, RealGitHub } from "../lib/github";
 import { joinPath } from "../lib/path";
 
 interface SprintLabel {
@@ -152,17 +151,10 @@ function authenticateWithGitHub(problems: string[]): GitHub | undefined {
   let result: GitHub | undefined;
 
   const githubAuthFilePath = joinPath(__dirname, "..", "github.auth");
-  if (!fs.existsSync(githubAuthFilePath)) {
-    addProblem(problems, `The file ${githubAuthFilePath} doesn't exist. Create a GitHub personal access token, create this file with the personal access token as its contents, and then run this application again.`);
-  } else {
-    const githubAuthToken: string = fs.readFileSync(githubAuthFilePath, { encoding: "utf-8" });
-
-    try {
-      result = new RealGitHub(githubAuthToken);
-    } catch (error) {
-      addProblem(problems, `Error while authenticating with GitHub: ${JSON.stringify(error)}`);
-      result = undefined;
-    }
+  try {
+    result = RealGitHub.fromTokenFile(githubAuthFilePath);
+  } catch (error) {
+    addProblem(problems, `Error while authenticating with GitHub: ${JSON.stringify(error)}`);
   }
 
   return result;
