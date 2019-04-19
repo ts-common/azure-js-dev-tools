@@ -1,6 +1,6 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "14.0.0",
+  "version": "14.0.1",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
@@ -52,7 +52,7 @@
   "dependencies": {
     "@azure/logger-js": "^1.0.1",
     "@azure/storage-blob": "^10.3.0",
-    "@octokit/rest": "15.9.4",
+    "@octokit/rest": "~15.16.1",
     "@types/archiver": "^2.1.2",
     "@types/commonmark": "^0.27.1",
     "@types/js-yaml": "^3.12.0",
