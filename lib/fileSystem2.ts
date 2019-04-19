@@ -9,7 +9,7 @@ import { getParentFolderPath, getPathName, joinPath } from "./path";
 
 async function _entryExists(entryPath: string, condition?: (stats: fs.Stats) => (boolean | Promise<boolean>)): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    fs.lstat(entryPath, (error: NodeJS.ErrnoException, stats: fs.Stats) => {
+    fs.lstat(entryPath, (error: NodeJS.ErrnoException | null, stats: fs.Stats) => {
       if (error) {
         if (error.code === "ENOENT" || error.code === "ENOTDIR") {
           resolve(false);
@@ -81,7 +81,7 @@ export function folderExists(folderPath: string): Promise<boolean> {
 
 export function _createFolder(folderPath: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    fs.mkdir(folderPath, (error: NodeJS.ErrnoException) => {
+    fs.mkdir(folderPath, (error: NodeJS.ErrnoException | null) => {
       if (error) {
         if (error.code === "EEXIST") {
           resolve(false);
@@ -152,7 +152,7 @@ export async function copyEntry(sourceEntryPath: string, destinationEntryPath: s
  */
 export async function copyFile(sourceFilePath: string, destinationFilePath: string, createDestinationFolder = true): Promise<void> {
   return new Promise((resolve, reject) => {
-    fs.copyFile(sourceFilePath, destinationFilePath, async (error: NodeJS.ErrnoException) => {
+    fs.copyFile(sourceFilePath, destinationFilePath, async (error: NodeJS.ErrnoException | null) => {
       if (!error) {
         resolve();
       } else if (error.code !== "ENOENT" || !(await fileExists(sourceFilePath)) || !createDestinationFolder) {
@@ -323,7 +323,7 @@ export interface GetChildEntriesOptions {
  */
 export function getChildEntryPaths(folderPath: string, options: GetChildEntriesOptions = {}): Promise<string[] | undefined> {
   return new Promise((resolve, reject) => {
-    fs.readdir(folderPath, async (error: NodeJS.ErrnoException, entryNames: string[]) => {
+    fs.readdir(folderPath, async (error: NodeJS.ErrnoException | null, entryNames: string[]) => {
       if (error) {
         if (error.code === "ENOENT") {
           resolve(undefined);
@@ -391,7 +391,7 @@ export function getChildFilePaths(folderPath: string, options: GetChildEntriesOp
  */
 export function readFileContents(filePath: string): Promise<string | undefined> {
   return new Promise((resolve, reject) => {
-    fs.readFile(filePath, { encoding: "utf8" }, (error: NodeJS.ErrnoException, content: string) => {
+    fs.readFile(filePath, { encoding: "utf8" }, (error: NodeJS.ErrnoException | null, content: string) => {
       if (error) {
         if (error.code === "ENOENT") {
           resolve(undefined);
@@ -412,7 +412,7 @@ export function readFileContents(filePath: string): Promise<string | undefined> 
  */
 export function writeFileContents(filePath: string, contents: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    fs.writeFile(filePath, contents, (error: NodeJS.ErrnoException) => {
+    fs.writeFile(filePath, contents, (error: NodeJS.ErrnoException | null) => {
       if (error) {
         reject(error);
       } else {
@@ -434,7 +434,7 @@ export async function deleteEntry(path: string): Promise<boolean> {
  */
 export function deleteFile(filePath: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    fs.unlink(filePath, (error: NodeJS.ErrnoException) => {
+    fs.unlink(filePath, (error: NodeJS.ErrnoException | null) => {
       if (error) {
         if (error.code === "ENOENT") {
           resolve(false);
@@ -462,7 +462,7 @@ export async function deleteFiles(...filePaths: string[]): Promise<void> {
 
 function _deleteFolder(folderPath: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    fs.rmdir(folderPath, (error: NodeJS.ErrnoException) => {
+    fs.rmdir(folderPath, (error: NodeJS.ErrnoException | null) => {
       if (error) {
         if (error.code === "ENOENT") {
           resolve(false);
