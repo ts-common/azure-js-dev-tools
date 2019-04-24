@@ -1010,13 +1010,14 @@ export class FakeGitHub implements GitHub {
       });
   }
 
-  public updatePullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: GitHubComment, commentBody: string): Promise<GitHubComment> {
+  public updatePullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: number | GitHubComment, commentBody: string): Promise<GitHubComment> {
     return this.getPullRequestComments(repository, githubPullRequest)
       .then((comments: GitHubComment[]) => {
         let result: Promise<GitHubComment>;
-        const commentToUpdate: GitHubComment | undefined = first(comments, (existingComment: GitHubComment) => existingComment.id === comment.id);
+        const commentId: number = getCommentId(comment);
+        const commentToUpdate: GitHubComment | undefined = first(comments, (existingComment: GitHubComment) => existingComment.id === commentId);
         if (!commentToUpdate) {
-          result = Promise.reject(new Error(`No comment found with the ID ${comment.id}.`));
+          result = Promise.reject(new Error(`No comment found with the ID ${commentId}.`));
         } else {
           commentToUpdate.body = commentBody;
           result = Promise.resolve(commentToUpdate);
