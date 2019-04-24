@@ -167,13 +167,9 @@ export async function npmView(options?: NPMViewOptions): Promise<NPMViewResult> 
   }
   args.push("--json");
   const commandResult: RunResult = await npm(args, options);
-  const npmViewResponse: any = JSON.parse(commandResult.stdout!.trim());
+  const npmViewResponse: any = !commandResult.stdout ? {} : JSON.parse(commandResult.stdout!.trim());
   return {
-    exitCode: commandResult.exitCode,
-    stdout: commandResult.stdout,
-    stderr: commandResult.stderr,
-    processId: commandResult.processId,
-    runError: commandResult.error,
+    ...commandResult,
     ...npmViewResponse
   };
 }
