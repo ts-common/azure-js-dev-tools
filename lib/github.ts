@@ -1016,7 +1016,7 @@ export class FakeGitHub implements GitHub {
         let result: Promise<GitHubComment>;
         const commentToUpdate: GitHubComment | undefined = first(comments, (existingComment: GitHubComment) => existingComment.id === comment.id);
         if (!commentToUpdate) {
-          result = Promise.reject(`No comment found with the ID ${comment.id}.`);
+          result = Promise.reject(new Error(`No comment found with the ID ${comment.id}.`));
         } else {
           commentToUpdate.body = commentBody;
           result = Promise.resolve(commentToUpdate);
@@ -1032,7 +1032,7 @@ export class FakeGitHub implements GitHub {
         let result: Promise<unknown>;
         const commentId: number = getCommentId(comment);
         if (!contains(pullRequest.comments, (existingComment: GitHubComment) => existingComment.id === commentId)) {
-          result = Promise.reject(`No comment was found with the id ${commentId}.`);
+          result = Promise.reject(new Error(`No comment was found with the id ${commentId}.`));
         } else {
           pullRequest.comments = where(pullRequest.comments, (existingComment: GitHubComment) => existingComment.id !== commentId);
           result = Promise.resolve();
