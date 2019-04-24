@@ -1,7 +1,7 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
-import { npm, npmExecutable } from "../lib/npm";
-import { RunResult } from "../lib/run";
+import { npm, npmExecutable, NPMViewResult, npmView } from "../lib/npm";
+import { RunResult, FakeRunner } from "../lib/run";
 
 describe("npm.ts", function () {
   describe("npmExecutable()", function () {
@@ -54,6 +54,45 @@ describe("npm.ts", function () {
       assertEx.contains(result.stdout, "Usage: npm <command>");
       assertEx.contains(result.stdout, "where <command> is one of:");
       assert.strictEqual(result.stderr, "");
+    });
+  });
+
+  describe("npmView()", function () {
+    it("command line arguments without packageName", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: NPMViewResult = {
+        exitCode: 2,
+        stdout: `{ "version": "blah" }`,
+        stderr: "d",
+        version: "blah",
+      } as any;
+      runner.set({ command: npmExecutable(), args: ["view", "--json"], result: expectedResult });
+      assert.deepEqual(await npmView({ runner }), expectedResult);
+    });
+
+    it("command line arguments with packageName", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: NPMViewResult = {
+        exitCode: 2,
+        stdout: `{ "version": "blah" }`,
+        stderr: "d",
+        version: "blah",
+      } as any;
+      runner.set({ command: npmExecutable(), args: ["view", "foo", "--json"], result: expectedResult });
+      assert.deepEqual(await npmView({ packageName: "foo", runner }), expectedResult);
+    });
+
+    it("with autorest", async function () {
+      const autorestDetails: NPMViewResult = await npmView({ packageName: "autorest" });
+      assertEx.defined(autorestDetails);
+      assert.strictEqual(autorestDetails.exitCode, 0);
+      assertEx.defined(autorestDetails.processId);
+      assertEx.definedAndNotEmpty(autorestDetails.stdout);
+      assert.strictEqual(autorestDetails.stderr, "");
+      assert.strictEqual(autorestDetails.error, undefined);
+      assert.strictEqual(autorestDetails.name, "autorest");
+      assert.strictEqual(autorestDetails.author, "Microsoft Corporation");
+      assert.strictEqual(autorestDetails.license, "MIT");
     });
   });
 });
