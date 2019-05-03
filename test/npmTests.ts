@@ -48,7 +48,7 @@ describe("npm.ts", function () {
 
   describe("npm()", function () {
     it("with unrecognized command", async function () {
-      const result: RunResult = await npm("foo");
+      const result: RunResult = await npm(["foo"]);
       assert(result);
       assert.strictEqual(result.exitCode, 1);
       assertEx.contains(result.stdout, "Usage: npm <command>");
@@ -66,7 +66,7 @@ describe("npm.ts", function () {
         stderr: "d",
         version: "blah",
       } as any;
-      runner.set({ command: npmExecutable(), args: ["view", "--json"], result: expectedResult });
+      runner.set({ executable: npmExecutable(), args: ["view", "--json"], result: expectedResult });
       assert.deepEqual(await npmView({ runner }), expectedResult);
     });
 
@@ -78,11 +78,13 @@ describe("npm.ts", function () {
         stderr: "d",
         version: "blah",
       } as any;
-      runner.set({ command: npmExecutable(), args: ["view", "foo", "--json"], result: expectedResult });
+      runner.set({ executable: npmExecutable(), args: ["view", "foo", "--json"], result: expectedResult });
       assert.deepEqual(await npmView({ packageName: "foo", runner }), expectedResult);
     });
 
     it("with autorest", async function () {
+      this.timeout(10000);
+
       const autorestDetails: NPMViewResult = await npmView({ packageName: "autorest" });
       assertEx.defined(autorestDetails);
       assert.strictEqual(autorestDetails.exitCode, 0);
