@@ -9,7 +9,7 @@
  * @param values The array to check.
  * @returns Whether or not the provided array contains any values.
  */
-export function any<T>(values: T[] | undefined): boolean {
+export function any<T>(values: T[] | undefined): values is T[] {
   return !!(values && values.length > 0);
 }
 

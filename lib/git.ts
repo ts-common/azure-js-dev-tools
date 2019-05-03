@@ -19,7 +19,7 @@ export interface GitRunResult extends RunResult {
   error?: Error;
 }
 
-export function git(args: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
+export function git(args: string[], options: RunOptions = {}): Promise<GitRunResult> {
   return run("git", args, options);
 }
 
@@ -43,15 +43,15 @@ export interface GitFetchOptions extends RunOptions {
  * @param options The options that can be passed to `git fetch`.
  */
 export function gitFetch(options: GitFetchOptions = {}): Promise<GitRunResult> {
-  let command = "fetch";
+  const args: string[] = ["fetch"];
   if (options.prune) {
-    command += " --prune";
+    args.push("--prune");
   }
-  return git(command, options);
+  return git(args, options);
 }
 
 export function gitMergeOriginMaster(options: RunOptions = {}): Promise<GitRunResult> {
-  return git("merge origin master", options);
+  return git(["merge", "origin", "master"], options);
 }
 
 /**
@@ -98,27 +98,27 @@ export interface GitCloneOptions extends RunOptions {
  * @param options The options that can be passed to "git clone".
  */
 export function gitClone(gitUri: string, options: GitCloneOptions = {}): Promise<GitRunResult> {
-  let command = `clone`;
+  const args: string[] = [`clone`];
   if (options.quiet) {
-    command += ` --quiet`;
+    args.push(`--quiet`);
   }
   if (options.verbose) {
-    command += ` --verbose`;
+    args.push(`--verbose`);
   }
   if (options.origin) {
-    command += ` --origin ${options.origin}`;
+    args.push(`--origin`, options.origin);
   }
   if (options.branch) {
-    command += ` --branch ${options.branch}`;
+    args.push(`--branch`, options.branch);
   }
   if (options.depth != undefined) {
-    command += ` --depth ${options.depth}`;
+    args.push(`--depth`, options.depth.toString());
   }
-  command += ` ${gitUri}`;
+  args.push(gitUri);
   if (options.directory) {
-    command += ` ${options.directory}`;
+    args.push(options.directory);
   }
-  return git(command, options);
+  return git(args, options);
 }
 
 export interface GitCheckoutResult extends GitRunResult {
@@ -130,7 +130,7 @@ export interface GitCheckoutResult extends GitRunResult {
 }
 
 export async function gitCheckout(refId: string, options: RunOptions = {}): Promise<GitCheckoutResult> {
-  const runResult: GitRunResult = await git(`checkout ${refId}`, options);
+  const runResult: GitRunResult = await git([`checkout`, refId], options);
   let filesThatWouldBeOverwritten: string[] | undefined;
   if (runResult.stderr) {
     const stderrLines: string[] = getLines(runResult.stderr);
@@ -155,7 +155,7 @@ export async function gitCheckout(refId: string, options: RunOptions = {}): Prom
 }
 
 export function gitPull(options: RunOptions = {}): Promise<GitRunResult> {
-  return git(`pull`, options);
+  return git([`pull`], options);
 }
 
 /**
@@ -178,11 +178,11 @@ export interface GitPushOptions extends RunOptions {
  * @param options The options for determining how this command will run.
  */
 export async function gitPush(options: GitPushOptions = {}): Promise<GitRunResult> {
-  let args = "push";
+  const args: string[] = ["push"];
   if (options.setUpstream) {
     const upstream: string = typeof options.setUpstream === "string" ? options.setUpstream : "origin";
     const branchName: string = options.branchName || await gitCurrentBranch(options);
-    args += ` --set-upstream ${upstream} ${branchName}`;
+    args.push(`--set-upstream`, upstream, branchName);
   }
   return await git(args, options);
 }
@@ -238,7 +238,7 @@ export function gitCommit(commitMessages: string | string[], options: GitCommitO
 }
 
 export function gitDeleteLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
-  return git(`branch -D ${branchName}`, options);
+  return git([`branch`, `-D`, branchName], options);
 }
 
 /**
@@ -247,7 +247,7 @@ export function gitDeleteLocalBranch(branchName: string, options: RunOptions = {
  * @param options The options for determining how this command will run.
  */
 export function gitCreateLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
-  return git(`checkout -b ${branchName}`, options);
+  return git([`checkout`, `-b`, branchName], options);
 }
 
 /**
@@ -267,7 +267,7 @@ export interface GitDeleteRemoteBranchOptions extends RunOptions {
  * @param options The options for determining how this command will run.
  */
 export function gitDeleteRemoteBranch(branchName: string, options: GitDeleteRemoteBranchOptions = {}): Promise<GitRunResult> {
-  return git(`push ${options.remoteName || "origin"} :${branchName}`, options);
+  return git([`push`, options.remoteName || "origin", `:${branchName}`], options);
 }
 
 /**
@@ -310,31 +310,31 @@ export interface GitDiffResult extends GitRunResult {
 }
 
 export async function gitDiff(options: GitDiffOptions = {}): Promise<GitDiffResult> {
-  let command = "diff";
+  const args: string[] = ["diff"];
 
   if (options.commit1) {
-    command += ` ${options.commit1}`;
+    args.push(options.commit1);
   }
 
   if (options.commit2) {
-    command += ` ${options.commit2}`;
+    args.push(options.commit2);
   }
 
   if (options.staged) {
-    command += ` --staged`;
+    args.push(`--staged`);
   }
 
   if (options.nameOnly) {
-    command += ` --name-only`;
+    args.push(`--name-only`);
   }
 
   if (options.ignoreSpace === "all") {
-    command += ` --ignore-all-space`;
+    args.push(`--ignore-all-space`);
   } else if (options.ignoreSpace) {
-    command += ` --ignore-space-${options.ignoreSpace}`;
+    args.push(`--ignore-space-${options.ignoreSpace}`);
   }
 
-  const commandResult: RunResult = await git(command, options);
+  const commandResult: RunResult = await git(args, options);
 
   let filesChanged: string[];
   const repositoryFolderPath: string | undefined = options.executionFolderPath || process.cwd();
@@ -395,7 +395,7 @@ export interface GitLocalBranchesResult extends GitRunResult {
 
 const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.*)\)/;
 export async function gitLocalBranches(options: RunOptions = {}): Promise<GitLocalBranchesResult> {
-  const commandResult: RunResult = await git("branch", options);
+  const commandResult: RunResult = await git(["branch"], options);
   let currentBranch = "";
   const localBranches: string[] = [];
   for (let branch of getLines(commandResult.stdout)) {
@@ -579,7 +579,7 @@ export async function gitStatus(options: RunOptions = {}): Promise<GitStatusResu
   const notStagedDeletedFiles: string[] = [];
   const untrackedFiles: string[] = [];
 
-  const runResult: RunResult = await git("status", options);
+  const runResult: RunResult = await git(["status"], options);
   const lines: string[] = getLines(runResult.stdout);
   let lineIndex = 0;
   while (lineIndex < lines.length) {
@@ -749,7 +749,7 @@ export class GitScope {
   constructor(private options: RunOptions) {
   }
 
-  public run(args: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
+  public run(args: string[], options: RunOptions = {}): Promise<GitRunResult> {
     return git(args, {
       ...this.options,
       ...options,

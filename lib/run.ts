@@ -6,9 +6,191 @@
 
 import { ChildProcess, spawn, StdioOptions } from "child_process";
 import * as os from "os";
-import { last } from "./arrays";
-import { StringMap } from "./common";
+import { any, last } from "./arrays";
+import { replaceAll, StringMap } from "./common";
 import { normalizePath } from "./path";
+
+export interface Command {
+  /**
+   * The executable file/command to run.
+   */
+  executable: string;
+  /**
+   * The arguments to pass to the executable.
+   */
+  args?: string[];
+  /**
+   * The options to use when running the command.
+   */
+  options?: RunOptions;
+}
+
+/**
+ * Get the string representation of the provided command.
+ */
+export function commandToString(command: Command): string {
+  let result: string = quoteIfNeeded(command.executable);
+
+  if (any(command.args)) {
+    for (const arg of command.args) {
+      if (arg) {
+        result += ` ${quoteIfNeeded(arg)}`;
+      }
+    }
+  }
+
+  return result;
+}
+
+export interface CommandToken {
+  text: string;
+  startIndex: number;
+  endIndex: number;
+  isWhitespace?: boolean;
+}
+
+function parseCommandNonWhitespaceToken(commandString: string, startIndex: number): CommandToken {
+  const commandStringLength: number = commandString.length;
+  let endIndex: number = startIndex;
+  let quote: string | undefined;
+  let escaped = false;
+  while (endIndex < commandStringLength) {
+    const currentCharacter: string = commandString[endIndex];
+    ++endIndex;
+    if (!quote) {
+      if (currentCharacter === " ") {
+        --endIndex;
+        break;
+      } else if (currentCharacter === `'` || currentCharacter === `"`) {
+        quote = currentCharacter;
+      }
+    } else if (!escaped) {
+      if (currentCharacter === "\\") {
+        escaped = true;
+      } else if (currentCharacter === quote) {
+        quote = undefined;
+      }
+    } else {
+      escaped = false;
+    }
+  }
+  return {
+    text: commandString.substring(startIndex, endIndex),
+    startIndex,
+    endIndex,
+  };
+}
+
+function parseCommandWhitespaceToken(commandString: string, startIndex: number): CommandToken {
+  const commandStringLength: number = commandString.length;
+  let endIndex: number = startIndex + 1;
+  while (endIndex < commandStringLength && commandString[endIndex] === " ") {
+    ++endIndex;
+  }
+  return {
+    text: commandString.substring(startIndex, endIndex),
+    startIndex,
+    endIndex,
+    isWhitespace: true,
+  };
+}
+
+export function parseCommandToken(commandString: string, startIndex: number): CommandToken | undefined {
+  let result: CommandToken | undefined;
+
+  const commandStringLength: number = commandString.length;
+  if (0 <= startIndex && startIndex < commandStringLength) {
+    const firstCharacter: string = commandString[startIndex];
+    if (firstCharacter === " ") {
+      result = parseCommandWhitespaceToken(commandString, startIndex);
+    } else {
+      result = parseCommandNonWhitespaceToken(commandString, startIndex);
+    }
+  }
+
+  return result;
+}
+
+export function parseCommandTokens(commandString: string, startIndex = 0): CommandToken[] {
+  const result: CommandToken[] = [];
+
+  let argToken: CommandToken | undefined = parseCommandToken(commandString, startIndex);
+  while (argToken) {
+    if (!argToken.isWhitespace) {
+      result.push(argToken);
+    }
+    argToken = parseCommandToken(commandString, argToken.endIndex);
+  }
+
+  return result;
+}
+
+export function createCommand(commandTokens: CommandToken[] | undefined): Command | undefined {
+  let result: Command | undefined;
+  if (any(commandTokens)) {
+    result = {
+      executable: commandTokens.shift()!.text,
+      args: commandTokens.map((commandToken: CommandToken) => commandToken.text),
+    };
+  }
+  return result;
+}
+
+/**
+ * Parse a command object from the provided command string.
+ */
+export function parseCommand(commandString: string, startIndex = 0): Command | undefined {
+  const commandTokens: CommandToken[] = parseCommandTokens(commandString, startIndex);
+  return createCommand(commandTokens);
+}
+
+export function parseCommands(commandString: string, startIndex = 0): Command[] {
+  const commandTokens: CommandToken[] = parseCommandTokens(commandString, startIndex);
+  let commandStartIndex = 0;
+  const result: Command[] = [];
+  for (let commandIndex = 0; commandIndex < commandTokens.length; ++commandIndex) {
+    const command: CommandToken = commandTokens[commandIndex];
+    if (command.text === "&" || command.text === "&&") {
+      if (commandStartIndex === commandIndex) {
+        ++commandStartIndex;
+      } else {
+        result.push(createCommand(commandTokens.slice(commandStartIndex, commandIndex))!);
+        commandStartIndex = commandIndex + 1;
+      }
+    }
+  }
+  if (commandStartIndex < commandTokens.length) {
+    result.push(createCommand(commandTokens.slice(commandStartIndex, commandTokens.length))!);
+  }
+  return result;
+}
+
+/**
+ * Quote the provided value if it is needed.
+ */
+export function quoteIfNeeded(value: string, quote = `"`): string {
+  return shouldQuote(value, quote) ? ensureQuoted(value, quote) : value;
+}
+
+/**
+ * Determine whether or not the provided value should be quoted.
+ */
+export function shouldQuote(value: string, quote = `"`): boolean {
+  return !!value && (value.includes(" ") || value.includes(quote));
+}
+
+/**
+ * Ensure that the provided value is surrounded by the provided quote string.
+ */
+export function ensureQuoted(value: string, quote = `"`): string {
+  if (quote && value.length < quote.length * 2 || !value.startsWith(quote) || !value.endsWith(quote)) {
+    if (quote === `"` || quote === `'`) {
+      value = replaceAll(value, quote, `\\${quote}`)!;
+    }
+    value = `${quote}${value}${quote}`;
+  }
+  return value;
+}
 
 /**
  * An object that runs a provided command.
@@ -16,11 +198,10 @@ import { normalizePath } from "./path";
 export interface Runner {
   /**
    * Run the provided command asynchronously.
-   * @param command  The command to run.
-   * @param args The arguments to the command to run.
+   * @param command The command to run.
    * @param options The options to use when running the command.
    */
-  run(command: string, args: string | string[] | undefined, options: RunOptions | undefined): Promise<RunResult>;
+  run(command: Command, options: RunOptions | undefined): Promise<RunResult>;
 }
 
 export function chunkToString(chunk: any): string {
@@ -34,11 +215,10 @@ export function chunkToString(chunk: any): string {
  * A command runner that runs commands using a spawned process.
  */
 export class RealRunner implements Runner {
-  run(command: string, args: string | string[] | undefined, options: RunOptions = {}): Promise<RunResult> {
-    command = normalizePath(command, os.platform());
-    const argsArray: string[] = getArgsArray(args);
+  public run(command: Command, options: RunOptions = {}): Promise<RunResult> {
+    const executablePath: string = normalizePath(command.executable, os.platform());
 
-    const childProcess: ChildProcess = spawn(command, argsArray, {
+    const childProcess: ChildProcess = spawn(executablePath, command.args || [], {
       cwd: options.executionFolderPath,
       stdio: getChildProcessStdio(options),
       env: options.environmentVariables
@@ -158,7 +338,7 @@ function getExecutionFolderPath(options: RunOptions | undefined): string {
 }
 
 export interface FakeCommand {
-  command: string;
+  executable: string;
   args?: string[];
   executionFolderPath?: string;
   result?: RunResult | Promise<RunResult> | (() => RunResult | Promise<RunResult>);
@@ -170,19 +350,19 @@ export interface FakeCommand {
 export class FakeRunner implements Runner {
   private readonly innerRunner: Runner;
   private readonly fakeCommands: FakeCommand[] = [];
-  private unrecognizedCommand: (command: string, args?: string | string[], options?: RunOptions) => (RunResult | Promise<RunResult>);
+  private unrecognizedCommand: (command: Command, options?: RunOptions) => (RunResult | Promise<RunResult>);
 
   constructor(innerRunner?: Runner) {
     this.innerRunner = innerRunner || new RealRunner();
-    this.unrecognizedCommand = (command: string, args?: string | string[], options?: RunOptions) =>
-      Promise.reject(new Error(`No FakeRunner result has been registered for the command "${getCommandString(command, args)}" at "${getExecutionFolderPath(options)}".`));
+    this.unrecognizedCommand = (command: Command, options?: RunOptions) =>
+      Promise.reject(new Error(`No FakeRunner result has been registered for the command "${commandToString(command)}" at "${getExecutionFolderPath(options)}".`));
   }
 
   /**
    * Set the function to invoke when an unrecognized command is run.
    * @param unrecognizedCommandHandler The function to call when an unrecognized command is run.
    */
-  public onUnrecognizedCommand(unrecognizedCommandHandler: ((command: string, args?: string | string[], options?: RunOptions) => (RunResult | Promise<RunResult>))): void {
+  public onUnrecognizedCommand(unrecognizedCommandHandler: ((command: Command, options?: RunOptions) => (RunResult | Promise<RunResult>))): void {
     this.unrecognizedCommand = unrecognizedCommandHandler;
   }
 
@@ -191,8 +371,8 @@ export class FakeRunner implements Runner {
    * inner runner.
    */
   public passthroughUnrecognized(): void {
-    this.onUnrecognizedCommand((command: string, args?: string | string[], options?: RunOptions) =>
-      this.innerRunner.run(command, args, options));
+    this.onUnrecognizedCommand((command: Command, options?: RunOptions) =>
+      this.innerRunner.run(command, options));
   }
 
   /**
@@ -208,26 +388,26 @@ export class FakeRunner implements Runner {
    * the commandString through to the inner runner.
    * @param commandString The commandString to pass through to the inner runner.
    */
-  public passthrough(command: string, args?: string[], executionFolderPath?: string): void {
+  public passthrough(command: Command, executionFolderPath?: string): void {
     this.set({
-      command,
-      args,
+      executable: command.executable,
+      args: command.args,
       executionFolderPath,
-      result: () => this.innerRunner.run(command, args, { executionFolderPath })
+      result: () => this.innerRunner.run(command, { executionFolderPath })
     });
   }
 
-  public async run(command: string, args?: string | string[], options?: RunOptions): Promise<RunResult> {
-    const commandString: string = getCommandString(command, args);
+  public async run(command: Command, options?: RunOptions): Promise<RunResult> {
+    const commandString: string = commandToString(command);
 
     const executionFolderPath: string = getExecutionFolderPath(options);
     const fakeCommand: FakeCommand | undefined = last(this.fakeCommands, (registeredFakeCommand: FakeCommand) =>
-      commandString === getCommandString(registeredFakeCommand.command, registeredFakeCommand.args) &&
+      commandString === commandToString(registeredFakeCommand) &&
       (!registeredFakeCommand.executionFolderPath || executionFolderPath === registeredFakeCommand.executionFolderPath));
 
     let result: Promise<RunResult>;
     if (!fakeCommand) {
-      result = Promise.resolve(this.unrecognizedCommand(command, args, options));
+      result = Promise.resolve(this.unrecognizedCommand(command, options));
     } else {
       let runResult: RunResult | Promise<RunResult> | (() => RunResult | Promise<RunResult>) | undefined = fakeCommand.result;
       if (!runResult) {
@@ -344,22 +524,9 @@ export function getShowResultFunction(showResult: undefined | boolean | ((result
   return result;
 }
 
-export function getCommandString(command: string, args: string | string[] | undefined): string {
-  let result: string = command;
-  if (args) {
-    if (Array.isArray(args)) {
-      args = args.join(" ");
-    }
-    if (args) {
-      result += ` ${args}`;
-    }
-  }
-  return result;
-}
-
-export async function logCommand(command: string, args: string | string[] | undefined, options: RunOptions): Promise<void> {
+export async function logCommand(command: Command, options: RunOptions): Promise<void> {
   if (options && options.log && (options.showCommand == undefined || options.showCommand)) {
-    let commandString: string = getCommandString(command, args);
+    let commandString: string = commandToString(command);
     if (options.executionFolderPath) {
       commandString = `${options.executionFolderPath}: ${commandString}`;
     }
@@ -410,12 +577,25 @@ export function getChildProcessStdio(options: RunOptions): StdioOptions {
  * @param command The command to run.
  * @param args The arguments to provide to the command.
  */
-export async function run(command: string, args?: string | string[], options: RunOptions = {}): Promise<RunResult> {
+export async function run(command: string | Command, args?: string[], options: RunOptions = {}): Promise<RunResult> {
+  if (typeof command === "string") {
+    command = {
+      executable: command,
+    };
+  }
+  if (!command.args) {
+    command.args = [];
+  }
+
+  if (args) {
+    command.args.push(...args);
+  }
+
   const runner: Runner = options.runner || new RealRunner();
 
-  await logCommand(command, args, options);
+  await logCommand(command, options);
   await logEnvironmentVariables(options);
-  const result: RunResult = await runner.run(command, args, options);
+  const result: RunResult = await runner.run(command, options);
   await logResult(result, options);
 
   return result;
