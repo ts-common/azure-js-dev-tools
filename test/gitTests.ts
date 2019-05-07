@@ -2,7 +2,7 @@ import { assert } from "chai";
 import { joinPath } from "../lib";
 import { assertEx } from "../lib/assertEx";
 import { findFileInPath, findFileInPathSync } from "../lib/fileSystem2";
-import { getGitRemoteBranch, getRemoteBranchFullName, git, gitAddAll, gitCheckout, gitClone, gitCommit, gitConfigGet, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitDiff, GitDiffResult, gitFetch, GitGetConfigResult as GitConfigGetResult, gitGetRepositoryUrl, gitLocalBranches, GitLocalBranchesResult, gitMergeOriginMaster, gitPull, gitPush, GitRemoteBranch, gitRemoteBranches, GitRemoteBranchesResult, GitRunResult, gitStatus, GitStatusResult, gitResetAll } from "../lib/git";
+import { getGitRemoteBranch, getRemoteBranchFullName, git, gitAddAll, gitCheckout, gitClone, gitCommit, gitConfigGet, gitCreateLocalBranch, gitCurrentBranch, gitDeleteLocalBranch, gitDeleteRemoteBranch, gitDiff, GitDiffResult, gitFetch, GitGetConfigResult as GitConfigGetResult, gitGetRepositoryUrl, gitLocalBranches, GitLocalBranchesResult, gitMergeOriginMaster, gitPull, gitPush, GitRemoteBranch, gitRemoteBranches, GitRemoteBranchesResult, GitRunResult, gitStatus, GitStatusResult, gitResetAll, gitCurrentCommitSha, GitCurrentCommitShaResult } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
 
 const runPushRemoteBranchTests: boolean = !!findFileInPathSync("github.auth");
@@ -16,6 +16,26 @@ describe("git.ts", function () {
       assert.strictEqual(result.stdout, "");
       assertEx.contains(result.stderr, "git: 'foo' is not a git command. See 'git --help'.");
       assertEx.contains(result.stderr, "The most similar command is");
+    });
+  });
+
+  describe("gitCurrentCommitSha()", function () {
+    it("with no options", async function () {
+      const runner = new FakeRunner();
+      const expectedResult: GitCurrentCommitShaResult = { exitCode: 2, stdout: "c", stderr: "d", currentCommitSha: "c" };
+      runner.set({ executable: "git", args: ["rev-parse", "HEAD"], result: expectedResult });
+      assert.deepEqual(await gitCurrentCommitSha({ runner }), expectedResult);
+    });
+
+    it("with real runner", async function () {
+      const result: GitCurrentCommitShaResult = await gitCurrentCommitSha();
+      assertEx.defined(result, "result");
+      assert.strictEqual(result.exitCode, 0);
+      assertEx.defined(result.processId, "result.processId");
+      assert.strictEqual(result.error, undefined);
+      assert.strictEqual(result.stderr, "");
+      assertEx.definedAndNotEmpty(result.stdout, "result.stdout");
+      assert.strictEqual(result.currentCommitSha, result.stdout);
     });
   });
 
