@@ -333,6 +333,45 @@ export function getForkedRepositoryBranchFullName(forkedRepositoryBranch: string
   return result;
 }
 
+/**
+ * A generic reference from a GitHub repository. This can be either a branch, tag, note, or stash.
+ */
+export interface GitHubReference {
+  /**
+   * This reference's full name.
+   */
+  readonly ref: string;
+  readonly node_id: string;
+  /**
+   * The GitHub URL for this reference.
+   */
+  readonly url: string;
+  readonly object: {
+    /**
+     * The type of Git object that this reference points to.
+     */
+    readonly type: string;
+    /**
+     * The SHA that this reference points to.
+     */
+    readonly sha: string;
+    /**
+     * The URL of the Git object that this reference points to.
+     */
+    readonly url: string;
+  };
+}
+
+/**
+ * A branch reference from a GitHub repository.
+ */
+export interface GitHubBranch extends GitHubReference {
+  /**
+   * The simplified name of the branch.
+   */
+  readonly name: string;
+}
+
 export interface GitHub {
   /**
    * Get the user that is currently authenticated.
@@ -525,6 +564,43 @@ export interface GitHub {
    * @param commit A unique identifier for the commit.
    */
   getCommit(repository: string | GitHubRepository, commit: string): Promise<GitHubCommit | undefined>;
+
+  /**
+   * Get all of the references (branches, tags, notes, stashes, etc.) in the provided repository.
+   * @param repository The repository to get all of the references for.
+   * @returns All of the references (branches, tags, notes, stashes, etc.) in the provided
+   * repository.
+   */
+  getAllReferences(repository: string | GitHubRepository): Promise<GitHubReference[]>;
+
+  /**
+   * Get all of the branches in the provided repository.
+   * @param repository The repository to get all of the branches for.
+   * @returns All of the branches in the provided repository.
+   */
+  getAllBranches(repository: string | GitHubRepository): Promise<GitHubBranch[]>;
+
+  /**
+   * Get more information about the provided branch in the provided repository.
+   * @param repository The repository to get the branch from.
+   * @param branchName The name of the branch to get.
+   */
+  getBranch(repository: string | GitHubRepository, branchName: string): Promise<GitHubBranch>;
+
+  /**
+   * Delete the branch with the provided name in the provided repository.
+   * @param repository The repository to delete the branch from.
+   * @param branchName The name of the branch to delete.
+   */
+  deleteBranch(repository: string | GitHubRepository, branchName: string): Promise<unknown>;
+
+  /**
+   * Create a branch with the provided name as the provided sha in the provided repository.
+   * @param repository The repository to create the branch in.
+   * @param branchName The name of the branch to create.
+   * @param branchSha The SHA/commit ID that the branch will be created at.
+   */
+  createBranch(repository: string | GitHubRepository, branchName: string, branchSha: string): Promise<GitHubBranch>;
 }
 
 export interface FakeGitHubPullRequest extends GitHubPullRequest {
@@ -537,7 +613,7 @@ export class FakeGitHubRepository {
   public readonly milestones: GitHubMilestone[] = [];
   public readonly pullRequests: FakeGitHubPullRequest[] = [];
   public readonly commits: GitHubCommit[] = [];
-  public readonly branches: string[] = [];
+  public readonly branches: GitHubBranch[] = [];
 
   constructor(name: string) {
     this.name = name;
@@ -573,18 +649,6 @@ export class FakeGitHub implements GitHub {
       result = Promise.resolve(fakeRepository);
     }
     return result;
-  }
-
-  /**
-   * Create a fake branch in the provided repository.
-   * @param repository The repository to create the fake branch in.
-   * @param branchName The name of the fake branch.
-   */
-  public createFakeBranch(repository: string | GitHubRepository, branchName: string): Promise<unknown> {
-    return this.getFakeRepository(repository)
-      .then((fakeRepository: FakeGitHubRepository) => {
-        fakeRepository.branches.push(branchName);
-      });
   }
 
   public createUser(username: string): Promise<GitHubUser> {
@@ -798,9 +862,9 @@ export class FakeGitHub implements GitHub {
     return this.getFakeRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
         let result: Promise<FakeGitHubPullRequest>;
-        if (!fakeRepository.branches.includes(pullRequest.base.ref)) {
+        if (!contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === pullRequest.base.ref)) {
           result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.base.ref}".`));
-        } else if (!fakeRepository.branches.includes(pullRequest.head.ref)) {
+        } else if (!contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === pullRequest.head.ref)) {
           result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.head.ref}".`));
         } else if (pullRequest.base.label === pullRequest.head.label) {
           result = Promise.reject(new Error(`The base label ("${pullRequest.base.label}") cannot be the same as the head label ("${pullRequest.head.label}").`));
@@ -1058,6 +1122,65 @@ export class FakeGitHub implements GitHub {
             message
           }
         });
+      });
+  }
+
+  public getAllReferences(repository: string | GitHubRepository): Promise<GitHubReference[]> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        return fakeRepository.branches;
+      });
+  }
+
+  public getAllBranches(repository: string | GitHubRepository): Promise<GitHubBranch[]> {
+    return this.getAllReferences(repository)
+      .then(referencesToBranches);
+  }
+
+  public getBranch(repository: string | GitHubRepository, branchName: string): Promise<GitHubBranch> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        const result: GitHubBranch | undefined = first(fakeRepository.branches, (branch: GitHubBranch) => branch.name === branchName);
+        if (!result) {
+          throw new Error(`Could not get details about the branch "${branchName}" in repository "${fakeRepository.name}" because the branch didn't exist.`);
+        }
+        return result;
+      });
+  }
+
+  public deleteBranch(repository: string | GitHubRepository, branchName: string): Promise<unknown> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        const removedBranch: GitHubBranch | undefined = removeFirst(fakeRepository.branches, (branch: GitHubBranch) => branch.name === branchName);
+        if (!removedBranch) {
+          throw new Error(`Could not delete branch "${branchName}" from repository "${fakeRepository.name}" because the branch didn't exist.`);
+        }
+      });
+  }
+
+  public createBranch(repository: string | GitHubRepository, branchName: string, branchSha: string): Promise<GitHubBranch> {
+    return this.getFakeRepository(repository)
+      .then((fakeRepository: FakeGitHubRepository) => {
+        let result: GitHubBranch;
+        if (contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === branchName)) {
+          throw new Error(`Could not create a branch named "${branchName}" in repository "${fakeRepository.name}" because a branch with that name already exists.`);
+        } else if (!contains(fakeRepository.commits, (commit: GitHubCommit) => commit.sha === branchSha)) {
+          throw new Error(`Could not create a branch named "${branchName}" in repository "${fakeRepository.name}" with the SHA "${branchSha}" because no commit exists in the repository with the provided SHA.`);
+        } else {
+          result = {
+            name: branchName,
+            ref: `refs/heads/${branchName}`,
+            node_id: "fake-node-id",
+            url: "fake-branch-url",
+            object: {
+              type: "commit",
+              sha: branchSha,
+              url: "fake-branch-commit-sha",
+            }
+          };
+          fakeRepository.branches.push(result);
+        }
+        return result;
       });
   }
 }
@@ -1662,6 +1785,89 @@ export class RealGitHub implements GitHub {
         return result;
       });
   }
+
+  public getAllReferences(repository: string | GitHubRepository): Promise<GitHubReference[]> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.GitdataGetReferencesParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+    };
+    return this.github.gitdata.getReferences(githubArguments)
+      .then((response: Octokit.AnyResponse) => {
+        return this.getAllPageData<GitHubReference>(response);
+      });
+  }
+
+  public getAllBranches(repository: string | GitHubRepository): Promise<GitHubBranch[]> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.GitdataGetReferencesParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      namespace: "heads/",
+    };
+    return this.github.gitdata.getReferences(githubArguments)
+      .then((response: Octokit.AnyResponse) => {
+        return this.getAllPageData<GitHubReference>(response);
+      })
+      .then(referencesToBranches);
+  }
+
+  public getBranch(repository: string | GitHubRepository, branchName: string): Promise<GitHubBranch> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.GitdataGetReferenceParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      ref: `heads/${branchName}`,
+    };
+    return !branchName
+      ? Promise.reject(new Error(`Cannot get branch details about an empty or undefined branch.`))
+      : this.github.gitdata.getReference(githubArguments)
+        .then((response: Octokit.AnyResponse) => {
+          const githubReference: GitHubReference = response.data;
+          return {
+            ...githubReference,
+            name: branchName,
+          };
+        });
+  }
+
+  public deleteBranch(repository: string | GitHubRepository, branchName: string): Promise<unknown> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.GitdataDeleteReferenceParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      ref: `heads/${branchName}`,
+    };
+    return this.github.gitdata.deleteReference(githubArguments);
+  }
+
+  public createBranch(repository: string | GitHubRepository, branchName: string, branchSha: string): Promise<GitHubBranch> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const githubArguments: Octokit.GitdataCreateReferenceParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      ref: `refs/heads/${branchName}`,
+      sha: branchSha,
+    };
+    return this.github.gitdata.createReference(githubArguments)
+      .then((response: Octokit.AnyResponse) => {
+        const reference: GitHubReference = response.data;
+        const result: GitHubBranch = {
+          name: branchName,
+          ...reference,
+        };
+        return result;
+      });
+  }
+}
+
+function referencesToBranches(references: GitHubReference[]): GitHubBranch[] {
+  return map(references, (reference: GitHubReference) => {
+    return {
+      ...reference,
+      name: reference.ref.substring("refs/heads/".length),
+    };
+  });
 }
 
 function githubMilestonesToSprintMilestones(githubMilestones: GitHubMilestone[]): GitHubSprintMilestone[] {

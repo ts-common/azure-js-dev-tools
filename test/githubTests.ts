@@ -2,7 +2,7 @@ import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
 import { writeFileContents } from "../lib/fileSystem2";
 import { GitScope } from "../lib/git";
-import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub, getGitHubRepositoryFromUrl } from "../lib/github";
+import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub, getGitHubRepositoryFromUrl, GitHubReference, GitHubBranch } from "../lib/github";
 import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
 import { contains } from "../lib/arrays";
@@ -938,6 +938,227 @@ describe("github.ts", function () {
           assert.strictEqual(commit.commit.message, `Merge pull request #112 from ts-common/daschult/encoding\n\n Add encoding to stdout and stderr capture functions`);
         });
       });
+
+      describe("getAllReferences()", function () {
+        this.timeout(5000);
+
+        it("with undefined", async function () {
+          await assertEx.throwsAsync(github.getAllReferences(undefined as any));
+        });
+
+        it("with null", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.getAllReferences(null as any));
+        });
+
+        it(`with ""`, async function () {
+          await assertEx.throwsAsync(github.getAllReferences(""));
+        });
+
+        it(`with repository that doesn't exist`, async function () {
+          await assertEx.throwsAsync(github.getAllReferences("imarepositorythatdoesntexist"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools"`, async function () {
+          const references: GitHubReference[] = await github.getAllReferences("ts-common/azure-js-dev-tools");
+          assertEx.defined(references, "references");
+          assertEx.greaterThan(references.length, 0, "labels.length");
+          assert(contains(references, (reference: GitHubReference) => reference.ref === "refs/heads/master"));
+        });
+      });
+
+      describe("getAllBranches()", function () {
+        this.timeout(5000);
+
+        it("with undefined", async function () {
+          await assertEx.throwsAsync(github.getAllBranches(undefined as any));
+        });
+
+        it("with null", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.getAllBranches(null as any));
+        });
+
+        it(`with ""`, async function () {
+          await assertEx.throwsAsync(github.getAllBranches(""));
+        });
+
+        it(`with repository that doesn't exist`, async function () {
+          await assertEx.throwsAsync(github.getAllBranches("imarepositorythatdoesntexist"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools"`, async function () {
+          const branches: GitHubBranch[] = await github.getAllBranches("ts-common/azure-js-dev-tools");
+          assertEx.defined(branches, "references");
+          assertEx.greaterThan(branches.length, 0, "labels.length");
+          assert(contains(branches, (branch: GitHubBranch) => branch.ref === "refs/heads/master"));
+          assert(contains(branches, (branch: GitHubBranch) => branch.name === "master"));
+        });
+      });
+
+      describe("getBranch()", function () {
+        this.timeout(5000);
+
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.getBranch(undefined as any, "fake-branch-name"));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.getBranch(null as any, "fake-branch-name"));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.getBranch("", "fake-branch-name"));
+        });
+
+        it(`with repository that doesn't exist`, async function () {
+          await assertEx.throwsAsync(github.getBranch("imarepositorythatdoesntexist", "fake-branch-name"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and undefined branch name`, async function () {
+          await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", undefined as any));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and null branch name`, async function () {
+          // tslint:disable-next-line: no-null-keyword
+          await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", null as any));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and empty branch name`, async function () {
+          await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", ""));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and non-existing branch name`, async function () {
+          await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", "imabranchthatdoesntexist"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and existing branch name`, async function () {
+          const branch: GitHubBranch = await github.getBranch("ts-common/azure-js-dev-tools", "master");
+          assertEx.defined(branch, "branch");
+          assert.strictEqual(branch.name, "master");
+          assert.strictEqual(branch.ref, "refs/heads/master");
+          assertEx.definedAndNotEmpty(branch.node_id, "branch.node_id");
+          assertEx.definedAndNotEmpty(branch.url, "branch.url");
+          assertEx.defined(branch.object, "branch.object");
+          assert.strictEqual(branch.object.type, "commit");
+          assertEx.definedAndNotEmpty(branch.object.sha);
+          assertEx.definedAndNotEmpty(branch.object.url);
+        });
+      });
+
+      describe("deleteBranch()", function () {
+        this.timeout(5000);
+
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.deleteBranch(undefined as any, "fake-branch-name"));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.deleteBranch(null as any, "fake-branch-name"));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.deleteBranch("", "fake-branch-name"));
+        });
+
+        it(`with repository that doesn't exist`, async function () {
+          await assertEx.throwsAsync(github.deleteBranch("imarepositorythatdoesntexist", "fake-branch-name"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and undefined branch name`, async function () {
+          await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", undefined as any));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and null branch name`, async function () {
+          // tslint:disable-next-line: no-null-keyword
+          await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", null as any));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and empty branch name`, async function () {
+          await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", ""));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and non-existing branch name`, async function () {
+          await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", "imabranchthatdoesntexist"));
+        });
+      });
+
+      describe("createBranch()", function () {
+        this.timeout(5000);
+
+        it("with undefined repository", async function () {
+          await assertEx.throwsAsync(github.createBranch(undefined as any, "fake-branch-name", "fake-branch-sha"));
+        });
+
+        it("with null repository", async function () {
+          // tslint:disable-next-line:no-null-keyword
+          await assertEx.throwsAsync(github.createBranch(null as any, "fake-branch-name", "fake-branch-sha"));
+        });
+
+        it(`with "" repository`, async function () {
+          await assertEx.throwsAsync(github.createBranch("", "fake-branch-name", "fake-branch-sha"));
+        });
+
+        it(`with repository that doesn't exist`, async function () {
+          await assertEx.throwsAsync(github.createBranch("imarepositorythatdoesntexist", "fake-branch-name", "fake-branch-sha"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and undefined branch name`, async function () {
+          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", undefined as any, "fake-branch-sha"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and null branch name`, async function () {
+          // tslint:disable-next-line: no-null-keyword
+          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", null as any, "fake-branch-sha"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and empty branch name`, async function () {
+          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "", "fake-branch-sha"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and existing branch name`, async function () {
+          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "master", "fake-branch-sha"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and undefined branch sha`, async function () {
+          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", undefined as any));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and null branch sha`, async function () {
+          // tslint:disable-next-line: no-null-keyword
+          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", null as any));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and empty branch sha`, async function () {
+          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", ""));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools" and non-existing branch sha`, async function () {
+          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", "fake-branch-sha"));
+        });
+
+        it(`with "ts-common/azure-js-dev-tools", non-existing branch name, and existing sha`, async function () {
+          const master: GitHubBranch = await github.getBranch("ts-common/azure-js-dev-tools", "master");
+          assertEx.defined(master, "master");
+
+          const fakeBranch: GitHubBranch = await github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", master.object.sha);
+          try {
+            assertEx.defined(fakeBranch, "fakeBranch");
+            assert.strictEqual(fakeBranch.name, "fake/branch");
+            assert.strictEqual(fakeBranch.ref, "refs/heads/fake/branch");
+            assertEx.definedAndNotEmpty(fakeBranch.node_id, "fakeBranch.node_id");
+            assertEx.definedAndNotEmpty(fakeBranch.url, "fakeBranch.url");
+            assertEx.defined(fakeBranch.object, "fakeBranch.object");
+            assert.strictEqual(fakeBranch.object.type, "commit");
+            assertEx.definedAndNotEmpty(fakeBranch.object.sha, "fakeBranch.object.sha");
+            assertEx.definedAndNotEmpty(fakeBranch.object.url, "fakeBranch.object.url");
+          } finally {
+            await github.deleteBranch("ts-common/azure-js-dev-tools", "fake/branch");
+          }
+        });
+      });
     });
   }
   githubTests("FakeGitHub", createFakeGitHub());
@@ -952,9 +1173,11 @@ function createFakeGitHub(): FakeGitHub {
   fakeGitHub.setCurrentUser(fakeUserLogin);
 
   fakeGitHub.createFakeRepository("ts-common/azure-js-dev-tools");
-  fakeGitHub.createFakeBranch("ts-common/azure-js-dev-tools", "master");
-  fakeGitHub.createFakeBranch("ts-common/azure-js-dev-tools", "daschult/capturedLines");
-  fakeGitHub.createFakeBranch("ts-common/azure-js-dev-tools", "fake-head-branch");
+  fakeGitHub.createCommit("ts-common/azure-js-dev-tools", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5", `Merge pull request #112 from ts-common/daschult/encoding\n\n Add encoding to stdout and stderr capture functions`);
+  fakeGitHub.createCommit("ts-common/azure-js-dev-tools", "bc0488dbe9ba7b2dd32c094c826cf799c55ca67d", `fake pull request base commit message`);
+  fakeGitHub.createBranch("ts-common/azure-js-dev-tools", "master", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
+  fakeGitHub.createBranch("ts-common/azure-js-dev-tools", "daschult/capturedLines", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
+  fakeGitHub.createBranch("ts-common/azure-js-dev-tools", "fake-head-branch", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
   fakeGitHub.createLabel("ts-common/azure-js-dev-tools", "Planned-Sprint-130", "fake label color");
   fakeGitHub.createFakePullRequest("ts-common/azure-js-dev-tools", createFakeGitHubPullRequest({
     base: {
@@ -976,7 +1199,6 @@ function createFakeGitHub(): FakeGitHub {
     title: "Buffer external process output and error until newline character",
     url: "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/113"
   }));
-  fakeGitHub.createCommit("ts-common/azure-js-dev-tools", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5", `Merge pull request #112 from ts-common/daschult/encoding\n\n Add encoding to stdout and stderr capture functions`);
 
   return fakeGitHub;
 }

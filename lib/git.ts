@@ -24,6 +24,29 @@ export function git(args: string[], options: RunOptions = {}): Promise<GitRunRes
 }
 
 /**
+ * The result of running gitCurrentCommitSha().
+ */
+export interface GitCurrentCommitShaResult extends GitRunResult {
+  /**
+   * The SHA of the current commit.
+   */
+  currentCommitSha?: string;
+}
+
+/**
+ * Get the SHA of the currently checked out commit.
+ */
+export function gitCurrentCommitSha(options: RunOptions = {}): Promise<GitCurrentCommitShaResult> {
+  return git(["rev-parse", "HEAD"], options)
+    .then((result: GitRunResult) => {
+      return {
+        ...result,
+        currentCommitSha: result.stdout
+      };
+    });
+}
+
+/**
  * Options that can be passed to `git fetch`.
  */
 export interface GitFetchOptions extends RunOptions {
@@ -756,6 +779,20 @@ export class GitScope {
     });
   }
 
+  /**
+   * Get the SHA of the currently checked out commit.
+   */
+  public currentCommitSha(options: RunOptions = {}): Promise<GitCurrentCommitShaResult> {
+    return gitCurrentCommitSha({
+      ...this.options,
+      ...options,
+    });
+  }
+
+  /**
+   * Download objects and refs from another repository.
+   * @param options The options that can be passed to `git fetch`.
+   */
   public fetch(options: RunOptions = {}): Promise<GitRunResult> {
     return gitFetch({
       ...this.options,
@@ -770,6 +807,11 @@ export class GitScope {
     });
   }
 
+  /**
+   * Clone the repository with the provided URI.
+   * @param gitUri The repository URI to clone.
+   * @param options The options that can be passed to "git clone".
+   */
   public clone(gitUri: string, options: GitCloneOptions = {}): Promise<GitRunResult> {
     return gitClone(gitUri, {
       ...this.options,
@@ -791,6 +833,10 @@ export class GitScope {
     });
   }
 
+  /**
+   * Push the current branch to the remote tracked repository.
+   * @param options The options for determining how this command will run.
+   */
   public push(options: GitPushOptions = {}): Promise<GitRunResult> {
     return gitPush({
       ...this.options,
@@ -835,6 +881,11 @@ export class GitScope {
     });
   }
 
+  /**
+   * Create a new local branch with the provided name.
+   * @param branchName The name of the new branch.
+   * @param options The options for determining how this command will run.
+   */
   public createLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
     return gitCreateLocalBranch(branchName, {
       ...this.options,
@@ -842,6 +893,12 @@ export class GitScope {
     });
   }
 
+  /**
+   * Remote the provided branch from the provided tracked remote repository.
+   * @param branchName The name of the remote branch to delete.
+   * @param remoteName The name of the tracked remote repository.
+   * @param options The options for determining how this command will run.
+   */
   public deleteRemoteBranch(branchName: string, options: GitDeleteRemoteBranchOptions = {}): Promise<GitRunResult> {
     return gitDeleteRemoteBranch(branchName, {
       ...this.options,
@@ -863,6 +920,10 @@ export class GitScope {
     });
   }
 
+  /**
+   * Get the remote branches that this repository clone is aware of.
+   * @param options The options to run this command with.
+   */
   public remoteBranches(options: RunOptions = {}): Promise<GitRemoteBranchesResult> {
     return gitRemoteBranches({
       ...this.options,
@@ -870,6 +931,10 @@ export class GitScope {
     });
   }
 
+  /**
+   * Get the branch that the repository is currently on.
+   * @param options The options to run this command with.
+   */
   public currentBranch(options: RunOptions = {}): Promise<string> {
     return gitCurrentBranch({
       ...this.options,
@@ -877,6 +942,9 @@ export class GitScope {
     });
   }
 
+  /**
+   * Run "git status".
+   */
   public status(options: RunOptions = {}): Promise<GitStatusResult> {
     return gitStatus({
       ...this.options,
