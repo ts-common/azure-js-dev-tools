@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "comblahmonjs",
     "sourceMap": true,
     "newLine": "LF",
     "target": "es5",
