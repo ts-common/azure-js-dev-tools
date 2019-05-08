@@ -6,6 +6,7 @@
 
 import * as fs from "fs";
 import { getParentFolderPath, getPathName, joinPath } from "./path";
+import { any } from "./arrays";
 
 async function _entryExists(entryPath: string, condition?: (stats: fs.Stats) => (boolean | Promise<boolean>)): Promise<boolean> {
   return new Promise((resolve, reject) => {
@@ -199,23 +200,56 @@ export async function copyFolder(sourceFolderPath: string, destinationFolderPath
   return result;
 }
 
-async function findEntryInPath(entryName: string, startFolderPath: string | undefined, condition: (entryPath: string) => (boolean | Promise<boolean>)): Promise<string | undefined> {
+/**
+ * Get whether or not the provided string completely matches the provided regularExpression.
+ */
+function matches(regularExpression: RegExp, possibleMatch: string): boolean {
+  const matchResult = possibleMatch.match(regularExpression);
+  return !!(matchResult && matchResult[0].length === possibleMatch.length);
+}
+
+async function findEntryInPath(entryName: string | RegExp, startFolderPath: string | undefined, condition: (entryPath: string) => (boolean | Promise<boolean>)): Promise<string | undefined> {
   let result: string | undefined;
   let folderPath: string = startFolderPath || process.cwd();
-  while (folderPath) {
-    const possibleResult: string = joinPath(folderPath, entryName);
-    if (await Promise.resolve(condition(possibleResult))) {
-      result = possibleResult;
-      break;
+
+  searchLoop:
+  while (true) {
+    if (typeof entryName === "string") {
+      const folderEntryPath: string = joinPath(folderPath, entryName);
+      if (await Promise.resolve(condition(folderEntryPath))) {
+        result = folderEntryPath;
+        break searchLoop;
+      }
     } else {
-      const parentFolderPath: string = getParentFolderPath(folderPath);
-      if (!parentFolderPath || folderPath === parentFolderPath) {
-        break;
-      } else {
-        folderPath = parentFolderPath;
+      const folderEntryPaths: string[] | undefined = await getChildEntryPaths(folderPath);
+      if (any(folderEntryPaths)) {
+        for (const folderEntryPath of folderEntryPaths) {
+          if (matches(entryName, folderEntryPath)) {
+            if (await Promise.resolve(condition(folderEntryPath))) {
+              result = folderEntryPath;
+              break searchLoop;
+            }
+          } else {
+            const folderEntryName: string = getPathName(folderEntryPath);
+            if (matches(entryName, folderEntryName)) {
+              if (await Promise.resolve(condition(folderEntryPath))) {
+                result = folderEntryPath;
+                break searchLoop;
+              }
+            }
+          }
+        }
       }
     }
+
+    const parentFolderPath: string = getParentFolderPath(folderPath);
+    if (!parentFolderPath || folderPath === parentFolderPath) {
+      break searchLoop;
+    } else {
+      folderPath = parentFolderPath;
+    }
   }
+
   return result;
 }
 
@@ -250,7 +284,7 @@ function findEntryInPathSync(entryName: string, startFolderPath: string | undefi
  * @returns The path to the closest file with the provided fileName, or undefined if no file could
  * be found.
  */
-export function findFileInPath(fileName: string, startFolderPath?: string): Promise<string | undefined> {
+export function findFileInPath(fileName: string | RegExp, startFolderPath?: string): Promise<string | undefined> {
   return findEntryInPath(fileName, startFolderPath, fileExists);
 }
 
@@ -280,7 +314,7 @@ export function findFileInPathSync(fileName: string, startFolderPath?: string): 
  * @returns The path to the closest folder with the provided folderName, or undefined if no folder
  * could be found.
  */
-export function findFolderInPath(folderName: string, startFolderPath?: string): Promise<string | undefined> {
+export function findFolderInPath(folderName: string | RegExp, startFolderPath?: string): Promise<string | undefined> {
   return findEntryInPath(folderName, startFolderPath, folderExists);
 }
 
@@ -325,7 +359,7 @@ export function getChildEntryPaths(folderPath: string, options: GetChildEntriesO
   return new Promise((resolve, reject) => {
     fs.readdir(folderPath, async (error: NodeJS.ErrnoException | null, entryNames: string[]) => {
       if (error) {
-        if (error.code === "ENOENT") {
+        if (error.code === "ENOENT" || error.code === "ENOTDIR") {
           resolve(undefined);
         } else {
           reject(error);
@@ -334,21 +368,26 @@ export function getChildEntryPaths(folderPath: string, options: GetChildEntriesO
         const result: string[] = options.result || [];
         for (const entryName of entryNames) {
           const entryPath: string = joinPath(folderPath, entryName);
-          if (!options.condition || await Promise.resolve(options.condition(entryPath))) {
-
-            if (await fileExists(entryPath)) {
-              if (!options.fileCondition || await Promise.resolve(options.fileCondition(entryPath))) {
-                result.push(entryPath);
-              }
-            } else if (await folderExists(entryPath)) {
-              if (!options.folderCondition || await Promise.resolve(options.folderCondition(entryPath))) {
-                result.push(entryPath);
-                if (options.recursive) {
-                  options.result = result;
-                  await getChildEntryPaths(entryPath, options);
+          try {
+            if (!options.condition || await Promise.resolve(options.condition(entryPath))) {
+              if (await fileExists(entryPath)) {
+                if (!options.fileCondition || await Promise.resolve(options.fileCondition(entryPath))) {
+                  result.push(entryPath);
+                }
+              } else if (await folderExists(entryPath)) {
+                if (!options.folderCondition || await Promise.resolve(options.folderCondition(entryPath))) {
+                  result.push(entryPath);
+                  if (options.recursive) {
+                    options.result = result;
+                    await getChildEntryPaths(entryPath, options);
+                  }
                 }
               }
             }
+          } catch (error) {
+            // If an error occurs while trying to get information about an entry, then just skip the
+            // entry. It's most likely a permissions problem, which means we shouldn't be dealing
+            // with that entry anyways.
           }
         }
         resolve(result);
