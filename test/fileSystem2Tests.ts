@@ -372,8 +372,41 @@ describe("fileSystem2.ts", function () {
       assert.strictEqual(filePath, undefined);
     });
 
-    it("with file path that treats an existing file as a folder", async function () {
+    it("with file name and start folder path that treats an existing file as a folder", async function () {
       const filePath: string | undefined = await findFileInPath("package.json", joinPath(__filename, "blah.txt"));
+      assertEx.defined(filePath, "filePath");
+      assertEx.contains(filePath, "package.json");
+    });
+
+    it("with file name pattern that exists", async function () {
+      const filePath: string | undefined = await findFileInPath(/package\.json/);
+      assertEx.defined(filePath, "filePath");
+      assertEx.contains(filePath, "package.json");
+    });
+
+    it("with file name pattern that matches a folder", async function () {
+      const filePath: string | undefined = await findFileInPath(/test/);
+      assert.strictEqual(filePath, undefined);
+    });
+
+    it("with file name pattern that matches more than just the file name", async function () {
+      const filePath: string | undefined = await findFileInPath(/.*\/test\/fileSystem2Tests\..*/, __dirname);
+      assertEx.defined(filePath, "filePath");
+      assertEx.contains(filePath, "/dist/test/fileSystem2Tests.d.ts");
+    });
+
+    it("with file name pattern that doesn't exist", async function () {
+      const filePath: string | undefined = await findFileInPath(/abcdef\.txt/);
+      assert.strictEqual(filePath, undefined);
+    });
+
+    it("with file name pattern that matches an existing folder", async function () {
+      const filePath: string | undefined = await findFileInPath(/test/, __dirname);
+      assert.strictEqual(filePath, undefined);
+    });
+
+    it("with file name pattern and start folder path that treats an existing file as a folder", async function () {
+      const filePath: string | undefined = await findFileInPath(/package\.json/, joinPath(__filename, "blah.txt"));
       assertEx.defined(filePath, "filePath");
       assertEx.contains(filePath, "package.json");
     });
