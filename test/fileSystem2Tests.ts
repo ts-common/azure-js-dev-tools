@@ -1,8 +1,8 @@
 import { assert } from "chai";
-import { map } from "../lib";
+import { map, findPackageJsonFileSync } from "../lib";
 import { assertEx } from "../lib/assertEx";
 import { copyEntry, copyFile, copyFolder, createFolder, deleteEntry, deleteFolder, entryExists, fileExists, findFileInPath, folderExists, getChildEntryPaths, readFileContents, symbolicLinkExists, writeFileContents, findFolderInPath } from "../lib/fileSystem2";
-import { joinPath, pathRelativeTo, resolvePath } from "../lib/path";
+import { joinPath, pathRelativeTo, resolvePath, getParentFolderPath, normalizePath, getPathName } from "../lib/path";
 
 describe("fileSystem2.ts", function () {
   describe("entryExists()", function () {
@@ -422,6 +422,383 @@ describe("fileSystem2.ts", function () {
     it("with folder that doesn't exist", async function () {
       const folderPath: string | undefined = await findFolderInPath("my_fake_node_modules");
       assert.strictEqual(folderPath, undefined);
+    });
+  });
+
+  describe("getChildEntryPaths()", function () {
+    this.timeout(10000);
+
+    describe("with no options", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(await getChildEntryPaths("idont/exist/"), undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(await getChildEntryPaths(tempFolderPath), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exists", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath);
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assert.deepEqual(childEntryPaths, [
+          joinPath(packageFolderPath, ".git"),
+          joinPath(packageFolderPath, ".gitignore"),
+          joinPath(packageFolderPath, ".nyc_output"),
+          joinPath(packageFolderPath, ".scripts"),
+          joinPath(packageFolderPath, ".vscode"),
+          joinPath(packageFolderPath, "azure-pipelines.yml"),
+          joinPath(packageFolderPath, "coverage"),
+          joinPath(packageFolderPath, "dist"),
+          joinPath(packageFolderPath, "github.auth"),
+          joinPath(packageFolderPath, "lib"),
+          joinPath(packageFolderPath, "LICENSE"),
+          joinPath(packageFolderPath, "mocha.config.json"),
+          joinPath(packageFolderPath, "node_modules"),
+          joinPath(packageFolderPath, "package-lock.json"),
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "README.md"),
+          joinPath(packageFolderPath, "test"),
+          joinPath(packageFolderPath, "tsconfig.json"),
+          joinPath(packageFolderPath, "tslint.json"),
+          joinPath(packageFolderPath, "xunit.xml"),
+        ]);
+      });
+    });
+
+    describe("with empty options", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(await getChildEntryPaths("idont/exist/", {}), undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(await getChildEntryPaths(tempFolderPath, {}), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exists", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, {});
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assert.deepEqual(childEntryPaths, [
+          joinPath(packageFolderPath, ".git"),
+          joinPath(packageFolderPath, ".gitignore"),
+          joinPath(packageFolderPath, ".nyc_output"),
+          joinPath(packageFolderPath, ".scripts"),
+          joinPath(packageFolderPath, ".vscode"),
+          joinPath(packageFolderPath, "azure-pipelines.yml"),
+          joinPath(packageFolderPath, "coverage"),
+          joinPath(packageFolderPath, "dist"),
+          joinPath(packageFolderPath, "github.auth"),
+          joinPath(packageFolderPath, "lib"),
+          joinPath(packageFolderPath, "LICENSE"),
+          joinPath(packageFolderPath, "mocha.config.json"),
+          joinPath(packageFolderPath, "node_modules"),
+          joinPath(packageFolderPath, "package-lock.json"),
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "README.md"),
+          joinPath(packageFolderPath, "test"),
+          joinPath(packageFolderPath, "tsconfig.json"),
+          joinPath(packageFolderPath, "tslint.json"),
+          joinPath(packageFolderPath, "xunit.xml"),
+        ]);
+      });
+    });
+
+    describe("with true recursive", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(await getChildEntryPaths("idont/exist/", { recursive: true }), undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(await getChildEntryPaths(tempFolderPath, { recursive: true }), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exist", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, { recursive: true });
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assertEx.containsAll(childEntryPaths, [
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "LICENSE"),
+          joinPath(packageFolderPath, "tsconfig.json"),
+          joinPath(packageFolderPath, "dist"),
+          joinPath(packageFolderPath, "lib"),
+          joinPath(packageFolderPath, "test"),
+          joinPath(packageFolderPath, "node_modules"),
+          normalizePath(__dirname),
+          normalizePath(__filename),
+        ]);
+      });
+    });
+
+    describe("with fileExists condition", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(await getChildEntryPaths("idont/exist/", { condition: fileExists }), undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(await getChildEntryPaths(tempFolderPath, { condition: fileExists }), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exist", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, { condition: fileExists });
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assert.deepEqual(childEntryPaths, [
+          joinPath(packageFolderPath, ".gitignore"),
+          joinPath(packageFolderPath, "azure-pipelines.yml"),
+          joinPath(packageFolderPath, "github.auth"),
+          joinPath(packageFolderPath, "LICENSE"),
+          joinPath(packageFolderPath, "mocha.config.json"),
+          joinPath(packageFolderPath, "package-lock.json"),
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "README.md"),
+          joinPath(packageFolderPath, "tsconfig.json"),
+          joinPath(packageFolderPath, "tslint.json"),
+          joinPath(packageFolderPath, "xunit.xml"),
+        ]);
+      });
+    });
+
+    describe("with fileExists condition and true recursive", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(await getChildEntryPaths("idont/exist/", { condition: fileExists, recursive: true }), undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(await getChildEntryPaths(tempFolderPath, { condition: fileExists, recursive: true }), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exist", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, { condition: fileExists, recursive: true });
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assertEx.containsAll(childEntryPaths, [
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "LICENSE"),
+          joinPath(packageFolderPath, "tsconfig.json"),
+          normalizePath(__filename),
+          joinPath(packageFolderPath, "node_modules", ".bin", "_mocha"),
+          joinPath(packageFolderPath, "node_modules", ".bin", "autorest"),
+        ]);
+      });
+    });
+
+    describe("with fileExists condition and function recursive", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(
+          await getChildEntryPaths("idont/exist/", {
+            condition: fileExists,
+            recursive: (folderPath: string) => getPathName(folderPath) !== "node_modules"
+          }),
+          undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(
+            await getChildEntryPaths(tempFolderPath, {
+              condition: fileExists,
+              recursive: (folderPath: string) => getPathName(folderPath) !== "node_modules"
+            }), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exist", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, {
+          condition: fileExists,
+          recursive: (folderPath: string) => getPathName(folderPath) !== "node_modules"
+        });
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assertEx.containsAll(childEntryPaths, [
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "LICENSE"),
+          joinPath(packageFolderPath, "tsconfig.json"),
+          normalizePath(__filename),
+        ]);
+        assertEx.doesNotContainAny(childEntryPaths, [
+          joinPath(packageFolderPath, "node_modules", ".bin", "_mocha"),
+          joinPath(packageFolderPath, "node_modules", ".bin", "autorest"),
+        ]);
+      });
+    });
+
+    describe("with contains 'a' condition", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(await getChildEntryPaths("idont/exist/", { condition: (entryPath: string) => entryPath.includes("a") }), undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(await getChildEntryPaths(tempFolderPath, { condition: (entryPath: string) => entryPath.includes("a") }), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exist", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, { condition: (entryPath: string) => entryPath.includes("a") });
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assertEx.containsAll(childEntryPaths, [
+          joinPath(packageFolderPath, "azure-pipelines.yml"),
+          joinPath(packageFolderPath, "mocha.config.json"),
+          joinPath(packageFolderPath, "package.json"),
+        ]);
+      });
+    });
+
+    describe("with contains 'a' condition and true recursive", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(await getChildEntryPaths("idont/exist/", { condition: (entryPath: string) => entryPath.includes("a"), recursive: true }), undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(await getChildEntryPaths(tempFolderPath, { condition: (entryPath: string) => entryPath.includes("a"), recursive: true }), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exist", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, { condition: (entryPath: string) => entryPath.includes("a"), recursive: true });
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assertEx.containsAll(childEntryPaths, [
+          joinPath(packageFolderPath, "azure-pipelines.yml"),
+          joinPath(packageFolderPath, "mocha.config.json"),
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "lib", "arrays.ts"),
+          joinPath(packageFolderPath, "dist", "lib", "arrays.js"),
+        ]);
+      });
+    });
+
+    describe("with contains 'a' fileCondition", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(await getChildEntryPaths("idont/exist/", { fileCondition: (entryPath: string) => entryPath.includes("a") }), undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(await getChildEntryPaths(tempFolderPath, { fileCondition: (entryPath: string) => entryPath.includes("a") }), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exist", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, { fileCondition: (entryPath: string) => entryPath.includes("a") });
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assertEx.containsAll(childEntryPaths, [
+          joinPath(packageFolderPath, "azure-pipelines.yml"),
+          joinPath(packageFolderPath, "mocha.config.json"),
+          joinPath(packageFolderPath, "package.json"),
+        ]);
+      });
+    });
+
+    describe("with contains 'a' fileCondition and true recursive", function () {
+      it("with folderPath that doesn't exist", async function () {
+        assert.strictEqual(await getChildEntryPaths("idont/exist/", { fileCondition: (entryPath: string) => entryPath.includes("a"), recursive: true }), undefined);
+      });
+
+      it("with folderPath to existing but empty folder", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const tempFolderPath: string = joinPath(packageFolderPath, "tempTestFolder");
+        await createFolder(tempFolderPath);
+        try {
+          assert.deepEqual(await getChildEntryPaths(tempFolderPath, { fileCondition: (entryPath: string) => entryPath.includes("a"), recursive: true }), []);
+        } finally {
+          await deleteFolder(tempFolderPath);
+        }
+      });
+
+      it("with folderPath that exist", async function () {
+        const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
+        const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, { fileCondition: (entryPath: string) => entryPath.includes("a"), recursive: true });
+        assertEx.defined(childEntryPaths, "childEntryPaths");
+        assertEx.containsAll(childEntryPaths, [
+          joinPath(packageFolderPath, "azure-pipelines.yml"),
+          joinPath(packageFolderPath, "mocha.config.json"),
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "lib", "arrays.ts"),
+          joinPath(packageFolderPath, "dist", "lib", "arrays.js"),
+          joinPath(packageFolderPath, "node_modules", "@azure"),
+        ]);
+      });
     });
   });
 
