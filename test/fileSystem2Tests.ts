@@ -448,29 +448,23 @@ describe("fileSystem2.ts", function () {
       it("with folderPath that exists", async function () {
         const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
         const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
-        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath);
+        const gitFolderPath: string = joinPath(packageFolderPath, ".git");
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(gitFolderPath);
         assertEx.defined(childEntryPaths, "childEntryPaths");
         assert.deepEqual(childEntryPaths, [
-          joinPath(packageFolderPath, ".git"),
-          joinPath(packageFolderPath, ".gitignore"),
-          joinPath(packageFolderPath, ".nyc_output"),
-          joinPath(packageFolderPath, ".scripts"),
-          joinPath(packageFolderPath, ".vscode"),
-          joinPath(packageFolderPath, "azure-pipelines.yml"),
-          joinPath(packageFolderPath, "coverage"),
-          joinPath(packageFolderPath, "dist"),
-          joinPath(packageFolderPath, "github.auth"),
-          joinPath(packageFolderPath, "lib"),
-          joinPath(packageFolderPath, "LICENSE"),
-          joinPath(packageFolderPath, "mocha.config.json"),
-          joinPath(packageFolderPath, "node_modules"),
-          joinPath(packageFolderPath, "package-lock.json"),
-          joinPath(packageFolderPath, "package.json"),
-          joinPath(packageFolderPath, "README.md"),
-          joinPath(packageFolderPath, "test"),
-          joinPath(packageFolderPath, "tsconfig.json"),
-          joinPath(packageFolderPath, "tslint.json"),
-          joinPath(packageFolderPath, "xunit.xml"),
+          joinPath(gitFolderPath, "COMMIT_EDITMSG"),
+          joinPath(gitFolderPath, "config"),
+          joinPath(gitFolderPath, "description"),
+          joinPath(gitFolderPath, "FETCH_HEAD"),
+          joinPath(gitFolderPath, "HEAD"),
+          joinPath(gitFolderPath, "hooks"),
+          joinPath(gitFolderPath, "index"),
+          joinPath(gitFolderPath, "info"),
+          joinPath(gitFolderPath, "logs"),
+          joinPath(gitFolderPath, "objects"),
+          joinPath(gitFolderPath, "ORIG_HEAD"),
+          joinPath(gitFolderPath, "packed-refs"),
+          joinPath(gitFolderPath, "refs"),
         ]);
       });
     });
@@ -495,29 +489,23 @@ describe("fileSystem2.ts", function () {
       it("with folderPath that exists", async function () {
         const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
         const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
-        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, {});
+        const gitFolderPath: string = joinPath(packageFolderPath, ".git");
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(gitFolderPath, {});
         assertEx.defined(childEntryPaths, "childEntryPaths");
         assert.deepEqual(childEntryPaths, [
-          joinPath(packageFolderPath, ".git"),
-          joinPath(packageFolderPath, ".gitignore"),
-          joinPath(packageFolderPath, ".nyc_output"),
-          joinPath(packageFolderPath, ".scripts"),
-          joinPath(packageFolderPath, ".vscode"),
-          joinPath(packageFolderPath, "azure-pipelines.yml"),
-          joinPath(packageFolderPath, "coverage"),
-          joinPath(packageFolderPath, "dist"),
-          joinPath(packageFolderPath, "github.auth"),
-          joinPath(packageFolderPath, "lib"),
-          joinPath(packageFolderPath, "LICENSE"),
-          joinPath(packageFolderPath, "mocha.config.json"),
-          joinPath(packageFolderPath, "node_modules"),
-          joinPath(packageFolderPath, "package-lock.json"),
-          joinPath(packageFolderPath, "package.json"),
-          joinPath(packageFolderPath, "README.md"),
-          joinPath(packageFolderPath, "test"),
-          joinPath(packageFolderPath, "tsconfig.json"),
-          joinPath(packageFolderPath, "tslint.json"),
-          joinPath(packageFolderPath, "xunit.xml"),
+          joinPath(gitFolderPath, "COMMIT_EDITMSG"),
+          joinPath(gitFolderPath, "config"),
+          joinPath(gitFolderPath, "description"),
+          joinPath(gitFolderPath, "FETCH_HEAD"),
+          joinPath(gitFolderPath, "HEAD"),
+          joinPath(gitFolderPath, "hooks"),
+          joinPath(gitFolderPath, "index"),
+          joinPath(gitFolderPath, "info"),
+          joinPath(gitFolderPath, "logs"),
+          joinPath(gitFolderPath, "objects"),
+          joinPath(gitFolderPath, "ORIG_HEAD"),
+          joinPath(gitFolderPath, "packed-refs"),
+          joinPath(gitFolderPath, "refs"),
         ]);
       });
     });
@@ -623,8 +611,8 @@ describe("fileSystem2.ts", function () {
           joinPath(packageFolderPath, "LICENSE"),
           joinPath(packageFolderPath, "tsconfig.json"),
           normalizePath(__filename),
-          joinPath(packageFolderPath, "node_modules", ".bin", "_mocha"),
-          joinPath(packageFolderPath, "node_modules", ".bin", "autorest"),
+          joinPath(packageFolderPath, "node_modules", "@azure", "logger-js", "package.json"),
+          joinPath(packageFolderPath, "node_modules", "nyc", "package.json"),
         ]);
       });
     });
