@@ -47,6 +47,31 @@ export namespace assertEx {
   }
 
   /**
+   * Check that the provided text does not contain the provided substring.
+   * @param value The text to look in.
+   * @param substring The substring to look for.
+   */
+  export function doesNotContain(value: string | string[] | undefined, substring: string): void {
+    const errorMessage: string = Array.isArray(value)
+      ? `Expected ${JSON.stringify(value, undefined, 2)} to not contain\n  ${JSON.stringify(substring)}.`
+      : `Expected\n  ${JSON.stringify(value)}\nto not contain\n  ${JSON.stringify(substring)}.`;
+    assert(value && substring && value.indexOf(substring) === -1, errorMessage);
+  }
+
+  /**
+   * Check that the provided text doesn't contain any of the provided substrings.
+   * @param value The text to look in.
+   * @param substrings The substrings to look for.
+   */
+  export function doesNotContainAny(value: string | string[] | undefined, substrings: string[]): void {
+    if (substrings) {
+      for (const substring of substrings) {
+        doesNotContain(value, substring);
+      }
+    }
+  }
+
+  /**
    * Check that the two errors are equal (except for their stack property).
    * @param actualError The actual error.
    * @param expectedError The expected error.

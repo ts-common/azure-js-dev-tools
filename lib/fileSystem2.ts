@@ -5,8 +5,8 @@
  */
 
 import * as fs from "fs";
-import { getParentFolderPath, getPathName, joinPath } from "./path";
 import { any } from "./arrays";
+import { getParentFolderPath, getPathName, joinPath } from "./path";
 
 async function _entryExists(entryPath: string, condition?: (stats: fs.Stats) => (boolean | Promise<boolean>)): Promise<boolean> {
   return new Promise((resolve, reject) => {
@@ -325,7 +325,7 @@ export interface GetChildEntriesOptions {
   /**
    * Whether or not to search sub-folders of the provided folderPath.
    */
-  recursive?: boolean;
+  recursive?: boolean | ((folderPath: string) => (boolean | Promise<boolean>));
 
   /**
    * A condition that a child entry path must pass before it will be added to the result.
@@ -369,19 +369,24 @@ export function getChildEntryPaths(folderPath: string, options: GetChildEntriesO
         for (const entryName of entryNames) {
           const entryPath: string = joinPath(folderPath, entryName);
           try {
-            if (!options.condition || await Promise.resolve(options.condition(entryPath))) {
-              if (await fileExists(entryPath)) {
-                if (!options.fileCondition || await Promise.resolve(options.fileCondition(entryPath))) {
-                  result.push(entryPath);
-                }
-              } else if (await folderExists(entryPath)) {
-                if (!options.folderCondition || await Promise.resolve(options.folderCondition(entryPath))) {
-                  result.push(entryPath);
-                  if (options.recursive) {
-                    options.result = result;
-                    await getChildEntryPaths(entryPath, options);
-                  }
-                }
+            if (await fileExists(entryPath)) {
+              const addFile: boolean =
+                (!options.condition || await Promise.resolve(options.condition(entryPath))) &&
+                (!options.fileCondition || await Promise.resolve(options.fileCondition(entryPath)));
+              if (addFile) {
+                result.push(entryPath);
+              }
+            } else if (await folderExists(entryPath)) {
+              const addFolder: boolean =
+                (!options.condition || await Promise.resolve(options.condition(entryPath))) &&
+                (!options.folderCondition || await Promise.resolve(options.folderCondition(entryPath)));
+              if (addFolder) {
+                result.push(entryPath);
+              }
+
+              if (options.recursive && (typeof options.recursive !== "function" || await Promise.resolve(options.recursive(entryPath)))) {
+                options.result = result;
+                await getChildEntryPaths(entryPath, options);
               }
             }
           } catch (error) {
@@ -403,10 +408,10 @@ export function getChildEntryPaths(folderPath: string, options: GetChildEntriesO
  * @returns The paths to the child folders of the folder at the provided folder path, or undefined
  * if the folder at the provided folder path doesn't exist.
  */
-export function getChildFolderPaths(folderPath: string, options: GetChildEntriesOptions = {}): Promise<string[] | undefined> {
+export async function getChildFolderPaths(folderPath: string, options: GetChildEntriesOptions = {}): Promise<string[] | undefined> {
   return getChildEntryPaths(folderPath, {
     ...options,
-    condition: async (entryPath: string) => await folderExists(entryPath) && (!options.condition || await Promise.resolve(options.condition(entryPath)))
+    fileCondition: () => false,
   });
 }
 
@@ -420,7 +425,7 @@ export function getChildFolderPaths(folderPath: string, options: GetChildEntries
 export function getChildFilePaths(folderPath: string, options: GetChildEntriesOptions = {}): Promise<string[] | undefined> {
   return getChildEntryPaths(folderPath, {
     ...options,
-    condition: async (entryPath: string) => await fileExists(entryPath) && (!options.condition || await Promise.resolve(options.condition(entryPath)))
+    folderCondition: () => false,
   });
 }
 
