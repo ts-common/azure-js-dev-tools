@@ -69,8 +69,7 @@ export async function checkForSkipCallsCheck(options: CheckForSkipCallsOptions =
   for (const startPath of startPathArray) {
     logger.logSection(`Looking for *.skip(...) function calls in files starting at "${startPath}"...`);
     const sourceFilePaths: string[] | undefined = await getChildFilePaths(startPath, {
-      recursive: true,
-      folderCondition: (folderPath: string) => getName(folderPath) !== "node_modules",
+      recursive: (folderPath: string) => getName(folderPath) !== "node_modules",
       fileCondition: (filePath: string) => filePath.endsWith(".ts") || filePath.endsWith(".js")
     });
 
