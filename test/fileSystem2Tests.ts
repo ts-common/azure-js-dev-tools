@@ -448,23 +448,26 @@ describe("fileSystem2.ts", function () {
       it("with folderPath that exists", async function () {
         const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
         const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
-        const gitFolderPath: string = joinPath(packageFolderPath, ".git");
-        const childEntryPaths: string[] | undefined = await getChildEntryPaths(gitFolderPath);
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath);
         assertEx.defined(childEntryPaths, "childEntryPaths");
-        assert.deepEqual(childEntryPaths, [
-          joinPath(gitFolderPath, "COMMIT_EDITMSG"),
-          joinPath(gitFolderPath, "config"),
-          joinPath(gitFolderPath, "description"),
-          joinPath(gitFolderPath, "FETCH_HEAD"),
-          joinPath(gitFolderPath, "HEAD"),
-          joinPath(gitFolderPath, "hooks"),
-          joinPath(gitFolderPath, "index"),
-          joinPath(gitFolderPath, "info"),
-          joinPath(gitFolderPath, "logs"),
-          joinPath(gitFolderPath, "objects"),
-          joinPath(gitFolderPath, "ORIG_HEAD"),
-          joinPath(gitFolderPath, "packed-refs"),
-          joinPath(gitFolderPath, "refs"),
+        assertEx.containsAll(childEntryPaths, [
+          joinPath(packageFolderPath, ".git"),
+          joinPath(packageFolderPath, ".scripts"),
+          joinPath(packageFolderPath, ".vscode"),
+          joinPath(packageFolderPath, "dist"),
+          joinPath(packageFolderPath, "lib"),
+          joinPath(packageFolderPath, "node_modules"),
+          joinPath(packageFolderPath, "test"),
+          joinPath(packageFolderPath, ".gitignore"),
+          joinPath(packageFolderPath, "azure-pipelines.yml"),
+          joinPath(packageFolderPath, "LICENSE"),
+          joinPath(packageFolderPath, "mocha.config.json"),
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "README.md"),
+        ]);
+        assertEx.doesNotContainAny(childEntryPaths, [
+          joinPath(packageFolderPath, ".git", "hooks"),
+          joinPath(packageFolderPath, ".scripts", "checkEverything.ts"),
         ]);
       });
     });
@@ -489,23 +492,26 @@ describe("fileSystem2.ts", function () {
       it("with folderPath that exists", async function () {
         const packageJsonFilePath: string = findPackageJsonFileSync(__dirname)!;
         const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
-        const gitFolderPath: string = joinPath(packageFolderPath, ".git");
-        const childEntryPaths: string[] | undefined = await getChildEntryPaths(gitFolderPath, {});
+        const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, {});
         assertEx.defined(childEntryPaths, "childEntryPaths");
-        assert.deepEqual(childEntryPaths, [
-          joinPath(gitFolderPath, "COMMIT_EDITMSG"),
-          joinPath(gitFolderPath, "config"),
-          joinPath(gitFolderPath, "description"),
-          joinPath(gitFolderPath, "FETCH_HEAD"),
-          joinPath(gitFolderPath, "HEAD"),
-          joinPath(gitFolderPath, "hooks"),
-          joinPath(gitFolderPath, "index"),
-          joinPath(gitFolderPath, "info"),
-          joinPath(gitFolderPath, "logs"),
-          joinPath(gitFolderPath, "objects"),
-          joinPath(gitFolderPath, "ORIG_HEAD"),
-          joinPath(gitFolderPath, "packed-refs"),
-          joinPath(gitFolderPath, "refs"),
+        assertEx.containsAll(childEntryPaths, [
+          joinPath(packageFolderPath, ".git"),
+          joinPath(packageFolderPath, ".scripts"),
+          joinPath(packageFolderPath, ".vscode"),
+          joinPath(packageFolderPath, "dist"),
+          joinPath(packageFolderPath, "lib"),
+          joinPath(packageFolderPath, "node_modules"),
+          joinPath(packageFolderPath, "test"),
+          joinPath(packageFolderPath, ".gitignore"),
+          joinPath(packageFolderPath, "azure-pipelines.yml"),
+          joinPath(packageFolderPath, "LICENSE"),
+          joinPath(packageFolderPath, "mocha.config.json"),
+          joinPath(packageFolderPath, "package.json"),
+          joinPath(packageFolderPath, "README.md"),
+        ]);
+        assertEx.doesNotContainAny(childEntryPaths, [
+          joinPath(packageFolderPath, ".git", "hooks"),
+          joinPath(packageFolderPath, ".scripts", "checkEverything.ts"),
         ]);
       });
     });
@@ -568,18 +574,19 @@ describe("fileSystem2.ts", function () {
         const packageFolderPath: string = getParentFolderPath(packageJsonFilePath);
         const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, { condition: fileExists });
         assertEx.defined(childEntryPaths, "childEntryPaths");
-        assert.deepEqual(childEntryPaths, [
+        assertEx.containsAll(childEntryPaths, [
           joinPath(packageFolderPath, ".gitignore"),
           joinPath(packageFolderPath, "azure-pipelines.yml"),
-          joinPath(packageFolderPath, "github.auth"),
           joinPath(packageFolderPath, "LICENSE"),
           joinPath(packageFolderPath, "mocha.config.json"),
-          joinPath(packageFolderPath, "package-lock.json"),
           joinPath(packageFolderPath, "package.json"),
           joinPath(packageFolderPath, "README.md"),
-          joinPath(packageFolderPath, "tsconfig.json"),
-          joinPath(packageFolderPath, "tslint.json"),
-          joinPath(packageFolderPath, "xunit.xml"),
+        ]);
+        assertEx.doesNotContainAny(childEntryPaths, [
+          joinPath(packageFolderPath, ".git"),
+          joinPath(packageFolderPath, "node_modules"),
+          joinPath(packageFolderPath, ".git", "hooks"),
+          joinPath(packageFolderPath, ".scripts", "checkEverything.ts"),
         ]);
       });
     });
