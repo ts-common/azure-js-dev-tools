@@ -453,7 +453,6 @@ describe("fileSystem2.ts", function () {
         assertEx.containsAll(childEntryPaths, [
           joinPath(packageFolderPath, ".git"),
           joinPath(packageFolderPath, ".scripts"),
-          joinPath(packageFolderPath, ".vscode"),
           joinPath(packageFolderPath, "dist"),
           joinPath(packageFolderPath, "lib"),
           joinPath(packageFolderPath, "node_modules"),
@@ -497,7 +496,6 @@ describe("fileSystem2.ts", function () {
         assertEx.containsAll(childEntryPaths, [
           joinPath(packageFolderPath, ".git"),
           joinPath(packageFolderPath, ".scripts"),
-          joinPath(packageFolderPath, ".vscode"),
           joinPath(packageFolderPath, "dist"),
           joinPath(packageFolderPath, "lib"),
           joinPath(packageFolderPath, "node_modules"),
