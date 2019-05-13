@@ -58,8 +58,7 @@ export async function checkForOnlyCallsCheck(options: CheckForOnlyCallsOptions =
   for (const startPath of startPathArray) {
     await logger.logSection(`Looking for *.only(...) function calls in files starting at "${startPath}"...`);
     const sourceFilePaths: string[] | undefined = await getChildFilePaths(startPath, {
-      recursive: true,
-      folderCondition: (folderPath: string) => getName(folderPath) !== "node_modules",
+      recursive: (folderPath: string) => getName(folderPath) !== "node_modules",
       fileCondition: (filePath: string) => filePath.endsWith(".ts") || filePath.endsWith(".js")
     });
 
