@@ -368,12 +368,10 @@ describe("github.ts", function () {
         });
 
         it(`with ""`, async function () {
-          // tslint:disable-next-line:no-null-keyword
           await assertEx.throwsAsync(github.getLabels(""));
         });
 
         it(`with "ts-common/azure-js-dev-tools"`, async function () {
-          // tslint:disable-next-line:no-null-keyword
           const labels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
           assertEx.defined(labels, "labels");
           assertEx.greaterThan(labels.length, 0, "labels.length");
@@ -601,6 +599,51 @@ describe("github.ts", function () {
           } finally {
             await git.checkout(currentBranch);
             await git.deleteLocalBranch(headBranchName);
+          }
+        });
+
+        it("with non-existing head branch in non-existing fork", async function () {
+          await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "idontexist:fake-branch", "fake-title"));
+        });
+
+        it("with non-existing head branch in existing fork", async function () {
+          if (!(github instanceof FakeGitHub)) {
+            this.skip();
+          } else {
+            await github.forkRepository("ts-common/azure-js-dev-tools", "fake-user");
+            try {
+              await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "fake-user:fake-branch", "fake-title"));
+            } finally {
+              await github.deleteRepository("fake-user/azure-js-dev-tools");
+            }
+          }
+        });
+
+        it("with existing head branch in existing fork", async function () {
+          if (!(github instanceof FakeGitHub)) {
+            this.skip();
+          } else {
+            await github.forkRepository("ts-common/azure-js-dev-tools", "fake-user");
+            try {
+              await github.createCommit("fake-user/azure-js-dev-tools", "fake-branch-sha", "fake-branch-sha-message");
+              await github.createBranch("fake-user/azure-js-dev-tools", "fake-branch", "fake-branch-sha");
+              const pullRequest: GitHubPullRequest = await github.createPullRequest("ts-common/azure-js-dev-tools", "master", "fake-user:fake-branch", "fake-title");
+              assertEx.defined(pullRequest, "pullRequest");
+              assert.deepEqual(pullRequest.base, {
+                ref: "master",
+                label: "master",
+                sha: "fake-base-sha",
+              });
+              assert.deepEqual(pullRequest.head, {
+                ref: "fake-branch",
+                label: "fake-user:fake-branch",
+                sha: "fake-head-sha",
+              });
+              assert.strictEqual(await github.getPullRequest("ts-common/azure-js-dev-tools", pullRequest.number), pullRequest);
+              await assertEx.throwsAsync(github.getPullRequest("fake-user/azure-js-dev-tools", pullRequest.number));
+            } finally {
+              await github.deleteRepository("fake-user/azure-js-dev-tools");
+            }
           }
         });
       });
@@ -1172,7 +1215,7 @@ function createFakeGitHub(): FakeGitHub {
   fakeGitHub.createUser(fakeUserLogin);
   fakeGitHub.setCurrentUser(fakeUserLogin);
 
-  fakeGitHub.createFakeRepository("ts-common/azure-js-dev-tools");
+  fakeGitHub.createRepository("ts-common/azure-js-dev-tools");
   fakeGitHub.createCommit("ts-common/azure-js-dev-tools", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5", `Merge pull request #112 from ts-common/daschult/encoding\n\n Add encoding to stdout and stderr capture functions`);
   fakeGitHub.createCommit("ts-common/azure-js-dev-tools", "bc0488dbe9ba7b2dd32c094c826cf799c55ca67d", `fake pull request base commit message`);
   fakeGitHub.createBranch("ts-common/azure-js-dev-tools", "master", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
