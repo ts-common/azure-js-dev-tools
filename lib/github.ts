@@ -608,15 +608,23 @@ export interface FakeGitHubPullRequest extends GitHubPullRequest {
 }
 
 export class FakeGitHubRepository {
-  public readonly name: string;
   public readonly labels: GitHubLabel[] = [];
   public readonly milestones: GitHubMilestone[] = [];
   public readonly pullRequests: FakeGitHubPullRequest[] = [];
   public readonly commits: GitHubCommit[] = [];
   public readonly branches: GitHubBranch[] = [];
+  public readonly forks: FakeGitHubRepository[] = [];
 
-  constructor(name: string) {
-    this.name = name;
+  constructor(public readonly name: string, public readonly forkOf?: FakeGitHubRepository) {
+  }
+
+  /**
+   * Get the fork of this repository that was created by the provided username/organization.
+   * @param usernameOrOrganization The name of the user or organization that created a fork of this
+   * repository.
+   */
+  public getFork(usernameOrOrganization: string): FakeGitHubRepository | undefined {
+    return first(this.forks, (fork: FakeGitHubRepository) => getGitHubRepository(fork.name).organization === usernameOrOrganization);
   }
 }
 
@@ -625,7 +633,7 @@ export class FakeGitHub implements GitHub {
   private currentUser: GitHubUser | undefined;
   private readonly repositories: FakeGitHubRepository[] = [];
 
-  public getFakeRepository(repository: string | GitHubRepository): Promise<FakeGitHubRepository> {
+  public getRepository(repository: string | GitHubRepository): Promise<FakeGitHubRepository> {
     const repositoryFullName: string = getRepositoryFullName(repository);
     const fakeRepository: FakeGitHubRepository | undefined = first(this.repositories, (fakeRepository: FakeGitHubRepository) => fakeRepository.name === repositoryFullName);
     let result: Promise<FakeGitHubRepository>;
@@ -637,17 +645,51 @@ export class FakeGitHub implements GitHub {
     return result;
   }
 
-  public createFakeRepository(repository: string | GitHubRepository): Promise<FakeGitHubRepository> {
+  private async createRepositoryInner(repository: string | GitHubRepository, forkOf?: string | GitHubRepository): Promise<FakeGitHubRepository> {
     const repositoryFullName: string = getRepositoryFullName(repository);
     let fakeRepository: FakeGitHubRepository | undefined = first(this.repositories, (fakeRepository: FakeGitHubRepository) => fakeRepository.name === repositoryFullName);
     let result: Promise<FakeGitHubRepository>;
     if (fakeRepository) {
       result = Promise.reject(new Error(`A fake repository with the name "${repositoryFullName}" already exists.`));
     } else {
-      fakeRepository = new FakeGitHubRepository(repositoryFullName);
+      const forkOfRepository: FakeGitHubRepository | undefined = !forkOf ? undefined : await this.getRepository(forkOf);
+      fakeRepository = new FakeGitHubRepository(repositoryFullName, forkOfRepository);
+      if (forkOfRepository) {
+        forkOfRepository.forks.push(fakeRepository);
+      }
       this.repositories.push(fakeRepository);
       result = Promise.resolve(fakeRepository);
     }
+    return result;
+  }
+
+  public createRepository(repository: string | GitHubRepository): Promise<FakeGitHubRepository> {
+    return this.createRepositoryInner(repository);
+  }
+
+  public async forkRepository(repository: string | GitHubRepository, forkedRepositoryOwner: string): Promise<FakeGitHubRepository> {
+    repository = getGitHubRepository(repository);
+    const forkedRepository: GitHubRepository = {
+      organization: forkedRepositoryOwner,
+      name: repository.name,
+    };
+    return this.createRepositoryInner(forkedRepository, repository);
+  }
+
+  public deleteRepository(repository: string | GitHubRepository): Promise<void> {
+    const repositoryFullName: string = getRepositoryFullName(repository);
+    const deletedRepository: FakeGitHubRepository | undefined = removeFirst(this.repositories, (repo: FakeGitHubRepository) => repo.name === repositoryFullName);
+
+    let result: Promise<void>;
+    if (!deletedRepository) {
+      result = Promise.reject(new Error(`No fake repository exists with the name "${repositoryFullName}".`));
+    } else {
+      if (deletedRepository.forkOf) {
+        removeFirst(deletedRepository.forkOf.forks, (fork: FakeGitHubRepository) => fork === deletedRepository);
+      }
+      result = Promise.resolve();
+    }
+
     return result;
   }
 
@@ -682,191 +724,187 @@ export class FakeGitHub implements GitHub {
     return result;
   }
 
-  public setCurrentUser(username: string): Promise<unknown> {
-    return this.getUser(username)
-      .then((user: GitHubUser) => {
-        this.currentUser = user;
-      });
+  public async setCurrentUser(username: string): Promise<void> {
+    this.currentUser = await this.getUser(username);
   }
 
-  public getLabel(repository: string | GitHubRepository, label: string): Promise<GitHubLabel> {
-    return this.getLabels(repository)
-      .then((labels: GitHubLabel[]) => {
-        let result: Promise<GitHubLabel>;
-        const githubLabel: GitHubLabel | undefined = first(labels, (l: GitHubLabel) => l.name === label);
-        if (!githubLabel) {
-          result = Promise.reject(new Error(`No fake label named "${label}" found in the fake repository "${getRepositoryFullName(repository)}".`));
-        } else {
-          result = Promise.resolve(githubLabel);
-        }
-        return result;
-      });
+  public async getLabel(repository: string | GitHubRepository, label: string): Promise<GitHubLabel> {
+    let result: Promise<GitHubLabel>;
+    const labels: GitHubLabel[] = await this.getLabels(repository);
+    const githubLabel: GitHubLabel | undefined = first(labels, (l: GitHubLabel) => l.name === label);
+    if (!githubLabel) {
+      result = Promise.reject(new Error(`No fake label named "${label}" found in the fake repository "${getRepositoryFullName(repository)}".`));
+    } else {
+      result = Promise.resolve(githubLabel);
+    }
+    return result;
   }
 
   public getCurrentUser(): Promise<GitHubUser> {
-    return this.currentUser ? Promise.resolve(this.currentUser) : Promise.reject(new Error(`No fake current user has been set.`));
+    return this.currentUser
+      ? Promise.resolve(this.currentUser)
+      : Promise.reject(new Error(`No fake current user has been set.`));
   }
 
-  public getLabels(repository: string | GitHubRepository): Promise<GitHubLabel[]> {
-    return this.getFakeRepository(repository)
-      .then((fakeRepository: FakeGitHubRepository) => fakeRepository.labels);
+  public async getLabels(repository: string | GitHubRepository): Promise<GitHubLabel[]> {
+    const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
+    return fakeRepository.labels;
   }
 
-  public getSprintLabels(repository: string | GitHubRepository): Promise<GitHubSprintLabel[]> {
-    return this.getLabels(repository)
-      .then(getSprintLabels);
+  public async getSprintLabels(repository: string | GitHubRepository): Promise<GitHubSprintLabel[]> {
+    const labels: GitHubLabel[] = await this.getLabels(repository);
+    return getSprintLabels(labels);
   }
 
-  public createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<GitHubLabel> {
+  public async createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<GitHubLabel> {
     let result: Promise<GitHubLabel>;
     if (!labelName) {
       result = Promise.reject(new Error(`labelName cannot be undefined or empty.`));
     } else if (!color) {
       result = Promise.reject(new Error(`color cannot be undefined or empty.`));
     } else {
-      result = this.getFakeRepository(repository)
-        .then((fakeRepository: FakeGitHubRepository) => {
-          const label: GitHubLabel = {
-            id: 0,
-            default: false,
-            node_id: "fake label node_id",
-            url: "fake label url",
-            name: labelName,
-            color: color
-          };
-          fakeRepository.labels.push(label);
-          return label;
-        });
+      const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
+      const label: GitHubLabel = {
+        id: 0,
+        default: false,
+        node_id: "fake label node_id",
+        url: "fake label url",
+        name: labelName,
+        color: color
+      };
+      fakeRepository.labels.push(label);
+      result = Promise.resolve(label);
     }
     return result;
   }
 
-  public deleteLabel(repository: string | GitHubRepository, label: string | GitHubLabel): Promise<unknown> {
+  public async deleteLabel(repository: string | GitHubRepository, label: string | GitHubLabel): Promise<void> {
     const labelName: string = (!label || typeof label === "string") ? label : label.name;
-    return !labelName
-      ? Promise.reject(new Error(`label cannot be undefined or an empty string.`))
-      : this.getFakeRepository(repository)
-        .then((fakeRepository: FakeGitHubRepository) => {
-          const removedLabel: GitHubLabel | undefined = removeFirst(fakeRepository.labels, (label: GitHubLabel) => label.name === labelName);
-          return !removedLabel
-            ? Promise.reject(new Error(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`))
-            : Promise.resolve();
-        });
+    let result: Promise<void>;
+    if (!labelName) {
+      result = Promise.reject(new Error(`label cannot be undefined or an empty string.`));
+    } else {
+      const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
+      const removedLabel: GitHubLabel | undefined = removeFirst(fakeRepository.labels, (label: GitHubLabel) => label.name === labelName);
+      if (!removedLabel) {
+        result = Promise.reject(new Error(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`));
+      } else {
+        result = Promise.resolve();
+      }
+    }
+    return result;
   }
 
-  public updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<unknown> {
-    return this.getFakeRepository(repository)
-      .then((fakeRepository: FakeGitHubRepository) => {
-        const label: GitHubLabel | undefined = first(fakeRepository.labels, (label: GitHubLabel) => label.name === labelName);
-        let result: Promise<unknown>;
-        if (!label) {
-          result = Promise.reject(new Error(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`));
-        } else {
-          label.color = newColor;
-          result = Promise.resolve();
-        }
-        return result;
-      });
+  public async updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<unknown> {
+    const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
+    const label: GitHubLabel | undefined = first(fakeRepository.labels, (label: GitHubLabel) => label.name === labelName);
+    let result: Promise<unknown>;
+    if (!label) {
+      result = Promise.reject(new Error(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`));
+    } else {
+      label.color = newColor;
+      result = Promise.resolve();
+    }
+    return result;
   }
 
-  public getMilestone(repository: string | GitHubRepository, milestone: string | number): Promise<GitHubMilestone> {
-    return this.getMilestones(repository)
-      .then((milestones: GitHubMilestone[]) => {
-        let result: Promise<GitHubMilestone>;
-        if (typeof milestone === "string") {
-          const milestoneMatch: GitHubMilestone | undefined = first(milestones, (m: GitHubMilestone) => m.title === milestone);
-          if (!milestoneMatch) {
-            result = Promise.reject(new Error(`No milestone found with the name "${milestone}" in the fake repository "${getRepositoryFullName(repository)}".`));
-          } else {
-            result = Promise.resolve(milestoneMatch);
-          }
-        } else {
-          const milestoneMatch: GitHubMilestone | undefined = first(milestones, (m: GitHubMilestone) => m.number === milestone);
-          if (!milestoneMatch) {
-            result = Promise.reject(new Error(`No milestone found with the id number ${milestone} in the fake repository "${getRepositoryFullName(repository)}".`));
-          } else {
-            result = Promise.resolve(milestoneMatch);
-          }
-        }
-        return result;
-      });
+  public async getMilestone(repository: string | GitHubRepository, milestone: string | number): Promise<GitHubMilestone> {
+    const milestones: GitHubMilestone[] = await this.getMilestones(repository);
+    let result: Promise<GitHubMilestone>;
+    if (typeof milestone === "string") {
+      const milestoneMatch: GitHubMilestone | undefined = first(milestones, (m: GitHubMilestone) => m.title === milestone);
+      if (!milestoneMatch) {
+        result = Promise.reject(new Error(`No milestone found with the name "${milestone}" in the fake repository "${getRepositoryFullName(repository)}".`));
+      } else {
+        result = Promise.resolve(milestoneMatch);
+      }
+    } else {
+      const milestoneMatch: GitHubMilestone | undefined = first(milestones, (m: GitHubMilestone) => m.number === milestone);
+      if (!milestoneMatch) {
+        result = Promise.reject(new Error(`No milestone found with the id number ${milestone} in the fake repository "${getRepositoryFullName(repository)}".`));
+      } else {
+        result = Promise.resolve(milestoneMatch);
+      }
+    }
+    return result;
   }
 
-  public getMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubMilestone[]> {
-    return this.getFakeRepository(repository)
-      .then((fakeRepository: FakeGitHubRepository) => {
-        let result: GitHubMilestone[] = fakeRepository.milestones;
-        if (options && options.open !== undefined) {
-          result = where(result, (milestone: GitHubMilestone) => milestone.state === (options.open ? "open" : "closed"));
-        }
-        return result;
-      });
+  public async getMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubMilestone[]> {
+    const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
+    let result: GitHubMilestone[] = fakeRepository.milestones;
+    if (options && options.open !== undefined) {
+      result = where(result, (milestone: GitHubMilestone) => milestone.state === (options.open ? "open" : "closed"));
+    }
+    return result;
   }
 
-  public getSprintMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubSprintMilestone[]> {
-    return this.getMilestones(repository, options)
-      .then(githubMilestonesToSprintMilestones);
+  public async getSprintMilestones(repository: string | GitHubRepository, options?: GitHubGetMilestonesOptions): Promise<GitHubSprintMilestone[]> {
+    const milestones: GitHubMilestone[] = await this.getMilestones(repository, options);
+    return githubMilestonesToSprintMilestones(milestones);
   }
 
-  public createMilestone(repository: string | GitHubRepository, milestoneName: string, options?: GitHubCreateMilestoneOptions): Promise<GitHubMilestone> {
-    return this.getFakeRepository(repository)
-      .then((fakeRepository: FakeGitHubRepository) => {
-        const milestone: GitHubMilestone = {
-          title: milestoneName,
-          number: 0,
-          due_on: addOffset(options && options.endDate || "2000-01-02"),
-          state: "open",
-          closed_issues: 0,
-          open_issues: 0
-        };
-        fakeRepository.milestones.push(milestone);
-        return milestone;
-      });
+  public async createMilestone(repository: string | GitHubRepository, milestoneName: string, options?: GitHubCreateMilestoneOptions): Promise<GitHubMilestone> {
+    const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
+    const milestone: GitHubMilestone = {
+      title: milestoneName,
+      number: 0,
+      due_on: addOffset(options && options.endDate || "2000-01-02"),
+      state: "open",
+      closed_issues: 0,
+      open_issues: 0
+    };
+    fakeRepository.milestones.push(milestone);
+    return milestone;
   }
 
-  public createSprintMilestone(repository: string | GitHubRepository, sprintNumber: number, sprintEndDate: string): Promise<GitHubSprintMilestone | undefined> {
+  public async createSprintMilestone(repository: string | GitHubRepository, sprintNumber: number, sprintEndDate: string): Promise<GitHubSprintMilestone | undefined> {
     const milestoneName = getSprintMilestoneName(sprintNumber);
-    return this.createMilestone(repository, milestoneName, { endDate: sprintEndDate })
-      .then((githubMilestone: GitHubMilestone) => {
-        return githubMilestoneToSprintMilestone(githubMilestone);
-      });
+    const githubMilestone: GitHubMilestone = await this.createMilestone(repository, milestoneName, { endDate: sprintEndDate });
+    return githubMilestoneToSprintMilestone(githubMilestone);
   }
 
-  public updateMilestoneEndDate(repository: string | GitHubRepository, milestoneNumber: number, newSprintEndDate: string): Promise<GitHubMilestone> {
-    return this.getMilestone(repository, milestoneNumber)
-      .then((milestone: GitHubMilestone) => {
-        milestone.due_on = addOffset(newSprintEndDate);
-        return milestone;
-      });
+  public async updateMilestoneEndDate(repository: string | GitHubRepository, milestoneNumber: number, newSprintEndDate: string): Promise<GitHubMilestone> {
+    const milestone: GitHubMilestone = await this.getMilestone(repository, milestoneNumber);
+    milestone.due_on = addOffset(newSprintEndDate);
+    return milestone;
   }
 
-  public updateSprintMilestoneEndDate(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string): Promise<GitHubSprintMilestone> {
-    return this.updateMilestoneEndDate(repository, sprintMilestone.milestoneNumber!, newSprintEndDate)
-      .then((githubMilestone: GitHubMilestone) => {
-        return githubMilestoneToSprintMilestone(githubMilestone)!;
-      });
+  public async updateSprintMilestoneEndDate(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone, newSprintEndDate: string): Promise<GitHubSprintMilestone> {
+    const githubMilestone: GitHubMilestone = await this.updateMilestoneEndDate(repository, sprintMilestone.milestoneNumber!, newSprintEndDate);
+    return githubMilestoneToSprintMilestone(githubMilestone)!;
   }
 
-  public closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<unknown> {
-    return this.getMilestone(repository, milestoneNumber)
-      .then((milestone: GitHubMilestone) => {
-        milestone.state = "closed";
-      });
+  public async closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<void> {
+    const milestone: GitHubMilestone = await this.getMilestone(repository, milestoneNumber);
+    milestone.state = "closed";
   }
 
-  public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<unknown> {
+  public closeSprintMilestone(repository: string | GitHubRepository, sprintMilestone: GitHubSprintMilestone): Promise<void> {
     return this.closeMilestone(repository, sprintMilestone.milestoneNumber!);
   }
 
-  public createFakePullRequest(repository: string | GitHubRepository, pullRequest: GitHubPullRequest): Promise<FakeGitHubPullRequest> {
-    return this.getFakeRepository(repository)
-      .then((fakeRepository: FakeGitHubRepository) => {
-        let result: Promise<FakeGitHubPullRequest>;
-        if (!contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === pullRequest.base.ref)) {
-          result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.base.ref}".`));
-        } else if (!contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === pullRequest.head.ref)) {
+  public async createFakePullRequest(repository: string | GitHubRepository, pullRequest: GitHubPullRequest): Promise<FakeGitHubPullRequest> {
+    const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
+    let result: Promise<FakeGitHubPullRequest> | undefined;
+    if (!contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === pullRequest.base.ref)) {
+      result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.base.ref}".`));
+    } else {
+      const forkedRepositoryHeadBranch: ForkedRepositoryBranch = getForkedRepositoryBranch(pullRequest.head.label);
+      if (!forkedRepositoryHeadBranch.username || forkedRepositoryHeadBranch.username === getGitHubRepository(fakeRepository.name).organization) {
+        if (!contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === pullRequest.head.ref)) {
           result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.head.ref}".`));
-        } else if (pullRequest.base.label === pullRequest.head.label) {
+        }
+      } else {
+        const forkedRepository: FakeGitHubRepository | undefined = fakeRepository.getFork(forkedRepositoryHeadBranch.username);
+        if (!forkedRepository) {
+          result = Promise.reject(new Error(`No fork of the fake repository "${getRepositoryFullName(repository)}" exists for the username/organization "${forkedRepositoryHeadBranch.username}".`));
+        } else if (!contains(forkedRepository.branches, (branch: GitHubBranch) => branch.name === forkedRepositoryHeadBranch.branchName)) {
+          result = Promise.reject(new Error(`No branch exists in the forked fake repository "${forkedRepository.name}" with the name "${pullRequest.head.ref}".`));
+        }
+      }
+
+      if (!result) {
+        if (pullRequest.base.label === pullRequest.head.label) {
           result = Promise.reject(new Error(`The base label ("${pullRequest.base.label}") cannot be the same as the head label ("${pullRequest.head.label}").`));
         } else {
           const existingPullRequest: FakeGitHubPullRequest | undefined = first(fakeRepository.pullRequests, (pr: FakeGitHubPullRequest) => pr.number === pullRequest.number);
@@ -882,118 +920,89 @@ export class FakeGitHub implements GitHub {
             result = Promise.resolve(fakePullRequest);
           }
         }
-        return result;
-      });
+      }
+    }
+    return result;
   }
 
-  public createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string | ForkedRepositoryBranch, title: string, options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
-    return this.getFakeRepository(repository)
-      .then((fakeRepository: FakeGitHubRepository) => {
-        const forkedRepositoryHeadBranch: ForkedRepositoryBranch = getForkedRepositoryBranch(headBranch);
-        return this.createFakePullRequest(repository, {
-          base: {
-            label: baseBranch,
-            ref: baseBranch,
-            sha: "fake-base-sha",
-          },
-          diff_url: "fake-diff-url",
-          head: {
-            label: getForkedRepositoryBranchFullName(forkedRepositoryHeadBranch),
-            ref: forkedRepositoryHeadBranch.branchName,
-            sha: "fake-head-sha",
-          },
-          html_url: "fake-html-url",
-          id: fakeRepository.pullRequests.length + 1,
-          labels: [],
-          number: fakeRepository.pullRequests.length + 1,
-          state: "open",
-          title,
-          url: "fake-url",
-          body: options && options.description
-        });
-      });
+  public async createPullRequest(repository: string | GitHubRepository, baseBranch: string, headBranch: string | ForkedRepositoryBranch, title: string, options: GitHubCreatePullRequestOptions = {}): Promise<GitHubPullRequest> {
+    const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
+    const forkedRepositoryHeadBranch: ForkedRepositoryBranch = getForkedRepositoryBranch(headBranch);
+    return this.createFakePullRequest(repository, {
+      base: {
+        label: baseBranch,
+        ref: baseBranch,
+        sha: "fake-base-sha",
+      },
+      diff_url: "fake-diff-url",
+      head: {
+        label: getForkedRepositoryBranchFullName(forkedRepositoryHeadBranch),
+        ref: forkedRepositoryHeadBranch.branchName,
+        sha: "fake-head-sha",
+      },
+      html_url: "fake-html-url",
+      id: fakeRepository.pullRequests.length + 1,
+      labels: [],
+      number: fakeRepository.pullRequests.length + 1,
+      state: "open",
+      title,
+      url: "fake-url",
+      body: options && options.description
+    });
   }
 
-  public closePullRequest(repository: string | GitHubRepository, pullRequestNumber: number | GitHubPullRequest): Promise<unknown> {
-    return this.getPullRequest(repository, getPullRequestNumber(pullRequestNumber))
-      .then((existingPullRequest: FakeGitHubPullRequest) => {
-        existingPullRequest.state = "closed";
-      });
+  public async closePullRequest(repository: string | GitHubRepository, pullRequestNumber: number | GitHubPullRequest): Promise<void> {
+    const existingPullRequest: FakeGitHubPullRequest = await this.getPullRequest(repository, getPullRequestNumber(pullRequestNumber));
+    existingPullRequest.state = "closed";
   }
 
-  public mergePullRequest(repository: string | GitHubRepository, pullRequest: number | GitHubPullRequest): Promise<unknown> {
-    return this.getPullRequest(repository, getPullRequestNumber(pullRequest))
-      .then((existingPullRequest: FakeGitHubPullRequest) => {
-        let result: Promise<unknown>;
-        if (existingPullRequest.state === "closed") {
-          result = Promise.reject(new Error(`The pull request (${getRepositoryFullName(repository)}/${existingPullRequest.number}) is already closed.`));
-        } else {
-          existingPullRequest.state = "closed";
-          result = Promise.resolve();
-        }
-        return result;
-      });
+  public async mergePullRequest(repository: string | GitHubRepository, pullRequest: number | GitHubPullRequest): Promise<void> {
+    const existingPullRequest: FakeGitHubPullRequest = await this.getPullRequest(repository, getPullRequestNumber(pullRequest));
+    let result: Promise<void>;
+    if (existingPullRequest.state === "closed") {
+      result = Promise.reject(new Error(`The pull request (${getRepositoryFullName(repository)}/${existingPullRequest.number}) is already closed.`));
+    } else {
+      existingPullRequest.state = "closed";
+      result = Promise.resolve();
+    }
+    return result;
   }
 
-  public getPullRequest(repository: string | GitHubRepository, pullRequestNumber: number): Promise<FakeGitHubPullRequest> {
-    return this.getPullRequests(repository)
-      .then((pullRequests: FakeGitHubPullRequest[]) => {
-        const pullRequest: FakeGitHubPullRequest | undefined = first(pullRequests, (pr: FakeGitHubPullRequest) => pr.number === pullRequestNumber);
-        return pullRequest ? Promise.resolve(pullRequest) : Promise.reject(new Error(`No pull request found in fake repository "${getRepositoryFullName(repository)}" with number ${pullRequestNumber}.`));
-      });
+  public async getPullRequest(repository: string | GitHubRepository, pullRequestNumber: number): Promise<FakeGitHubPullRequest> {
+    const pullRequests: FakeGitHubPullRequest[] = await this.getPullRequests(repository);
+    const pullRequest: FakeGitHubPullRequest | undefined = first(pullRequests, (pr: FakeGitHubPullRequest) => pr.number === pullRequestNumber);
+    return pullRequest
+      ? Promise.resolve(pullRequest)
+      : Promise.reject(new Error(`No pull request found in fake repository "${getRepositoryFullName(repository)}" with number ${pullRequestNumber}.`));
   }
 
-  public getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<FakeGitHubPullRequest[]> {
-    return this.getFakeRepository(repository)
-      .then((fakeRepository: FakeGitHubRepository) => {
-        let result: FakeGitHubPullRequest[] = fakeRepository.pullRequests;
-        if (options && options.open !== undefined) {
-          result = where(result, (pullRequest: FakeGitHubPullRequest) => pullRequest.state === (options.open ? "open" : "closed"));
-        }
-        return result;
-      });
+  public async getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<FakeGitHubPullRequest[]> {
+    const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
+    let result: FakeGitHubPullRequest[] = fakeRepository.pullRequests;
+    if (options && options.open !== undefined) {
+      result = where(result, (pullRequest: FakeGitHubPullRequest) => pullRequest.state === (options.open ? "open" : "closed"));
+    }
+    return result;
   }
 
-  public addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<unknown> {
+  public async addPullRequestAssignees(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, assignees: string | GitHubUser | (string | GitHubUser)[]): Promise<void> {
     const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
-    return this.getPullRequest(repository, pullRequestNumber)
-      .then((pullRequest: FakeGitHubPullRequest) => {
-        let collectAssigneeUsers: Promise<unknown>;
+    const pullRequest: FakeGitHubPullRequest = await this.getPullRequest(repository, pullRequestNumber);
 
-        const assigneeUsers: GitHubUser[] = [];
-        if (typeof assignees === "string") {
-          collectAssigneeUsers = this.getUser(assignees).then((user: GitHubUser) => {
-            assigneeUsers.push(user);
-          });
-        } else if (!Array.isArray(assignees)) {
-          collectAssigneeUsers = new Promise((resolve) => {
-            assigneeUsers.push(assignees);
-            resolve();
-          });
-        } else {
-          collectAssigneeUsers = Promise.resolve();
-          for (const assignee of assignees) {
-            if (typeof assignee === "string") {
-              collectAssigneeUsers = collectAssigneeUsers.then(() => {
-                collectAssigneeUsers = this.getUser(assignee).then((user: GitHubUser) => {
-                  assigneeUsers.push(user);
-                });
-              });
-            } else {
-              collectAssigneeUsers = collectAssigneeUsers.then(() => {
-                assigneeUsers.push(assignee);
-              });
-            }
-          }
-        }
+    if (!pullRequest.assignees) {
+      pullRequest.assignees = [];
+    }
 
-        return collectAssigneeUsers.then(() => {
-          if (!pullRequest.assignees) {
-            pullRequest.assignees = [];
-          }
-          pullRequest.assignees.push(...assigneeUsers);
-        });
-      });
+    if (!Array.isArray(assignees)) {
+      assignees = [assignees];
+    }
+    for (const assignee of assignees) {
+      if (typeof assignee === "string") {
+        pullRequest.assignees.push(await this.getUser(assignee));
+      } else {
+        pullRequest.assignees.push(assignee);
+      }
+    }
   }
 
   public async addPullRequestLabels(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, labelNames: string | string[]): Promise<string[]> {
@@ -1018,16 +1027,14 @@ export class FakeGitHub implements GitHub {
     return labelNamesAddedToPullRequest;
   }
 
-  public removePullRequestLabels(repository: string | GitHubRepository, githubPullRequest: number | GitHubPullRequest, labelNames: string | string[]): Promise<string[]> {
+  public async removePullRequestLabels(repository: string | GitHubRepository, githubPullRequest: number | GitHubPullRequest, labelNames: string | string[]): Promise<string[]> {
     const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
-    return this.getPullRequest(repository, pullRequestNumber)
-      .then((pullRequest: FakeGitHubPullRequest) => {
-        const labelNamesToRemove: string[] = (Array.isArray(labelNames) ? labelNames : [labelNames]);
-        const currentLabelNames: string[] = map(pullRequest.labels, (label: GitHubLabel) => label.name);
-        const removedLabelNames: string[] = where(currentLabelNames, (labelName: string) => contains(labelNamesToRemove, labelName));
-        pullRequest.labels = where(pullRequest.labels, (label: GitHubLabel) => !contains(labelNamesToRemove, label.name));
-        return removedLabelNames;
-      });
+    const pullRequest: FakeGitHubPullRequest = await this.getPullRequest(repository, pullRequestNumber);
+    const labelNamesToRemove: string[] = (Array.isArray(labelNames) ? labelNames : [labelNames]);
+    const currentLabelNames: string[] = map(pullRequest.labels, (label: GitHubLabel) => label.name);
+    const removedLabelNames: string[] = where(currentLabelNames, (labelName: string) => contains(labelNamesToRemove, labelName));
+    pullRequest.labels = where(pullRequest.labels, (label: GitHubLabel) => !contains(labelNamesToRemove, label.name));
+    return removedLabelNames;
   }
 
   public setPullRequestMilestone(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, milestone: string | number | GitHubMilestone): Promise<unknown> {
@@ -1107,14 +1114,14 @@ export class FakeGitHub implements GitHub {
   }
 
   public getCommit(repository: string | GitHubRepository, commitId: string): Promise<GitHubCommit | undefined> {
-    return this.getFakeRepository(repository)
+    return this.getRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
         return first(fakeRepository.commits, (commit: GitHubCommit) => commit.sha.startsWith(commitId));
       });
   }
 
   public createCommit(repository: string | GitHubRepository, commitId: string, message: string): Promise<unknown> {
-    return this.getFakeRepository(repository)
+    return this.getRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
         fakeRepository.commits.push({
           sha: commitId,
@@ -1126,7 +1133,7 @@ export class FakeGitHub implements GitHub {
   }
 
   public getAllReferences(repository: string | GitHubRepository): Promise<GitHubReference[]> {
-    return this.getFakeRepository(repository)
+    return this.getRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
         return fakeRepository.branches;
       });
@@ -1138,7 +1145,7 @@ export class FakeGitHub implements GitHub {
   }
 
   public getBranch(repository: string | GitHubRepository, branchName: string): Promise<GitHubBranch> {
-    return this.getFakeRepository(repository)
+    return this.getRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
         const result: GitHubBranch | undefined = first(fakeRepository.branches, (branch: GitHubBranch) => branch.name === branchName);
         if (!result) {
@@ -1149,7 +1156,7 @@ export class FakeGitHub implements GitHub {
   }
 
   public deleteBranch(repository: string | GitHubRepository, branchName: string): Promise<unknown> {
-    return this.getFakeRepository(repository)
+    return this.getRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
         const removedBranch: GitHubBranch | undefined = removeFirst(fakeRepository.branches, (branch: GitHubBranch) => branch.name === branchName);
         if (!removedBranch) {
@@ -1159,7 +1166,7 @@ export class FakeGitHub implements GitHub {
   }
 
   public createBranch(repository: string | GitHubRepository, branchName: string, branchSha: string): Promise<GitHubBranch> {
-    return this.getFakeRepository(repository)
+    return this.getRepository(repository)
       .then((fakeRepository: FakeGitHubRepository) => {
         let result: GitHubBranch;
         if (contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === branchName)) {
