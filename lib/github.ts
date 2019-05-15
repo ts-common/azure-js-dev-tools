@@ -645,36 +645,35 @@ export class FakeGitHub implements GitHub {
     return result;
   }
 
-  public createRepository(repository: string | GitHubRepository): Promise<FakeGitHubRepository> {
+  private async createRepositoryInner(repository: string | GitHubRepository, forkOf?: string | GitHubRepository): Promise<FakeGitHubRepository> {
     const repositoryFullName: string = getRepositoryFullName(repository);
     let fakeRepository: FakeGitHubRepository | undefined = first(this.repositories, (fakeRepository: FakeGitHubRepository) => fakeRepository.name === repositoryFullName);
     let result: Promise<FakeGitHubRepository>;
     if (fakeRepository) {
       result = Promise.reject(new Error(`A fake repository with the name "${repositoryFullName}" already exists.`));
     } else {
-      fakeRepository = new FakeGitHubRepository(repositoryFullName);
+      const forkOfRepository: FakeGitHubRepository | undefined = !forkOf ? undefined : await this.getRepository(forkOf);
+      fakeRepository = new FakeGitHubRepository(repositoryFullName, forkOfRepository);
+      if (forkOfRepository) {
+        forkOfRepository.forks.push(fakeRepository);
+      }
       this.repositories.push(fakeRepository);
       result = Promise.resolve(fakeRepository);
     }
     return result;
   }
 
+  public createRepository(repository: string | GitHubRepository): Promise<FakeGitHubRepository> {
+    return this.createRepositoryInner(repository);
+  }
+
   public async forkRepository(repository: string | GitHubRepository, forkedRepositoryOwner: string): Promise<FakeGitHubRepository> {
-    let result: Promise<FakeGitHubRepository>;
-
-    const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
-    const repositoryName: GitHubRepository = getGitHubRepository(fakeRepository.name);
-    const forkedRepositoryFullName = `${forkedRepositoryOwner}/${repositoryName.name}`;
-    if (contains(fakeRepository.forks, (forkedRepository: FakeGitHubRepository) => forkedRepository.name === forkedRepositoryFullName)) {
-      result = Promise.reject(new Error(`A fake repository fork of "${fakeRepository.name}" already exists for user/organization "${forkedRepositoryOwner}".`));
-    } else {
-      const forkedRepository = new FakeGitHubRepository(`${forkedRepositoryOwner}/${repositoryName.name}`, fakeRepository);
-      this.repositories.push(forkedRepository);
-      fakeRepository.forks.push(forkedRepository);
-      result = Promise.resolve(forkedRepository);
-    }
-
-    return result;
+    repository = getGitHubRepository(repository);
+    const forkedRepository: GitHubRepository = {
+      organization: forkedRepositoryOwner,
+      name: repository.name,
+    };
+    return this.createRepositoryInner(forkedRepository, repository);
   }
 
   public deleteRepository(repository: string | GitHubRepository): Promise<void> {
