@@ -144,7 +144,7 @@ export function blockquote(actions?: BuilderActions<BlockQuoteBuilder>, textBuil
  * Create a b element string.
  */
 export function b(actions?: BuilderActions<BBuilder>, textBuilder: TextBuilder = new TextBuilder()): string {
-  return new BodyBuilder(textBuilder).create(actions);
+  return new BBuilder(textBuilder).create(actions);
 }
 
 
