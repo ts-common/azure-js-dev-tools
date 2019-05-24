@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import { a, body, BodyBuilder, h, h1, h2, h3, h4, html, HTMLBuilder, img, table, td, tr } from "../lib/htmlBuilder";
+import { a, b, body, BodyBuilder, h, h1, h2, h3, h4, html, HTMLBuilder, img, table, td, tr } from "../lib/htmlBuilder";
 import { TextBuilder } from "../lib/textBuilder";
 
 describe("htmlBuilder.ts", function () {
@@ -104,6 +104,34 @@ describe("htmlBuilder.ts", function () {
       const textBuilder = new TextBuilder();
       assert.strictEqual(body(undefined, textBuilder), `<body/>`);
       assert.strictEqual(textBuilder.toString(), `<body/>`);
+    });
+  });
+
+  describe("b()", function () {
+    it("with no arguments", function () {
+      assert.strictEqual(b(), "<b/>");
+    });
+
+    it("with string", function () {
+      assert.strictEqual(b("hello"), "<b>hello</b>");
+    });
+
+    it("with empty action", function () {
+      assert.strictEqual(b(() => { }), "<b/>");
+    });
+
+    it("with attribute", function () {
+      assert.strictEqual(b(b => b.attribute("cats", "cool")), `<b cats="cool"/>`);
+    });
+
+    it("with content", function () {
+      assert.strictEqual(b(b => b.content("blah")), `<b>blah</b>`);
+    });
+
+    it("with TextBuilder", function () {
+      const textBuilder = new TextBuilder();
+      assert.strictEqual(b(undefined, textBuilder), `<b/>`);
+      assert.strictEqual(textBuilder.toString(), `<b/>`);
     });
   });
 

@@ -140,6 +140,13 @@ export function blockquote(actions?: BuilderActions<BlockQuoteBuilder>, textBuil
   return new BlockQuoteBuilder(textBuilder).create(actions);
 }
 
+/**
+ * Create a b element string.
+ */
+export function b(actions?: BuilderActions<BBuilder>, textBuilder: TextBuilder = new TextBuilder()): string {
+  return new BBuilder(textBuilder).create(actions);
+}
+
 
 /**
  * A class that can be used to create a generic HTML element.
@@ -265,6 +272,15 @@ export class BodyBuilder extends HTMLElementBuilder {
    */
   public create(bodyActions?: BuilderActions<BodyBuilder>): string {
     return create(this, bodyActions);
+  }
+
+  /**
+   * Create a bold element in this body element.
+   * @param bActions The actions that will populate this element.
+   */
+  public b(bActions?: BuilderActions<BBuilder>): BodyBuilder {
+    this.content(b(bActions));
+    return this;
   }
 
   /**
@@ -495,6 +511,15 @@ export class TDBuilder extends HTMLElementBuilder {
    */
   public a(aActions?: BuilderActions<ABuilder>): TDBuilder {
     this.content(a(aActions));
+    return this;
+  }
+
+  /**
+   * Create a bold element in this td element.
+   * @param bActions The actions that will populate this element.
+   */
+  public b(bActions?: BuilderActions<BBuilder>): TDBuilder {
+    this.content(b(bActions));
     return this;
   }
 
@@ -822,5 +847,22 @@ export class BlockQuoteBuilder extends HTMLElementBuilder {
   public details(detailsActions?: BuilderActions<DetailsBuilder>): BlockQuoteBuilder {
     this.content(details(detailsActions));
     return this;
+  }
+}
+
+/**
+ * A class that can be used to build a b element.
+ */
+export class BBuilder extends HTMLElementBuilder {
+  constructor(text?: TextBuilder) {
+    super("b", text);
+  }
+
+  /**
+   * Populate this element using the provided action.
+   * @param actions The actions that will populate this element.
+   */
+  public create(actions?: BuilderActions<BBuilder>): string {
+    return create(this, actions);
   }
 }
