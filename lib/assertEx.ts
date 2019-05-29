@@ -154,6 +154,12 @@ export namespace assertEx {
     assert(value, `${expressionName} cannot be empty.`);
   }
 
+  export function definedAndNotStrictEqual<T>(actualValue: T | undefined, expectedValue: T, expressionName?: string): void {
+    expressionName = expressionName || "actualValue";
+    defined(actualValue, expressionName);
+    assert.notStrictEqual(actualValue, expectedValue, `${expressionName} (${actualValue}) cannot be strictly equal to ${expectedValue}.`);
+  }
+
   export function greaterThan(value: number, expectedLowerBound: number, expressionName?: string): void {
     defined(value, expressionName);
     defined(expectedLowerBound, "expectedLowerBound");
