@@ -7,6 +7,7 @@
 import * as archiver from "archiver";
 import * as fs from "fs";
 import { writeFileContents } from "./fileSystem2";
+import { toArray } from "./arrays";
 
 /**
  * The result of doing a compression.
@@ -21,11 +22,17 @@ export interface CompressionResult {
  */
 export interface Compressor {
   /**
+   * Zip the provided files.
+   * @param filePaths The files to zip.
+   * @param outputFilePath The file path where the zipped file will go.
+   */
+  zipFiles(filePaths: string | string[], outputFilePath: string): Promise<CompressionResult>;
+  /**
    * Zip the provided folder.
    * @param folderPath The path to the folder to zip.
    * @param outputFilePath The file path where the zipped file will go.
    */
-  zip(folderPath: string, outputFilePath: string): Promise<CompressionResult>;
+  zipFolder(folderPath: string, outputFilePath: string): Promise<CompressionResult>;
 }
 
 /**
@@ -35,16 +42,27 @@ export class FakeCompressor implements Compressor {
   public readonly errors: Error[] = [];
   public readonly warnings: Error[] = [];
 
-  zip(folderPath: string, outputFilePath: string): Promise<CompressionResult> {
-    let zipFileContents = "";
-    zipFileContents += `folder: ${folderPath}`;
-    return writeFileContents(outputFilePath, zipFileContents)
-      .then(() => {
-        return {
-          errors: this.errors,
-          warnings: this.warnings
-        };
-      });
+  public async zipFiles(filePaths: string | string[], outputFilePath: string): Promise<CompressionResult> {
+    let zipFileContents = `files:\n`;
+    for (const filePath of toArray(filePaths)) {
+      zipFileContents += `${filePath}\n`;
+    }
+    await writeFileContents(outputFilePath, zipFileContents);
+    const result: CompressionResult = {
+      errors: this.errors,
+      warnings: this.warnings,
+    };
+    return result;
+  }
+
+  public async zipFolder(folderPath: string, outputFilePath: string): Promise<CompressionResult> {
+    const zipFileContents = `folder: ${folderPath}`;
+    await writeFileContents(outputFilePath, zipFileContents);
+    const result: CompressionResult = {
+      errors: this.errors,
+      warnings: this.warnings,
+    };
+    return result;
   }
 }
 
@@ -52,12 +70,12 @@ export class FakeCompressor implements Compressor {
  * A Compressor that uses the archiver NPM package to do compression.
  */
 export class ArchiverCompressor implements Compressor {
-  zip(folderPath: string, outputFilePath: string): Promise<CompressionResult> {
+  private zip(outputFilePath: string, addContents: (arc: archiver.Archiver) => void): Promise<CompressionResult> {
     return new Promise((resolve, reject) => {
       try {
         const arc: archiver.Archiver = archiver.create("zip");
 
-        arc.directory(folderPath, false);
+        addContents(arc);
 
         const output = fs.createWriteStream(outputFilePath);
         arc.pipe(output);
@@ -80,6 +98,20 @@ export class ArchiverCompressor implements Compressor {
       } catch (error) {
         reject(error);
       }
+    });
+  }
+
+  public zipFiles(filePaths: string | string[], outputFilePath: string): Promise<CompressionResult> {
+    return this.zip(outputFilePath, (arc: archiver.Archiver) => {
+      for (const filePath of toArray(filePaths)) {
+        arc.file(filePath, {});
+      }
+    });
+  }
+
+  public zipFolder(folderPath: string, outputFilePath: string): Promise<CompressionResult> {
+    return this.zip(outputFilePath, (arc: archiver.Archiver) => {
+      arc.directory(folderPath, false);
     });
   }
 }
