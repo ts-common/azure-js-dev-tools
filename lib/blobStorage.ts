@@ -87,6 +87,22 @@ export interface CreateBlobResult extends ETagResult {
 }
 
 /**
+ * The result of getting a blob's contents.
+ */
+export interface BlobContentsResult extends ETagResult {
+  /**
+   * The contents of the blob.
+   */
+  contents: string;
+}
+
+/**
+ * The properties associated with a blob.
+ */
+export interface BlobPropertiesResult extends ETagResult {
+}
+
+/**
  * A path to a blob.
  */
 export class BlobPath {
@@ -239,6 +255,14 @@ export class BlobStoragePrefix {
   }
 
   /**
+   * Get the properties for the blob at the provided path.
+   * @param blobPath The path to the blob.
+   */
+  public getBlobProperties(blobName: string): Promise<BlobPropertiesResult> {
+    return this.storage.getBlobProperties(this.path.concatenate(blobName));
+  }
+
+  /**
    * Get the content type that has been assigned to the provided blob.
    * @param blobName The name of to the blob.
    */
@@ -259,7 +283,7 @@ export class BlobStoragePrefix {
    * Get the contents of the blob with the provided name relative to this prefix.
    * @param blobName The name of the blob relative to this prefix.
    */
-  public getBlobContentsAsString(blobName: string): Promise<string | undefined> {
+  public getBlobContentsAsString(blobName: string): Promise<BlobContentsResult> {
     return this.storage.getBlobContentsAsString(this.path.concatenate(blobName));
   }
 
@@ -404,10 +428,24 @@ export class BlobStorageBlob {
   }
 
   /**
+   * Get the container that contains this blob.
+   */
+  public getContainer(): BlobStorageContainer {
+    return this.storage.getContainer(this.path.containerName);
+  }
+
+  /**
    * Get whether or not this blob exists.
    */
   public exists(): Promise<boolean> {
     return this.storage.blobExists(this.path);
+  }
+
+  /**
+   * Get the properties for this blob.
+   */
+  public getProperties(): Promise<BlobPropertiesResult> {
+    return this.storage.getBlobProperties(this.path);
   }
 
   /**
@@ -421,7 +459,7 @@ export class BlobStorageBlob {
   /**
    * Get the contents of this blob as a UTF-8 decoded string.
    */
-  public getContentsAsString(): Promise<string | undefined> {
+  public getContentsAsString(): Promise<BlobContentsResult> {
     return this.storage.getBlobContentsAsString(this.path);
   }
 
@@ -620,10 +658,16 @@ export abstract class BlobStorage {
   public abstract blobExists(blobPath: string | BlobPath): Promise<boolean>;
 
   /**
+   * Get the properties for the blob at the provided path.
+   * @param blobPath The path to the blob.
+   */
+  public abstract getBlobProperties(blobPath: string | BlobPath): Promise<BlobPropertiesResult>;
+
+  /**
    * Get the contents of the blob at the provided path as a UTF-8 decoded string.
    * @param blobPath The path to the blob.
    */
-  public abstract getBlobContentsAsString(blobPath: string | BlobPath): Promise<string | undefined>;
+  public abstract getBlobContentsAsString(blobPath: string | BlobPath): Promise<BlobContentsResult>;
 
   /**
    * Set the contents of the block blob at the provided path to be the provided UTF-8 encoded
@@ -962,14 +1006,12 @@ export class InMemoryBlobStorage extends BlobStorage {
 
   public async blobExists(blobPath: string | BlobPath): Promise<boolean> {
     blobPath = BlobPath.parse(blobPath);
-    const blobName: string = blobPath.blobName;
     let result: boolean;
     try {
-      const container: InMemoryContainer = await this.getInMemoryContainer(blobPath);
-      const blob: InMemoryBlob | undefined = container.blobs[blobName];
-      result = !!blob;
+      await this.getBlobProperties(blobPath);
+      result = true;
     } catch (error) {
-      if (error.message.includes("ContainerNotFound")) {
+      if (error.message.includes("BlobNotFound")) {
         result = false;
       } else {
         throw error;
@@ -978,14 +1020,40 @@ export class InMemoryBlobStorage extends BlobStorage {
     return result;
   }
 
-  public getBlobContentsAsString(blobPath: string | BlobPath): Promise<string | undefined> {
-    return this.getInMemoryBlob(blobPath)
-      .then((blob: InMemoryBlob) => blob.contents.toString())
-      .catch((error: Error) => {
-        return error.message.includes("ContainerNotFound")
-          ? Promise.reject(new Error("BlobNotFound: The specified blob does not exist."))
-          : Promise.reject(error);
-      });
+  public async getBlobProperties(blobPath: string | BlobPath): Promise<BlobPropertiesResult> {
+    blobPath = BlobPath.parse(blobPath);
+    let result: BlobPropertiesResult;
+    try {
+      const blob: InMemoryBlob = await this.getInMemoryBlob(blobPath);
+      result = {
+        etag: blob.etag,
+      };
+    } catch (error) {
+      if (error.message.includes("ContainerNotFound")) {
+        throw new Error("BlobNotFound: The specified blob does not exist.");
+      } else {
+        throw error;
+      }
+    }
+    return result;
+  }
+
+  public async getBlobContentsAsString(blobPath: string | BlobPath): Promise<BlobContentsResult> {
+    let result: BlobContentsResult;
+    try {
+      const blob: InMemoryBlob = await this.getInMemoryBlob(blobPath);
+      result = {
+        contents: blob.contents.toString(),
+        etag: blob.etag,
+      };
+    } catch (error) {
+      if (error.message.includes("ContainerNotFound")) {
+        throw new Error("BlobNotFound: The specified blob does not exist.");
+      } else {
+        throw error;
+      }
+    }
+    return result;
   }
 
   public async setBlockBlobContentsFromString(blobPath: string | BlobPath, blobContents: string, options: BlobContentOptions = {}): Promise<CreateBlobResult> {
@@ -1220,33 +1288,57 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public async blobExists(blobPath: string | BlobPath): Promise<boolean> {
-    const blockBlobUrl: BlockBlobURL = this.getBlockBlobURL(blobPath);
     let result: boolean;
     try {
-      await blockBlobUrl.getProperties(Aborter.none);
+      await this.getBlobProperties(blobPath);
       result = true;
     } catch (error) {
-      if ((error as any).statusCode === 404) {
+      if (error.message.includes("BlobNotFound")) {
         result = false;
       } else {
         throw error;
       }
     }
-
     return result;
   }
 
-  public getBlobContentsAsString(blobPath: string | BlobPath): Promise<string | undefined> {
-    return validateBlobName(blobPath)
-      .then(() => {
-        return this.getBlockBlobURL(blobPath)
-          .download(Aborter.none, 0, undefined)
-          .then((blobDownloadResponse: Models.BlobDownloadResponse) => {
-            return blobDownloadResponse.readableStreamBody;
-          })
-          .then(readEntireString)
-          .catch((error: Error) => resolveIfErrorStatusCodeEquals(error, 404, Promise.reject(new Error("BlobNotFound: The specified blob does not exist."))));
-      });
+  public async getBlobProperties(blobPath: string | BlobPath): Promise<BlobPropertiesResult> {
+    const blockBlobUrl: BlockBlobURL = this.getBlockBlobURL(blobPath);
+    let result: BlobPropertiesResult;
+    try {
+      const getPropertiesResult: Models.BlobGetPropertiesResponse = await blockBlobUrl.getProperties(Aborter.none);
+      result = {
+        etag: getPropertiesResult.eTag,
+      };
+    } catch (error) {
+      if (error.statusCode === 404) {
+        throw new Error("BlobNotFound: The specified blob does not exist.");
+      } else {
+        throw error;
+      }
+    }
+    return result;
+  }
+
+  public async getBlobContentsAsString(blobPath: string | BlobPath): Promise<BlobContentsResult> {
+    await validateBlobName(blobPath);
+
+    const blockBlobUrl: BlockBlobURL = this.getBlockBlobURL(blobPath);
+    let result: BlobContentsResult;
+    try {
+      const blobDownloadResponse: Models.BlobDownloadResponse = await blockBlobUrl.download(Aborter.none, 0, undefined);
+      result = {
+        contents: (await readEntireString(blobDownloadResponse.readableStreamBody))!,
+        etag: blobDownloadResponse.eTag,
+      };
+    } catch (error) {
+      if (error.statusCode === 404) {
+        throw new Error("BlobNotFound: The specified blob does not exist.");
+      } else {
+        throw error;
+      }
+    }
+    return result;
   }
 
   public async setBlockBlobContentsFromString(blockBlobPath: string | BlobPath, blockBlobContents: string, options: BlobContentOptions = {}): Promise<ETagResult> {
