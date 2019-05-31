@@ -70,7 +70,7 @@ export async function checkEverything(options: CheckEverythingOptions = {}): Pro
     }
   };
 
-  const checks: AdditionalCheck[] = []
+  const checks: AdditionalCheck[] = [];
   if (options.checkPackageJsonVersionOptions !== false) {
     checks.push(checkPackageJsonVersion(options.checkPackageJsonVersionOptions));
   }
