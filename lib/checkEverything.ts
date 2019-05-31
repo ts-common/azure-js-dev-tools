@@ -33,21 +33,21 @@ export interface CheckEverythingOptions {
    */
   logger?: Logger;
   /**
-   * The options to provide to the package.json version check.
+   * The options to provide to the package.json version check, or false to disable the check.
    */
-  checkPackageJsonVersionOptions?: CheckPackageJsonVersionOptions;
+  checkPackageJsonVersionOptions?: CheckPackageJsonVersionOptions | false;
   /**
-   * The options to provide to the check for only() calls check.
+   * The options to provide to the check for only() calls check, or false to disable the check.
    */
-  checkForOnlyCallsOptions?: CheckForOnlyCallsOptions;
+  checkForOnlyCallsOptions?: CheckForOnlyCallsOptions | false;
   /**
-   * The options to provide to the check for skip() calls check.
+   * The options to provide to the check for skip() calls check, or false to disable the check.
    */
-  checkForSkipCallsOptions?: CheckForSkipCallsOptions;
+  checkForSkipCallsOptions?: CheckForSkipCallsOptions | false;
   /**
-   * The options to provide to the check for unstaged changes check.
+   * The options to provide to the check for unstaged changes check, or false to disable the check.
    */
-  checkForUnstagedChangesOptions?: CheckForUnstagedChangesOptions;
+  checkForUnstagedChangesOptions?: CheckForUnstagedChangesOptions | false;
   /**
    * Additional checks that can be run as a part of check everything.
    */
@@ -70,12 +70,19 @@ export async function checkEverything(options: CheckEverythingOptions = {}): Pro
     }
   };
 
-  const checks: AdditionalCheck[] = [
-    checkPackageJsonVersion(),
-    checkForOnlyCalls(options.checkForOnlyCallsOptions),
-    checkForSkipCalls(options.checkForSkipCallsOptions),
-    checkForUnstagedChanges(options.checkForUnstagedChangesOptions),
-  ];
+  const checks: AdditionalCheck[] = [];
+  if (options.checkPackageJsonVersionOptions !== false) {
+    checks.push(checkPackageJsonVersion(options.checkPackageJsonVersionOptions));
+  }
+  if (options.checkForOnlyCallsOptions !== false) {
+    checks.push(checkForOnlyCalls(options.checkForOnlyCallsOptions));
+  }
+  if (options.checkForSkipCallsOptions !== false) {
+    checks.push(checkForSkipCalls(options.checkForSkipCallsOptions));
+  }
+  if (options.checkForUnstagedChangesOptions !== false) {
+    checks.push(checkForUnstagedChanges(options.checkForUnstagedChangesOptions));
+  }
   if (options.additionalChecks) {
     if (Array.isArray(options.additionalChecks)) {
       checks.push(...options.additionalChecks);
