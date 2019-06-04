@@ -1,13 +1,17 @@
 import { assert } from "chai";
+import { contains } from "../lib/arrays";
 import { assertEx } from "../lib/assertEx";
 import { writeFileContents } from "../lib/fileSystem2";
 import { GitScope } from "../lib/git";
-import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub, getGitHubRepositoryFromUrl, GitHubReference, GitHubBranch } from "../lib/github";
+import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getGitHubRepositoryFromUrl, getRepositoryFullName, GitHub, GitHubBranch, GitHubComment, GitHubCommit, GitHubError, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubReference, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub } from "../lib/github";
 import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
-import { contains } from "../lib/arrays";
+
+const timeoutInMilliseconds = 20000;
 
 describe("github.ts", function () {
+  this.timeout(timeoutInMilliseconds);
+
   describe("getGitHubRepository(string)", function () {
     it(`with null`, function () {
       // tslint:disable-next-line:no-null-keyword
@@ -346,8 +350,6 @@ describe("github.ts", function () {
   function githubTests(testSuiteName: string, rawGithub: GitHub | undefined): Mocha.Suite | void {
     const github: GitHub = rawGithub!;
     return (rawGithub ? describe : describe.skip)(testSuiteName, function () {
-      this.timeout(10000);
-
       it("getCurrentUser()", async function () {
         const currentUser: GitHubUser = await github.getCurrentUser();
         assert(currentUser);
@@ -355,6 +357,7 @@ describe("github.ts", function () {
         assertEx.defined(currentUser.id, "currentUser.id");
         assertEx.definedAndNotEmpty(currentUser.name, "currentUser.name");
         assertEx.startsWith(currentUser.url, "https://api.github.com/users/", "currentUser.url");
+        assertEx.definedAndNotEmpty(currentUser.etag, "currentUser.etag");
       });
 
       describe("getLabels()", function () {
@@ -529,8 +532,6 @@ describe("github.ts", function () {
         });
 
         it.skip("with valid branches and changes", async function () {
-          this.timeout(30000);
-
           const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
           const git = new GitScope({ executionFolderPath: repositoryFolderPath });
 
@@ -565,8 +566,6 @@ describe("github.ts", function () {
         });
 
         it.skip("with valid branches, changes, and description", async function () {
-          this.timeout(30000);
-
           const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
           const git = new GitScope({ executionFolderPath: repositoryFolderPath });
 
@@ -921,6 +920,42 @@ describe("github.ts", function () {
             await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
           }
         });
+
+        it("with comment and non-matching etag", async function () {
+          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 113, "Fake Comment Body");
+          try {
+            const error: GitHubError = await assertEx.throwsAsync(github.updatePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment, "New Fake Comment Body", `"nonmatchingetag"`));
+            assert.strictEqual(error.message, `Can't update comment with ID ${createdComment.id} because the provided etag ("nonmatchingetag") doesn't match the existing etag.`);
+            assert.strictEqual(error.statusCode, 412);
+
+            const getComment: GitHubComment = await github.getPullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
+            assert.strictEqual(getComment.body, "Fake Comment Body");
+            assert.strictEqual(getComment.etag, createdComment.etag);
+          } finally {
+            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
+          }
+        });
+
+        it("with comment and matching etag", async function () {
+          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 113, "Fake Comment Body");
+          const comment1: GitHubComment = await github.getPullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
+          assertEx.contains(comment1.etag, createdComment.etag);
+          try {
+            const updatedComment: GitHubComment = await github.updatePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment, "New Fake Comment Body", createdComment.etag);
+            assertEx.defined(updatedComment, "createdComment");
+            assert.strictEqual(updatedComment.id, createdComment.id);
+            assert.strictEqual(updatedComment.body, "New Fake Comment Body");
+            assertEx.definedAndNotEmpty(updatedComment.etag);
+            assert.notStrictEqual(updatedComment.etag, createdComment.etag);
+          } catch (error) {
+            assert.strictEqual(error.message, `Can't update comment with ID ${createdComment.id} because the provided etag (${createdComment.etag}) doesn't match the existing etag.`);
+            assert.strictEqual(error.statusCode, 412);
+            const comment2: GitHubComment = await github.getPullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
+            assert.strictEqual(comment2.body, "New Fake Comment Body");
+          } finally {
+            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
+          }
+        });
       });
 
       describe("deletePullRequestComment()", function () {
@@ -983,8 +1018,6 @@ describe("github.ts", function () {
       });
 
       describe("getAllReferences()", function () {
-        this.timeout(5000);
-
         it("with undefined", async function () {
           await assertEx.throwsAsync(github.getAllReferences(undefined as any));
         });
@@ -1011,8 +1044,6 @@ describe("github.ts", function () {
       });
 
       describe("getAllBranches()", function () {
-        this.timeout(5000);
-
         it("with undefined", async function () {
           await assertEx.throwsAsync(github.getAllBranches(undefined as any));
         });
@@ -1040,8 +1071,6 @@ describe("github.ts", function () {
       });
 
       describe("getBranch()", function () {
-        this.timeout(5000);
-
         it("with undefined repository", async function () {
           await assertEx.throwsAsync(github.getBranch(undefined as any, "fake-branch-name"));
         });
@@ -1091,8 +1120,6 @@ describe("github.ts", function () {
       });
 
       describe("deleteBranch()", function () {
-        this.timeout(5000);
-
         it("with undefined repository", async function () {
           await assertEx.throwsAsync(github.deleteBranch(undefined as any, "fake-branch-name"));
         });
@@ -1129,8 +1156,6 @@ describe("github.ts", function () {
       });
 
       describe("createBranch()", function () {
-        this.timeout(5000);
-
         it("with undefined repository", async function () {
           await assertEx.throwsAsync(github.createBranch(undefined as any, "fake-branch-name", "fake-branch-sha"));
         });
@@ -1337,5 +1362,6 @@ function createFakeGitHubUser(options: GitHubUserOptions = {}): GitHubUser {
     name: options.name != undefined ? options.name : "Fake User Name",
     url: options.url != undefined ? options.url : "Fake User URL",
     site_admin: options.site_admin != undefined ? options.site_admin : false,
+    etag: "Fake ETag",
   };
 }

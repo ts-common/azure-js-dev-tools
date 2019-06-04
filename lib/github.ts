@@ -8,6 +8,34 @@ import Octokit from "@octokit/rest";
 import * as fs from "fs";
 import { contains, first, map, removeFirst, where } from "./arrays";
 import { URLBuilder } from "./url";
+import { clone } from "./common";
+
+export interface GitHubErrorOptions {
+  /**
+   * The HTTP status code that was returned from the GitHub request.
+   */
+  statusCode?: number;
+}
+
+/**
+ * An error that is thrown from a GitHub request.
+ */
+export class GitHubError extends Error {
+  /**
+   * The HTTP status code that was returned in the GitHub response.
+   */
+  public readonly statusCode?: number;
+  /**
+   * Create a new GitHubError.
+   * @param message The reason that this error was thrown.
+   * @param options The optional values that can be added to this GitHubError.
+   */
+  constructor(message: string, options: GitHubErrorOptions = {}) {
+    super(message);
+
+    this.statusCode = options.statusCode;
+  }
+}
 
 /**
  * The name and optional organization that the repository belongs to.
@@ -50,6 +78,10 @@ export interface GitHubComment {
    * The timestamp for the last time that this comment was updated.
    */
   updated_at: string;
+  /**
+   * The version of this comment.
+   */
+  etag: string;
 }
 
 /**
@@ -178,6 +210,7 @@ export interface GitHubUser {
   url: string;
   node_id: string;
   site_admin: boolean;
+  etag?: string;
 }
 
 export interface GitHubPullRequestCommit {
@@ -534,6 +567,14 @@ export interface GitHub {
   getPullRequestComments(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number): Promise<GitHubComment[]>;
 
   /**
+   * Get the latest properties of the provided comment.
+   * @param repository The repository where the pull request exists.
+   * @param githubPullRequest The GitHubPullRequest to get the comment from.
+   * @param comment The comment to get the latest properties of.
+   */
+  getPullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: GitHubComment | number): Promise<GitHubComment>;
+
+  /**
    * Create a new comment on the provided GitHubPullRequest.
    * @param repository The repository where the pull request exists.
    * @param githubPullRequest The GitHubPullReuqest to create the new comment on.
@@ -546,8 +587,11 @@ export interface GitHub {
    * @param repository The repository where the pull request exists.
    * @param githubPullRequest The GitHubPullRequest to update an existing comment on.
    * @param comment The updated comment.
+   * @param commentBody The new body for the comment.
+   * @param etag The optional previous version of the comment. If this does not match with the etag
+   * in GitHub, then the request will fail.
    */
-  updatePullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: GitHubComment | number, commentBody: string): Promise<GitHubComment>;
+  updatePullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: GitHubComment | number, commentBody: string, etag?: string): Promise<GitHubComment>;
 
   /**
    * Delete an existing comment from the provided GitHubPullRequest.
@@ -640,7 +684,7 @@ export class FakeGitHub implements GitHub {
     if (fakeRepository) {
       result = Promise.resolve(fakeRepository);
     } else {
-      result = Promise.reject(new Error(`No fake repository exists with the name "${repositoryFullName}".`));
+      result = Promise.reject(new GitHubError(`No fake repository exists with the name "${repositoryFullName}".`));
     }
     return result;
   }
@@ -650,7 +694,7 @@ export class FakeGitHub implements GitHub {
     let fakeRepository: FakeGitHubRepository | undefined = first(this.repositories, (fakeRepository: FakeGitHubRepository) => fakeRepository.name === repositoryFullName);
     let result: Promise<FakeGitHubRepository>;
     if (fakeRepository) {
-      result = Promise.reject(new Error(`A fake repository with the name "${repositoryFullName}" already exists.`));
+      result = Promise.reject(new GitHubError(`A fake repository with the name "${repositoryFullName}" already exists.`));
     } else {
       const forkOfRepository: FakeGitHubRepository | undefined = !forkOf ? undefined : await this.getRepository(forkOf);
       fakeRepository = new FakeGitHubRepository(repositoryFullName, forkOfRepository);
@@ -682,7 +726,7 @@ export class FakeGitHub implements GitHub {
 
     let result: Promise<void>;
     if (!deletedRepository) {
-      result = Promise.reject(new Error(`No fake repository exists with the name "${repositoryFullName}".`));
+      result = Promise.reject(new GitHubError(`No fake repository exists with the name "${repositoryFullName}".`));
     } else {
       if (deletedRepository.forkOf) {
         removeFirst(deletedRepository.forkOf.forks, (fork: FakeGitHubRepository) => fork === deletedRepository);
@@ -697,7 +741,7 @@ export class FakeGitHub implements GitHub {
     let user: GitHubUser | undefined = first(this.users, (user: GitHubUser) => user.login === username);
     let result: Promise<GitHubUser>;
     if (user) {
-      result = Promise.reject(new Error(`A fake user with the username "${username}" already exists.`));
+      result = Promise.reject(new GitHubError(`A fake user with the username "${username}" already exists.`));
     } else {
       user = {
         id: 0,
@@ -705,7 +749,8 @@ export class FakeGitHub implements GitHub {
         node_id: "Fake Node ID",
         login: username,
         url: `https://api.github.com/users/${username}`,
-        site_admin: false
+        site_admin: false,
+        etag: "Fake ETag",
       };
       this.users.push(user);
       result = Promise.resolve(user);
@@ -717,7 +762,7 @@ export class FakeGitHub implements GitHub {
     const user: GitHubUser | undefined = first(this.users, (user: GitHubUser) => user.login === username);
     let result: Promise<GitHubUser>;
     if (!user) {
-      result = Promise.reject(new Error(`No fake user with the username "${username}" exists.`));
+      result = Promise.reject(new GitHubError(`No fake user with the username "${username}" exists.`));
     } else {
       result = Promise.resolve(user);
     }
@@ -733,7 +778,7 @@ export class FakeGitHub implements GitHub {
     const labels: GitHubLabel[] = await this.getLabels(repository);
     const githubLabel: GitHubLabel | undefined = first(labels, (l: GitHubLabel) => l.name === label);
     if (!githubLabel) {
-      result = Promise.reject(new Error(`No fake label named "${label}" found in the fake repository "${getRepositoryFullName(repository)}".`));
+      result = Promise.reject(new GitHubError(`No fake label named "${label}" found in the fake repository "${getRepositoryFullName(repository)}".`));
     } else {
       result = Promise.resolve(githubLabel);
     }
@@ -743,7 +788,7 @@ export class FakeGitHub implements GitHub {
   public getCurrentUser(): Promise<GitHubUser> {
     return this.currentUser
       ? Promise.resolve(this.currentUser)
-      : Promise.reject(new Error(`No fake current user has been set.`));
+      : Promise.reject(new GitHubError(`No fake current user has been set.`));
   }
 
   public async getLabels(repository: string | GitHubRepository): Promise<GitHubLabel[]> {
@@ -759,9 +804,9 @@ export class FakeGitHub implements GitHub {
   public async createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<GitHubLabel> {
     let result: Promise<GitHubLabel>;
     if (!labelName) {
-      result = Promise.reject(new Error(`labelName cannot be undefined or empty.`));
+      result = Promise.reject(new GitHubError(`labelName cannot be undefined or empty.`));
     } else if (!color) {
-      result = Promise.reject(new Error(`color cannot be undefined or empty.`));
+      result = Promise.reject(new GitHubError(`color cannot be undefined or empty.`));
     } else {
       const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
       const label: GitHubLabel = {
@@ -782,12 +827,12 @@ export class FakeGitHub implements GitHub {
     const labelName: string = (!label || typeof label === "string") ? label : label.name;
     let result: Promise<void>;
     if (!labelName) {
-      result = Promise.reject(new Error(`label cannot be undefined or an empty string.`));
+      result = Promise.reject(new GitHubError(`label cannot be undefined or an empty string.`));
     } else {
       const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
       const removedLabel: GitHubLabel | undefined = removeFirst(fakeRepository.labels, (label: GitHubLabel) => label.name === labelName);
       if (!removedLabel) {
-        result = Promise.reject(new Error(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`));
+        result = Promise.reject(new GitHubError(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`));
       } else {
         result = Promise.resolve();
       }
@@ -800,7 +845,7 @@ export class FakeGitHub implements GitHub {
     const label: GitHubLabel | undefined = first(fakeRepository.labels, (label: GitHubLabel) => label.name === labelName);
     let result: Promise<unknown>;
     if (!label) {
-      result = Promise.reject(new Error(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`));
+      result = Promise.reject(new GitHubError(`No label named "${labelName}" found in the fake repository "${getRepositoryFullName(repository)}".`));
     } else {
       label.color = newColor;
       result = Promise.resolve();
@@ -814,14 +859,14 @@ export class FakeGitHub implements GitHub {
     if (typeof milestone === "string") {
       const milestoneMatch: GitHubMilestone | undefined = first(milestones, (m: GitHubMilestone) => m.title === milestone);
       if (!milestoneMatch) {
-        result = Promise.reject(new Error(`No milestone found with the name "${milestone}" in the fake repository "${getRepositoryFullName(repository)}".`));
+        result = Promise.reject(new GitHubError(`No milestone found with the name "${milestone}" in the fake repository "${getRepositoryFullName(repository)}".`));
       } else {
         result = Promise.resolve(milestoneMatch);
       }
     } else {
       const milestoneMatch: GitHubMilestone | undefined = first(milestones, (m: GitHubMilestone) => m.number === milestone);
       if (!milestoneMatch) {
-        result = Promise.reject(new Error(`No milestone found with the id number ${milestone} in the fake repository "${getRepositoryFullName(repository)}".`));
+        result = Promise.reject(new GitHubError(`No milestone found with the id number ${milestone} in the fake repository "${getRepositoryFullName(repository)}".`));
       } else {
         result = Promise.resolve(milestoneMatch);
       }
@@ -887,29 +932,29 @@ export class FakeGitHub implements GitHub {
     const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
     let result: Promise<FakeGitHubPullRequest> | undefined;
     if (!contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === pullRequest.base.ref)) {
-      result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.base.ref}".`));
+      result = Promise.reject(new GitHubError(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.base.ref}".`));
     } else {
       const forkedRepositoryHeadBranch: ForkedRepositoryBranch = getForkedRepositoryBranch(pullRequest.head.label);
       if (!forkedRepositoryHeadBranch.username || forkedRepositoryHeadBranch.username === getGitHubRepository(fakeRepository.name).organization) {
         if (!contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === pullRequest.head.ref)) {
-          result = Promise.reject(new Error(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.head.ref}".`));
+          result = Promise.reject(new GitHubError(`No branch exists in the fake repository "${getRepositoryFullName(repository)}" with the name "${pullRequest.head.ref}".`));
         }
       } else {
         const forkedRepository: FakeGitHubRepository | undefined = fakeRepository.getFork(forkedRepositoryHeadBranch.username);
         if (!forkedRepository) {
-          result = Promise.reject(new Error(`No fork of the fake repository "${getRepositoryFullName(repository)}" exists for the username/organization "${forkedRepositoryHeadBranch.username}".`));
+          result = Promise.reject(new GitHubError(`No fork of the fake repository "${getRepositoryFullName(repository)}" exists for the username/organization "${forkedRepositoryHeadBranch.username}".`));
         } else if (!contains(forkedRepository.branches, (branch: GitHubBranch) => branch.name === forkedRepositoryHeadBranch.branchName)) {
-          result = Promise.reject(new Error(`No branch exists in the forked fake repository "${forkedRepository.name}" with the name "${pullRequest.head.ref}".`));
+          result = Promise.reject(new GitHubError(`No branch exists in the forked fake repository "${forkedRepository.name}" with the name "${pullRequest.head.ref}".`));
         }
       }
 
       if (!result) {
         if (pullRequest.base.label === pullRequest.head.label) {
-          result = Promise.reject(new Error(`The base label ("${pullRequest.base.label}") cannot be the same as the head label ("${pullRequest.head.label}").`));
+          result = Promise.reject(new GitHubError(`The base label ("${pullRequest.base.label}") cannot be the same as the head label ("${pullRequest.head.label}").`));
         } else {
           const existingPullRequest: FakeGitHubPullRequest | undefined = first(fakeRepository.pullRequests, (pr: FakeGitHubPullRequest) => pr.number === pullRequest.number);
           if (existingPullRequest) {
-            result = Promise.reject(new Error(`A pull request already exists in the fake repository "${getRepositoryFullName(repository)}" with the number ${pullRequest.number}.`));
+            result = Promise.reject(new GitHubError(`A pull request already exists in the fake repository "${getRepositoryFullName(repository)}" with the number ${pullRequest.number}.`));
           } else {
             pullRequest.body = pullRequest.body || "";
             const fakePullRequest: FakeGitHubPullRequest = {
@@ -960,7 +1005,7 @@ export class FakeGitHub implements GitHub {
     const existingPullRequest: FakeGitHubPullRequest = await this.getPullRequest(repository, getPullRequestNumber(pullRequest));
     let result: Promise<void>;
     if (existingPullRequest.state === "closed") {
-      result = Promise.reject(new Error(`The pull request (${getRepositoryFullName(repository)}/${existingPullRequest.number}) is already closed.`));
+      result = Promise.reject(new GitHubError(`The pull request (${getRepositoryFullName(repository)}/${existingPullRequest.number}) is already closed.`));
     } else {
       existingPullRequest.state = "closed";
       result = Promise.resolve();
@@ -973,7 +1018,7 @@ export class FakeGitHub implements GitHub {
     const pullRequest: FakeGitHubPullRequest | undefined = first(pullRequests, (pr: FakeGitHubPullRequest) => pr.number === pullRequestNumber);
     return pullRequest
       ? Promise.resolve(pullRequest)
-      : Promise.reject(new Error(`No pull request found in fake repository "${getRepositoryFullName(repository)}" with number ${pullRequestNumber}.`));
+      : Promise.reject(new GitHubError(`No pull request found in fake repository "${getRepositoryFullName(repository)}" with number ${pullRequestNumber}.`));
   }
 
   public async getPullRequests(repository: string | GitHubRepository, options?: GitHubGetPullRequestsOptions): Promise<FakeGitHubPullRequest[]> {
@@ -1060,41 +1105,52 @@ export class FakeGitHub implements GitHub {
       .then((fakePullRequest: FakeGitHubPullRequest) => fakePullRequest.comments);
   }
 
-  public createPullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, commentBody: string): Promise<GitHubComment> {
-    return this.getPullRequestComments(repository, githubPullRequest)
-      .then((comments: GitHubComment[]) => {
-        return this.getCurrentUser()
-          .then((currentUser: GitHubUser) => {
-            const newComment: GitHubComment = {
-              id: comments.length + 1,
-              node_id: "fake_node_id",
-              user: currentUser,
-              html_url: "fake_html_url",
-              url: "fake_url",
-              body: commentBody,
-              created_at: "fake_created_at",
-              updated_at: "fake_updated_at",
-            };
-            comments.push(newComment);
-            return newComment;
-          });
-      });
+  public async getPullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: GitHubComment | number): Promise<GitHubComment> {
+    const pullRequestNumber: number = getPullRequestNumber(githubPullRequest);
+    const fakePullRequest: FakeGitHubPullRequest = await this.getPullRequest(repository, pullRequestNumber);
+    const comments: GitHubComment[] = fakePullRequest.comments;
+    const commentId: number = typeof comment === "number" ? comment : comment.id;
+    const result: GitHubComment | undefined = first(comments, (comment: GitHubComment) => comment.id === commentId);
+    if (!result) {
+      throw new GitHubError(`No comment exists in pull request ${pullRequestNumber} in ${getRepositoryFullName(repository)} with id ${commentId}.`);
+    }
+    return clone(result);
   }
 
-  public updatePullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: number | GitHubComment, commentBody: string): Promise<GitHubComment> {
-    return this.getPullRequestComments(repository, githubPullRequest)
-      .then((comments: GitHubComment[]) => {
-        let result: Promise<GitHubComment>;
-        const commentId: number = getCommentId(comment);
-        const commentToUpdate: GitHubComment | undefined = first(comments, (existingComment: GitHubComment) => existingComment.id === commentId);
-        if (!commentToUpdate) {
-          result = Promise.reject(new Error(`No comment found with the ID ${commentId}.`));
-        } else {
-          commentToUpdate.body = commentBody;
-          result = Promise.resolve(commentToUpdate);
-        }
-        return result;
+  public async createPullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, commentBody: string): Promise<GitHubComment> {
+    const comments: GitHubComment[] = await this.getPullRequestComments(repository, githubPullRequest);
+    const currentUser: GitHubUser = await this.getCurrentUser();
+    const newComment: GitHubComment = {
+      id: comments.length + 1,
+      node_id: "fake_node_id",
+      user: currentUser,
+      html_url: "fake_html_url",
+      url: "fake_url",
+      body: commentBody,
+      created_at: "fake_created_at",
+      updated_at: "fake_updated_at",
+      etag: "1",
+    };
+    comments.push(newComment);
+    return clone(newComment);
+  }
+
+  public async updatePullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, comment: number | GitHubComment, commentBody: string, etag?: string): Promise<GitHubComment> {
+    const comments: GitHubComment[] = await this.getPullRequestComments(repository, githubPullRequest);
+
+    const commentId: number = getCommentId(comment);
+    const commentToUpdate: GitHubComment | undefined = first(comments, (existingComment: GitHubComment) => existingComment.id === commentId);
+    if (!commentToUpdate) {
+      throw new GitHubError(`No comment found with the ID ${commentId}.`);
+    } else if (etag != undefined && commentToUpdate.etag !== etag) {
+      throw new GitHubError(`Can't update comment with ID ${commentId} because the provided etag (${etag}) doesn't match the existing etag.`, {
+        statusCode: 412
       });
+    }
+
+    commentToUpdate.body = commentBody;
+    commentToUpdate.etag = (Number.parseInt(commentToUpdate.etag) + 1).toString();
+    return clone(commentToUpdate);
   }
 
   public deletePullRequestComment(repository: string | GitHubRepository, githubPullRequest: number | GitHubPullRequest, comment: number | GitHubComment): Promise<unknown> {
@@ -1104,7 +1160,7 @@ export class FakeGitHub implements GitHub {
         let result: Promise<unknown>;
         const commentId: number = getCommentId(comment);
         if (!contains(pullRequest.comments, (existingComment: GitHubComment) => existingComment.id === commentId)) {
-          result = Promise.reject(new Error(`No comment was found with the id ${commentId}.`));
+          result = Promise.reject(new GitHubError(`No comment was found with the id ${commentId}.`));
         } else {
           pullRequest.comments = where(pullRequest.comments, (existingComment: GitHubComment) => existingComment.id !== commentId);
           result = Promise.resolve();
@@ -1149,7 +1205,7 @@ export class FakeGitHub implements GitHub {
       .then((fakeRepository: FakeGitHubRepository) => {
         const result: GitHubBranch | undefined = first(fakeRepository.branches, (branch: GitHubBranch) => branch.name === branchName);
         if (!result) {
-          throw new Error(`Could not get details about the branch "${branchName}" in repository "${fakeRepository.name}" because the branch didn't exist.`);
+          throw new GitHubError(`Could not get details about the branch "${branchName}" in repository "${fakeRepository.name}" because the branch didn't exist.`);
         }
         return result;
       });
@@ -1160,7 +1216,7 @@ export class FakeGitHub implements GitHub {
       .then((fakeRepository: FakeGitHubRepository) => {
         const removedBranch: GitHubBranch | undefined = removeFirst(fakeRepository.branches, (branch: GitHubBranch) => branch.name === branchName);
         if (!removedBranch) {
-          throw new Error(`Could not delete branch "${branchName}" from repository "${fakeRepository.name}" because the branch didn't exist.`);
+          throw new GitHubError(`Could not delete branch "${branchName}" from repository "${fakeRepository.name}" because the branch didn't exist.`);
         }
       });
   }
@@ -1170,9 +1226,9 @@ export class FakeGitHub implements GitHub {
       .then((fakeRepository: FakeGitHubRepository) => {
         let result: GitHubBranch;
         if (contains(fakeRepository.branches, (branch: GitHubBranch) => branch.name === branchName)) {
-          throw new Error(`Could not create a branch named "${branchName}" in repository "${fakeRepository.name}" because a branch with that name already exists.`);
+          throw new GitHubError(`Could not create a branch named "${branchName}" in repository "${fakeRepository.name}" because a branch with that name already exists.`);
         } else if (!contains(fakeRepository.commits, (commit: GitHubCommit) => commit.sha === branchSha)) {
-          throw new Error(`Could not create a branch named "${branchName}" in repository "${fakeRepository.name}" with the SHA "${branchSha}" because no commit exists in the repository with the provided SHA.`);
+          throw new GitHubError(`Could not create a branch named "${branchName}" in repository "${fakeRepository.name}" with the SHA "${branchSha}" because no commit exists in the repository with the provided SHA.`);
         } else {
           result = {
             name: branchName,
@@ -1241,7 +1297,7 @@ export class RealGitHub implements GitHub {
 
   public static fromTokenFile(tokenFilePath: string): RealGitHub {
     if (!fs.existsSync(tokenFilePath)) {
-      throw new Error(`The file ${tokenFilePath} doesn't exist. Create a GitHub personal access token, create this file with the personal access token as its contents, and then run this application again.`);
+      throw new GitHubError(`The file ${tokenFilePath} doesn't exist. Create a GitHub personal access token, create this file with the personal access token as its contents, and then run this application again.`);
     }
 
     const githubAuthToken: string = fs.readFileSync(tokenFilePath, { encoding: "utf-8" });
@@ -1256,7 +1312,16 @@ export class RealGitHub implements GitHub {
         if (error) {
           reject(error);
         } else {
-          resolve(response.data);
+          const result: GitHubUser = {
+            etag: response.headers.etag,
+            id: response.data.id,
+            login: response.data.login,
+            name: response.data.name,
+            node_id: response.data.node_id,
+            site_admin: response.data.site_admin,
+            url: response.data.url,
+          };
+          resolve(result);
         }
       });
     });
@@ -1358,7 +1423,7 @@ export class RealGitHub implements GitHub {
           .then((githubMilestones: GitHubMilestone[]) => {
             const githubMilestone: GitHubMilestone | undefined = first(githubMilestones, (githubMilestone: GitHubMilestone) => githubMilestone.title === milestone);
             if (!githubMilestone) {
-              throw new Error(`Could not find a milestone in repository "${getRepositoryFullName(githubRepository)}" with the name "${milestone}".`);
+              throw new GitHubError(`Could not find a milestone in repository "${getRepositoryFullName(githubRepository)}" with the name "${milestone}".`);
             }
             return githubMilestone;
           }));
@@ -1733,7 +1798,23 @@ export class RealGitHub implements GitHub {
       .then((response: Octokit.AnyResponse) => this.getAllPageData<GitHubComment>(response));
   }
 
-  public createPullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, commentBody: string): Promise<GitHubComment> {
+  public async getPullRequestComment(repository: string | GitHubRepository, _githubPullRequest: GitHubPullRequest | number, comment: GitHubComment | number): Promise<GitHubComment> {
+    const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const commentId: number = typeof comment === "number" ? comment : comment.id;
+    const githubArguments: Octokit.IssuesGetCommentParams = {
+      owner: githubRepository.organization,
+      repo: githubRepository.name,
+      comment_id: commentId,
+    };
+    const response = await this.github.issues.getComment(githubArguments);
+    const result: GitHubComment = {
+      ...response.data,
+      etag: response.headers.etag,
+    };
+    return result;
+  }
+
+  public async createPullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, commentBody: string): Promise<GitHubComment> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
     const githubArguments: Octokit.IssuesCreateCommentParams = {
       owner: githubRepository.organization,
@@ -1741,20 +1822,50 @@ export class RealGitHub implements GitHub {
       number: getPullRequestNumber(githubPullRequest),
       body: commentBody
     };
-    return this.github.issues.createComment(githubArguments)
-      .then((response: Octokit.AnyResponse) => response.data);
+    const response: Octokit.Response<Octokit.IssuesCreateCommentResponse> = await this.github.issues.createComment(githubArguments);
+    const result: GitHubComment = {
+      ...response.data,
+      etag: response.headers.etag,
+    };
+    return result;
   }
 
-  public updatePullRequestComment(repository: string | GitHubRepository, _githubPullRequest: GitHubPullRequest | number, comment: GitHubComment | number, commentBody: string): Promise<GitHubComment> {
+  public async updatePullRequestComment(repository: string | GitHubRepository, _githubPullRequest: GitHubPullRequest | number, comment: GitHubComment | number, commentBody: string, etag?: string): Promise<GitHubComment> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
+    const commentId: string = getCommentId(comment).toString();
     const githubArguments: Octokit.IssuesEditCommentParams = {
       owner: githubRepository.organization,
       repo: githubRepository.name,
-      comment_id: getCommentId(comment).toString(),
-      body: commentBody
+      comment_id: commentId,
+      body: commentBody,
     } as any;
-    return this.github.issues.editComment(githubArguments)
-      .then((response: Octokit.AnyResponse) => response.data);
+    if (etag) {
+      (githubArguments as any).headers = {
+        "If-Match": etag,
+      };
+    }
+    let result: GitHubComment;
+    try {
+      const response: Octokit.Response<Octokit.IssuesEditCommentResponse> = await this.github.issues.editComment(githubArguments);
+      result = {
+        ...response.data,
+        etag: response.headers.etag,
+      };
+    } catch (error) {
+      if (etag && (error as any).code === 412) {
+        // const updatedComment: GitHubComment = await this.getPullRequestComment(repository, githubPullRequest, comment);
+        // if (updatedComment.body !== commentBody) {
+          throw new GitHubError(`Can't update comment with ID ${commentId} because the provided etag (${etag}) doesn't match the existing etag.`, {
+            statusCode: 412,
+          });
+        // } else {
+        //   result = updatedComment;
+        // }
+      } else {
+        throw error;
+      }
+    }
+    return result;
   }
 
   public deletePullRequestComment(repository: string | GitHubRepository, _githubPullRequest: number | GitHubPullRequest, comment: number | GitHubComment): Promise<unknown> {
@@ -1827,7 +1938,7 @@ export class RealGitHub implements GitHub {
       ref: `heads/${branchName}`,
     };
     return !branchName
-      ? Promise.reject(new Error(`Cannot get branch details about an empty or undefined branch.`))
+      ? Promise.reject(new GitHubError(`Cannot get branch details about an empty or undefined branch.`))
       : this.github.gitdata.getReference(githubArguments)
         .then((response: Octokit.AnyResponse) => {
           const githubReference: GitHubReference = response.data;

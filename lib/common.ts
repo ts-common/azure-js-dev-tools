@@ -96,3 +96,31 @@ export function main(mainFunction: Promise<any> | (() => (any | Promise<any>))):
 export function replaceAll(value: string | undefined, searchValue: string, replaceValue: string): string | undefined {
   return !value || !searchValue ? value : value.split(searchValue).join(replaceValue || "");
 }
+
+/**
+ * Get a deep-copy clone of the provided value.
+ * @param value The value to clone.
+ * @returns The cloned value.
+ */
+export function clone<T>(value: T): T {
+  let result: any;
+  if (typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "string" ||
+    value == undefined ||
+    typeof value === "bigint" ||
+    typeof value === "symbol" ||
+    typeof value === "function") {
+    result = value;
+  } else {
+    if (Array.isArray(value)) {
+      result = [];
+    } else {
+      result = {};
+    }
+    for (const [propertyName, propertyValue] of Object.entries(value)) {
+      result[propertyName] = clone(propertyValue);
+    }
+  }
+  return result;
+}
