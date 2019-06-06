@@ -26,7 +26,7 @@ export function git(args: string[], options: RunOptions = {}): Promise<GitRunRes
 /**
  * The result of running gitCurrentCommitSha().
  */
-export interface GitCurrentCommitShaResult extends GitRunResult {
+export interface GitCurrentCommitShaResult {
   /**
    * The SHA of the current commit.
    */
@@ -36,7 +36,7 @@ export interface GitCurrentCommitShaResult extends GitRunResult {
 /**
  * Get the SHA of the currently checked out commit.
  */
-export function gitCurrentCommitSha(options: RunOptions = {}): Promise<GitCurrentCommitShaResult> {
+export function gitCurrentCommitSha(options: RunOptions = {}): Promise<GitCurrentCommitShaResult & GitRunResult> {
   return git(["rev-parse", "HEAD"], options)
     .then((result: GitRunResult) => {
       return {
@@ -49,7 +49,7 @@ export function gitCurrentCommitSha(options: RunOptions = {}): Promise<GitCurren
 /**
  * Options that can be passed to `git fetch`.
  */
-export interface GitFetchOptions extends RunOptions {
+export interface GitFetchOptions {
   /**
    * Before fetching, remove any remote-tracking references that no longer exist on the remote. Tags
    * are not subject to pruning if they are fetched only because of the default tag auto-following
@@ -65,7 +65,7 @@ export interface GitFetchOptions extends RunOptions {
  * Download objects and refs from another repository.
  * @param options The options that can be passed to `git fetch`.
  */
-export function gitFetch(options: GitFetchOptions = {}): Promise<GitRunResult> {
+export function gitFetch(options: GitFetchOptions & RunOptions = {}): Promise<GitRunResult> {
   const args: string[] = ["fetch"];
   if (options.prune) {
     args.push("--prune");
@@ -80,7 +80,7 @@ export function gitMergeOriginMaster(options: RunOptions = {}): Promise<GitRunRe
 /**
  * Options that can be passed to gitClone().
  */
-export interface GitCloneOptions extends RunOptions {
+export interface GitCloneOptions {
   /**
    * Operate quietly. Progress is not reported to the standard error stream.
    */
@@ -120,7 +120,7 @@ export interface GitCloneOptions extends RunOptions {
  * @param gitUri The repository URI to clone.
  * @param options The options that can be passed to "git clone".
  */
-export function gitClone(gitUri: string, options: GitCloneOptions = {}): Promise<GitRunResult> {
+export function gitClone(gitUri: string, options: GitCloneOptions & RunOptions = {}): Promise<GitRunResult> {
   const args: string[] = [`clone`];
   if (options.quiet) {
     args.push(`--quiet`);
@@ -144,7 +144,7 @@ export function gitClone(gitUri: string, options: GitCloneOptions = {}): Promise
   return git(args, options);
 }
 
-export interface GitCheckoutResult extends GitRunResult {
+export interface GitCheckoutResult {
   /**
    * Get the files that would've been overwritten if this checkout operation had taken place. This
    * property will only be populated in an error scenario.
@@ -152,7 +152,7 @@ export interface GitCheckoutResult extends GitRunResult {
   filesThatWouldBeOverwritten?: string[];
 }
 
-export async function gitCheckout(refId: string, options: RunOptions = {}): Promise<GitCheckoutResult> {
+export async function gitCheckout(refId: string, options: RunOptions = {}): Promise<GitCheckoutResult & GitRunResult> {
   const runResult: GitRunResult = await git([`checkout`, refId], options);
   let filesThatWouldBeOverwritten: string[] | undefined;
   if (runResult.stderr) {
@@ -184,7 +184,7 @@ export function gitPull(options: RunOptions = {}): Promise<GitRunResult> {
 /**
  * The options for determining how gitPush() will run.
  */
-export interface GitPushOptions extends RunOptions {
+export interface GitPushOptions {
   /**
    * The upstream repository to push to if the current branch doesn't already have an upstream
    * branch.
@@ -200,7 +200,7 @@ export interface GitPushOptions extends RunOptions {
  * Push the current branch to the remote tracked repository.
  * @param options The options for determining how this command will run.
  */
-export async function gitPush(options: GitPushOptions = {}): Promise<GitRunResult> {
+export async function gitPush(options: GitPushOptions & RunOptions = {}): Promise<GitRunResult> {
   const args: string[] = ["push"];
   if (options.setUpstream) {
     const upstream: string = typeof options.setUpstream === "string" ? options.setUpstream : "origin";
@@ -236,14 +236,14 @@ export function gitAddAll(options: RunOptions = {}): Promise<GitRunResult> {
 /**
  * Options that modify how a "git commit" operation will run.
  */
-export interface GitCommitOptions extends RunOptions {
+export interface GitCommitOptions {
   /**
    * Whether or not pre-commit checks will be run.
    */
   noVerify?: boolean;
 }
 
-export function gitCommit(commitMessages: string | string[], options: GitCommitOptions = {}): Promise<GitRunResult> {
+export function gitCommit(commitMessages: string | string[], options: GitCommitOptions & RunOptions = {}): Promise<GitRunResult> {
   const args: string[] = ["commit"];
 
   if (options.noVerify) {
@@ -276,7 +276,7 @@ export function gitCreateLocalBranch(branchName: string, options: RunOptions = {
 /**
  * The options for determining how this command will run.
  */
-export interface GitDeleteRemoteBranchOptions extends RunOptions {
+export interface GitDeleteRemoteBranchOptions {
   /**
    * The name of the tracked remote repository. Defaults to "origin".
    */
@@ -289,14 +289,14 @@ export interface GitDeleteRemoteBranchOptions extends RunOptions {
  * @param remoteName The name of the tracked remote repository.
  * @param options The options for determining how this command will run.
  */
-export function gitDeleteRemoteBranch(branchName: string, options: GitDeleteRemoteBranchOptions = {}): Promise<GitRunResult> {
+export function gitDeleteRemoteBranch(branchName: string, options: GitDeleteRemoteBranchOptions & RunOptions = {}): Promise<GitRunResult> {
   return git([`push`, options.remoteName || "origin", `:${branchName}`], options);
 }
 
 /**
  * Options that can be passed to gitDiff().
  */
-export interface GitDiffOptions extends RunOptions {
+export interface GitDiffOptions {
   /**
    * The unique identifier for a commit to compare. If this is specified but commit2 is not
    * specified, then this commit will be compared against HEAD.
@@ -325,14 +325,14 @@ export interface GitDiffOptions extends RunOptions {
 /**
  * The result of a "git diff" command.
  */
-export interface GitDiffResult extends GitRunResult {
+export interface GitDiffResult {
   /**
    * The files that are reported as being changed by the diff command.
    */
   filesChanged: string[];
 }
 
-export async function gitDiff(options: GitDiffOptions = {}): Promise<GitDiffResult> {
+export async function gitDiff(options: GitDiffOptions & RunOptions = {}): Promise<GitDiffResult & GitRunResult> {
   const args: string[] = ["diff"];
 
   if (options.commit1) {
@@ -411,13 +411,13 @@ export function getFilesChangedFromFullDiff(text: string | string[], currentFold
 /**
  * The return type of gitLocalBranches().
  */
-export interface GitLocalBranchesResult extends GitRunResult {
+export interface GitLocalBranchesResult {
   localBranches: string[];
   currentBranch: string;
 }
 
 const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.*)\)/;
-export async function gitLocalBranches(options: RunOptions = {}): Promise<GitLocalBranchesResult> {
+export async function gitLocalBranches(options: RunOptions = {}): Promise<GitLocalBranchesResult & GitRunResult> {
   const commandResult: RunResult = await git(["branch"], options);
   let currentBranch = "";
   const localBranches: string[] = [];
@@ -490,7 +490,7 @@ export interface GitRemoteBranch {
 /**
  * The return type of gitRemoteBranches().
  */
-export interface GitRemoteBranchesResult extends GitRunResult {
+export interface GitRemoteBranchesResult {
   /**
    * The branches in remote repositories.
    */
@@ -511,7 +511,7 @@ export function getRemoteBranchFullName(remoteBranch: string | GitRemoteBranch):
  * Get the remote branches that this repository clone is aware of.
  * @param options The options to run this command with.
  */
-export async function gitRemoteBranches(options: RunOptions = {}): Promise<GitRemoteBranchesResult> {
+export async function gitRemoteBranches(options: RunOptions = {}): Promise<GitRemoteBranchesResult & GitRunResult> {
   const gitResult: GitRunResult = await git(["branch", "--remotes"], options);
   const remoteBranches: GitRemoteBranch[] = [];
   for (let remoteBranchLine of getLines(gitResult.stdout)) {
@@ -534,7 +534,7 @@ export async function gitRemoteBranches(options: RunOptions = {}): Promise<GitRe
   };
 }
 
-export interface GitStatusResult extends GitRunResult {
+export interface GitStatusResult {
   /**
    * The current local branch.
    */
@@ -589,7 +589,7 @@ const onBranchRegExp: RegExp = /On branch (.*)/i;
 /**
  * Run "git status".
  */
-export async function gitStatus(options: RunOptions = {}): Promise<GitStatusResult> {
+export async function gitStatus(options: RunOptions = {}): Promise<GitStatusResult & GitRunResult> {
   const folderPath: string = (options && options.executionFolderPath) || process.cwd();
 
   let parseState: StatusParseState = "CurrentBranch";
@@ -728,7 +728,7 @@ export async function gitStatus(options: RunOptions = {}): Promise<GitStatusResu
 /**
  * The result of running gitGetConfig().
  */
-export interface GitGetConfigResult extends GitRunResult {
+export interface GitGetConfigResult {
   /**
    * The requested configuration value or undefined if the value was not found.
    */
@@ -740,8 +740,8 @@ export interface GitGetConfigResult extends GitRunResult {
  * @param configurationValueName The name of the configuration value to get.
  * @param options The options that can configure how the command will run.
  */
-export async function gitConfigGet(configurationValueName: string, options?: RunOptions): Promise<GitGetConfigResult> {
-  const result: GitGetConfigResult = await git(["config", "--get", configurationValueName], options);
+export async function gitConfigGet(configurationValueName: string, options?: RunOptions): Promise<GitGetConfigResult & GitRunResult> {
+  const result: GitGetConfigResult & GitRunResult = await git(["config", "--get", configurationValueName], options);
   if (result.exitCode === 0 && result.stdout) {
     result.configurationValue = result.stdout;
   }

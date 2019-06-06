@@ -22,13 +22,13 @@ describe("git.ts", function () {
   describe("gitCurrentCommitSha()", function () {
     it("with no options", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitCurrentCommitShaResult = { exitCode: 2, stdout: "c", stderr: "d", currentCommitSha: "c" };
+      const expectedResult: GitCurrentCommitShaResult & GitRunResult = { exitCode: 2, stdout: "c", stderr: "d", currentCommitSha: "c" };
       runner.set({ executable: "git", args: ["rev-parse", "HEAD"], result: expectedResult });
       assert.deepEqual(await gitCurrentCommitSha({ runner }), expectedResult);
     });
 
     it("with real runner", async function () {
-      const result: GitCurrentCommitShaResult = await gitCurrentCommitSha();
+      const result: GitCurrentCommitShaResult & GitRunResult = await gitCurrentCommitSha();
       assertEx.defined(result, "result");
       assert.strictEqual(result.exitCode, 0);
       assertEx.defined(result.processId, "result.processId");
@@ -462,7 +462,7 @@ describe("git.ts", function () {
   describe("gitDiff()", function () {
     it("command line arguments with no options", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitDiffResult = {
+      const expectedResult: GitDiffResult & GitRunResult = {
         exitCode: 2,
         stdout: "c",
         stderr: "d",
@@ -474,7 +474,7 @@ describe("git.ts", function () {
 
     it("command line arguments with commit1", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitDiffResult = {
+      const expectedResult: GitDiffResult & GitRunResult = {
         exitCode: 2,
         stdout: "c",
         stderr: "d",
@@ -486,7 +486,7 @@ describe("git.ts", function () {
 
     it("command line arguments with commit2", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitDiffResult = {
+      const expectedResult: GitDiffResult & GitRunResult = {
         exitCode: 2,
         stdout: "c",
         stderr: "d",
@@ -498,7 +498,7 @@ describe("git.ts", function () {
 
     it("command line arguments with commit1 and commit2", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitDiffResult = {
+      const expectedResult: GitDiffResult & GitRunResult = {
         exitCode: 2,
         stdout: "c",
         stderr: "d",
@@ -510,7 +510,7 @@ describe("git.ts", function () {
 
     it("command line arguments with nameOnly", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitDiffResult = {
+      const expectedResult: GitDiffResult & GitRunResult = {
         exitCode: 2,
         stdout: "c",
         stderr: "d",
@@ -524,7 +524,7 @@ describe("git.ts", function () {
 
     it("command line arguments with staged", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitDiffResult = {
+      const expectedResult: GitDiffResult & GitRunResult = {
         exitCode: 2,
         stdout: "c",
         stderr: "d",
@@ -536,7 +536,7 @@ describe("git.ts", function () {
 
     it("command line arguments with ignoreSpace: all", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitDiffResult = {
+      const expectedResult: GitDiffResult & GitRunResult = {
         exitCode: 2,
         stdout: "c",
         stderr: "d",
@@ -548,7 +548,7 @@ describe("git.ts", function () {
 
     it("command line arguments with ignoreSpace: change", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitDiffResult = {
+      const expectedResult: GitDiffResult & GitRunResult = {
         exitCode: 2,
         stdout: "c",
         stderr: "d",
@@ -560,7 +560,7 @@ describe("git.ts", function () {
 
     it("command line arguments with ignoreSpace: at-eol", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitDiffResult = {
+      const expectedResult: GitDiffResult & GitRunResult = {
         exitCode: 2,
         stdout: "diff --git a/foo.txt b/foo.txt",
         stderr: "d",
@@ -576,7 +576,7 @@ describe("git.ts", function () {
   describe("gitLocalBranches()", function () {
     it("with fake command line arguments", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitLocalBranchesResult = {
+      const expectedResult: GitLocalBranchesResult & GitRunResult = {
         exitCode: 1,
         stdout: "x",
         stderr: "y",
@@ -592,7 +592,7 @@ describe("git.ts", function () {
 
     it("with two local branches", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitLocalBranchesResult = {
+      const expectedResult: GitLocalBranchesResult & GitRunResult = {
         currentBranch: "daschult/gitBranchRemote",
         exitCode: 0,
         localBranches: [
@@ -682,7 +682,7 @@ describe("git.ts", function () {
   describe("gitRemoteBranches()", function () {
     it("with fake command line arguments", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitRemoteBranchesResult = {
+      const expectedResult: GitRemoteBranchesResult & GitRunResult = {
         exitCode: 1,
         stdout: "a/x",
         stderr: "y",
@@ -700,7 +700,7 @@ describe("git.ts", function () {
 
     it("with one remote branch", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitRemoteBranchesResult = {
+      const expectedResult: GitRemoteBranchesResult & GitRunResult = {
         exitCode: 0,
         stderr: "",
         stdout: "  origin/HEAD -> origin/master\n  origin/master\n",
@@ -848,7 +848,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
     });
 
     it("with undefined configurationValueName", async function () {
-      const result: GitConfigGetResult = await gitConfigGet(undefined as any);
+      const result: GitConfigGetResult & GitRunResult = await gitConfigGet(undefined as any);
       assertEx.defined(result, "result");
       assert.strictEqual(result.exitCode, 1);
       assertEx.defined(result.processId, "result.processId");
@@ -859,7 +859,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
     it("with null configurationValueName", async function () {
       // tslint:disable-next-line:no-null-keyword
-      const result: GitConfigGetResult = await gitConfigGet(null as any);
+      const result: GitConfigGetResult & GitRunResult = await gitConfigGet(null as any);
       assertEx.defined(result, "result");
       assert.strictEqual(result.exitCode, 1);
       assertEx.defined(result.processId, "result.processId");
@@ -869,7 +869,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
     });
 
     it("with non-existing configurationValueName", async function () {
-      const result: GitConfigGetResult = await gitConfigGet("blah");
+      const result: GitConfigGetResult & GitRunResult = await gitConfigGet("blah");
       assertEx.defined(result, "result");
       assert.strictEqual(result.exitCode, 1);
       assertEx.defined(result.processId, "result.processId");
@@ -879,7 +879,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
     });
 
     it("with existing configurationValueName", async function () {
-      const result: GitConfigGetResult = await gitConfigGet("remote.origin.url");
+      const result: GitConfigGetResult & GitRunResult = await gitConfigGet("remote.origin.url");
       assertEx.defined(result, "result");
       assert.strictEqual(result.exitCode, 0);
       assertEx.defined(result.processId, "result.processId");
@@ -890,7 +890,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
     it("outside git repository", async function () {
       const folderPath: string = joinPath((await findFileInPath("package.json"))!, "../..");
-      const result: GitConfigGetResult = await gitConfigGet("remote.origin.url", { executionFolderPath: folderPath });
+      const result: GitConfigGetResult & GitRunResult = await gitConfigGet("remote.origin.url", { executionFolderPath: folderPath });
       assertEx.defined(result, "result");
       assert.strictEqual(result.exitCode, 1);
       assertEx.defined(result.processId, "result.processId");
@@ -903,7 +903,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
   describe("gitGetRepositoryUrl()", function () {
     it("command line arguments", async function () {
       const runner = new FakeRunner();
-      const expectedResult: GitConfigGetResult = { exitCode: 2, stdout: "c", stderr: "d", configurationValue: "e" };
+      const expectedResult: GitConfigGetResult & GitRunResult = { exitCode: 2, stdout: "c", stderr: "d", configurationValue: "e" };
       runner.set({ executable: "git", args: ["config", "--get", "remote.origin.url"], result: expectedResult });
       assert.deepEqual(await gitGetRepositoryUrl({ runner }), expectedResult.configurationValue);
     });
