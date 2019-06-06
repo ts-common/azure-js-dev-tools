@@ -10,372 +10,830 @@ import { joinPath } from "./path";
 import { run, RunOptions, RunResult } from "./run";
 
 /**
- * The result of running a git operation.
+ * A set of interfaces and types that relate to the Git interface.
  */
-export interface GitRunResult extends RunResult {
+export namespace Git {
   /**
-   * The error that occurred while running the git operation.
+   * The result of getting the current commit SHA.
    */
-  error?: Error;
-}
+  export interface CurrentCommitShaResult {
+    /**
+     * The SHA of the current commit.
+     */
+    currentCommitSha?: string;
+  }
 
-export function git(args: string[], options: RunOptions = {}): Promise<GitRunResult> {
-  return run("git", args, options);
+  /**
+   * Options that can be passed to gitClone().
+   */
+  export interface CloneOptions {
+    /**
+     * Instead of using the remote name "origin" to keep track of the upstream repository, use this value.
+     */
+    origin?: string;
+    /**
+     * Instead of pointing the newly created HEAD to the branch pointed to by the cloned repository’s
+     * HEAD, point to this value's branch instead. In a non-bare repository, this is the branch that
+     * will be checked out. This value can also take tags and detaches the HEAD at that commit in the
+     * resulting repository.
+     */
+    branch?: string;
+    /**
+     * Create a shallow clone with a history truncated to the specified number of commits. Implies
+     * "single-branch"=true unless "no-single-branch"=true is given to fetch the histories near the
+     * tips of all branches. If you want to clone submodules shallowly, also use
+     * "shallow-submodules"=true.
+     */
+    depth?: number;
+    /**
+     * The name of a new directory to clone into. The "humanish" part of the source repository is used
+     * if no directory is explicitly given (repo for /path/to/repo.git and foo for host.xz:foo/.git).
+     * Cloning into an existing directory is only allowed if the directory is empty.
+     */
+    directory?: string;
+  }
+
+  /**
+   * The result of attempting checking out a git reference (such as a branch or commit id).
+   */
+  export interface CheckoutResult {
+    /**
+     * Get the files that would've been overwritten if this checkout operation had taken place. This
+     * property will only be populated in an error scenario.
+     */
+    filesThatWouldBeOverwritten?: string[];
+  }
+
+  /**
+   * The options for determining how pushing the current branch will run.
+   */
+  export interface PushOptions {
+    /**
+     * The upstream repository to push to if the current branch doesn't already have an upstream
+     * branch.
+     */
+    setUpstream?: boolean | string;
+    /**
+     * The name of the branch to push.
+     */
+    branchName?: string;
+  }
+
+  /**
+   * The options for determining how this command will run.
+   */
+  export interface DeleteRemoteBranchOptions {
+    /**
+     * The name of the tracked remote repository. Defaults to "origin".
+     */
+    remoteName?: string;
+  }
+
+  /**
+   * The result of a "git diff" command.
+   */
+  export interface DiffResult {
+    /**
+     * The files that are reported as being changed by the diff command.
+     */
+    filesChanged: string[];
+  }
+
+  /**
+   * The result of getting the local branches in the repository.
+   */
+  export interface LocalBranchesResult {
+    /**
+     * The local branches in the repository.
+     */
+    localBranches: string[];
+    /**
+     * The current branch that is checked out.
+     */
+    currentBranch: string;
+  }
+
+  /**
+   * The return type of getting a remote repository's branches.
+   */
+  export interface RemoteBranchesResult {
+    /**
+     * The branches in remote repositories.
+     */
+    remoteBranches: GitRemoteBranch[];
+  }
+
+  /**
+   * The result of getting the status of the current branch.
+   */
+  export interface StatusResult {
+    /**
+     * The current local branch.
+     */
+    localBranch?: string;
+    /**
+     * The remote tracking branch for the current local branch.
+     */
+    remoteBranch?: string;
+    /**
+     * Whether or not the current local branch has uncommitted changes.
+     */
+    hasUncommittedChanges: boolean;
+    /**
+     * Staged, not staged, and untracked files that have either been modified, added, or deleted.
+     */
+    modifiedFiles: string[];
+    /**
+     * Files that have been modified and staged.
+     */
+    stagedModifiedFiles: string[];
+    /**
+     * Files that have been deleted and staged.
+     */
+    stagedDeletedFiles: string[];
+    /**
+     * Files that have been modified but not staged yet.
+     */
+    notStagedModifiedFiles: string[];
+    /**
+     * Files that have been deleted but not staged yet.
+     */
+    notStagedDeletedFiles: string[];
+    /**
+     * Files that don't currently exist in the repository.
+     */
+    untrackedFiles: string[];
+  }
+
+  /**
+   * The result of getting a git configuration value.
+   */
+  export interface GetConfigurationValueResult {
+    /**
+     * The requested configuration value or undefined if the value was not found.
+     */
+    configurationValue?: string;
+  }
 }
 
 /**
- * The result of running gitCurrentCommitSha().
+ * A set of interfaces and types that relate to the ExecutableGit class.
  */
-export interface GitCurrentCommitShaResult {
+export namespace ExecutableGit {
   /**
-   * The SHA of the current commit.
+   * A set of optional properties that can be applied to an ExecutableGit operation.
    */
-  currentCommitSha?: string;
+  export interface Options extends RunOptions {
+    /**
+     * The file path to the git executable to use to run commands. This can be either a rooted path
+     * to the executable, or a relative path that will use the environment's PATH variable to
+     * resolve the executable's location.
+     */
+    gitFilePath?: string;
+  }
+
+  /**
+   * The result of running a git operation.
+   */
+  export interface Result extends RunResult {
+    /**
+     * The error that occurred while running the git operation.
+     */
+    error?: Error;
+  }
+
+  /**
+   * The result of running `git rev-parse HEAD`.
+   */
+  export interface CurrentCommitShaResult extends Git.CurrentCommitShaResult, Result {
+  }
+
+  /**
+   * Options that can be passed to `git fetch`.
+   */
+  export interface FetchOptions extends Options {
+    /**
+     * Before fetching, remove any remote-tracking references that no longer exist on the remote. Tags
+     * are not subject to pruning if they are fetched only because of the default tag auto-following
+     * or due to a --tags option. However, if tags are fetched due to an explicit refspec (either on
+     * the command line or in the remote configuration, for example if the remote was cloned with the
+     * --mirror option), then they are also subject to pruning. Supplying --prune-tags is a shorthand
+     * for providing the tag refspec.
+     */
+    prune?: boolean;
+  }
+
+  /**
+   * Options that can be passed to `git clone`.
+   */
+  export interface CloneOptions extends Git.CloneOptions, Options {
+    /**
+     * Operate quietly. Progress is not reported to the standard error stream.
+     */
+    quiet?: boolean;
+    /**
+     * Run verbosely. Does not affect the reporting of progress status to the standard error stream.
+     */
+    verbose?: boolean;
+  }
+
+  /**
+   * The result of attempting to run `git checkout`.
+   */
+  export interface CheckoutResult extends Git.CheckoutResult, Result {
+  }
+
+  /**
+   * The options for determining how pushing the current branch will run.
+   */
+  export interface PushOptions extends Git.PushOptions, Options {
+  }
+
+  /**
+   * Options that modify how a "git commit" operation will run.
+   */
+  export interface CommitOptions extends Options {
+    /**
+     * Whether or not pre-commit checks will be run.
+     */
+    noVerify?: boolean;
+  }
+
+  /**
+   * Options that can be passed to `git push <remote> :<branch-name>`.
+   */
+  export interface DeleteRemoteBranchOptions extends Git.DeleteRemoteBranchOptions, Options {
+  }
+
+  /**
+   * Options that can be passed to `git diff`.
+   */
+  export interface DiffOptions extends Options {
+    /**
+     * The unique identifier for a commit to compare. If this is specified but commit2 is not
+     * specified, then this commit will be compared against HEAD.
+     */
+    commit1?: string;
+    /**
+     * The unique identifier for a commit to compare. If this is specified but commit1 is not
+     * specified, then this commit will be compared against HEAD.
+     */
+    commit2?: string;
+    /**
+     * Show only the names of changed files.
+     */
+    nameOnly?: boolean;
+    /**
+     * Whether or not to ignore whitespace changes in the diff, and if provided, to what extent should
+     * whitespace changes be ignored.
+     */
+    ignoreSpace?: "at-eol" | "change" | "all";
+    /**
+     * Whether or not to show all changes that are staged.
+     */
+    staged?: boolean;
+  }
+
+  /**
+   * The result of a "git diff" command.
+   */
+  export interface DiffResult extends Git.DiffResult, Result {
+  }
+
+  /**
+   * The result of getting the local branches in the repository.
+   */
+  export interface LocalBranchesResult extends Git.LocalBranchesResult, Result {
+    /**
+     * The current branch that is checked out.
+     */
+    currentBranch: string;
+  }
+
+  /**
+   * The return type of getting a remote repository's branches.
+   */
+  export interface RemoteBranchesResult extends Git.RemoteBranchesResult, Result {
+  }
+
+  /**
+   * The result of getting the status of the current branch.
+   */
+  export interface StatusResult extends Git.StatusResult, Result {
+  }
+
+  /**
+   * The result of getting a git configuration value.
+   */
+  export interface GetConfigurationValueResult extends Git.GetConfigurationValueResult, Result {
+  }
 }
 
 /**
- * Get the SHA of the currently checked out commit.
+ * An implementation of Git that uses a Git executable to run commands.
  */
-export function gitCurrentCommitSha(options: RunOptions = {}): Promise<GitCurrentCommitShaResult & GitRunResult> {
-  return git(["rev-parse", "HEAD"], options)
-    .then((result: GitRunResult) => {
-      return {
-        ...result,
-        currentCommitSha: result.stdout
-      };
+export class ExecutableGit {
+  /**
+   * Create a new ExecutableGit object.
+   * @param gitFilePath The file path to the git executable to use to run commands. This can be
+   * either a rooted path to the executable, or a relative path that will use the environment's PATH
+   * variable to resolve the executable's location.
+   * @param options The optional arguments that will be applied to each operation.
+   */
+  constructor(private readonly options: ExecutableGit.Options = {}) {
+    if (!options.gitFilePath) {
+      options.gitFilePath = "git";
+    }
+  }
+
+  /**
+   * Create a new ExecutableGit object that combines this ExecutableGit's options with the provieded
+   * options.
+   * @param options The options to combine with this ExecutableGit's options.
+   */
+  public scope(options: ExecutableGit.Options): ExecutableGit {
+    return new ExecutableGit({
+      ...this.options,
+      ...options,
     });
-}
-
-/**
- * Options that can be passed to `git fetch`.
- */
-export interface GitFetchOptions {
-  /**
-   * Before fetching, remove any remote-tracking references that no longer exist on the remote. Tags
-   * are not subject to pruning if they are fetched only because of the default tag auto-following
-   * or due to a --tags option. However, if tags are fetched due to an explicit refspec (either on
-   * the command line or in the remote configuration, for example if the remote was cloned with the
-   * --mirror option), then they are also subject to pruning. Supplying --prune-tags is a shorthand
-   * for providing the tag refspec.
-   */
-  prune?: boolean;
-}
-
-/**
- * Download objects and refs from another repository.
- * @param options The options that can be passed to `git fetch`.
- */
-export function gitFetch(options: GitFetchOptions & RunOptions = {}): Promise<GitRunResult> {
-  const args: string[] = ["fetch"];
-  if (options.prune) {
-    args.push("--prune");
   }
-  return git(args, options);
-}
 
-export function gitMergeOriginMaster(options: RunOptions = {}): Promise<GitRunResult> {
-  return git(["merge", "origin", "master"], options);
-}
+  /**
+   * Run an arbitrary Git command.
+   * @param args The arguments to provide to the Git executable.
+   */
+  public run(args: string[], options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return run(options.gitFilePath || this.options.gitFilePath!, args, {
+      ...this.options,
+      ...options
+    });
+  }
 
-/**
- * Options that can be passed to gitClone().
- */
-export interface GitCloneOptions {
   /**
-   * Operate quietly. Progress is not reported to the standard error stream.
+   * Get the SHA of the currently checked out commit.
    */
-  quiet?: boolean;
-  /**
-   * Run verbosely. Does not affect the reporting of progress status to the standard error stream.
-   */
-  verbose?: boolean;
-  /**
-   * Instead of using the remote name "origin" to keep track of the upstream repository, use this value.
-   */
-  origin?: string;
-  /**
-   * Instead of pointing the newly created HEAD to the branch pointed to by the cloned repository’s
-   * HEAD, point to this value's branch instead. In a non-bare repository, this is the branch that
-   * will be checked out. This value can also take tags and detaches the HEAD at that commit in the
-   * resulting repository.
-   */
-  branch?: string;
-  /**
-   * Create a shallow clone with a history truncated to the specified number of commits. Implies
-   * "single-branch"=true unless "no-single-branch"=true is given to fetch the histories near the
-   * tips of all branches. If you want to clone submodules shallowly, also use
-   * "shallow-submodules"=true.
-   */
-  depth?: number;
-  /**
-   * The name of a new directory to clone into. The "humanish" part of the source repository is used
-   * if no directory is explicitly given (repo for /path/to/repo.git and foo for host.xz:foo/.git).
-   * Cloning into an existing directory is only allowed if the directory is empty.
-   */
-  directory?: string;
-}
+  public async currentCommitSha(options: ExecutableGit.Options = {}): Promise<ExecutableGit.CurrentCommitShaResult> {
+    const runResult: ExecutableGit.Result = await this.run(["rev-parse", "HEAD"], options);
+    const result: ExecutableGit.CurrentCommitShaResult = {
+      ...runResult,
+      currentCommitSha: runResult.stdout,
+    };
+    return result;
+  }
 
-/**
- * Clone the repository with the provided URI.
- * @param gitUri The repository URI to clone.
- * @param options The options that can be passed to "git clone".
- */
-export function gitClone(gitUri: string, options: GitCloneOptions & RunOptions = {}): Promise<GitRunResult> {
-  const args: string[] = [`clone`];
-  if (options.quiet) {
-    args.push(`--quiet`);
-  }
-  if (options.verbose) {
-    args.push(`--verbose`);
-  }
-  if (options.origin) {
-    args.push(`--origin`, options.origin);
-  }
-  if (options.branch) {
-    args.push(`--branch`, options.branch);
-  }
-  if (options.depth != undefined) {
-    args.push(`--depth`, options.depth.toString());
-  }
-  args.push(gitUri);
-  if (options.directory) {
-    args.push(options.directory);
-  }
-  return git(args, options);
-}
-
-export interface GitCheckoutResult {
   /**
-   * Get the files that would've been overwritten if this checkout operation had taken place. This
-   * property will only be populated in an error scenario.
+   * Download objects and refs from another repository.
+   * @param options The options that can be passed to `git fetch`.
    */
-  filesThatWouldBeOverwritten?: string[];
-}
+  public fetch(options: ExecutableGit.FetchOptions = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = ["fetch"];
+    if (options.prune) {
+      args.push("--prune");
+    }
+    return this.run(args, options);
+  }
 
-export async function gitCheckout(refId: string, options: RunOptions = {}): Promise<GitCheckoutResult & GitRunResult> {
-  const runResult: GitRunResult = await git([`checkout`, refId], options);
-  let filesThatWouldBeOverwritten: string[] | undefined;
-  if (runResult.stderr) {
-    const stderrLines: string[] = getLines(runResult.stderr);
-    if (stderrLines[0].trim() === "error: The following untracked working tree files would be overwritten by checkout:") {
-      filesThatWouldBeOverwritten = [];
-      let lineIndex = 1;
-      while (lineIndex < stderrLines.length) {
-        const line: string = stderrLines[lineIndex];
-        if (line.trim() === "Please move or remove them before you switch branches.") {
-          break;
-        } else {
-          filesThatWouldBeOverwritten.push(joinPath((options && options.executionFolderPath) || "", line.trim()));
-          ++lineIndex;
+  /**
+   * Merge the registed origin remote repository's master branch into the current branch.
+   * @param options The options that can be passed to `git merge origin master`.
+   */
+  public mergeOriginMaster(options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return this.run(["merge", "origin", "master"], options);
+  }
+
+  /**
+   * Clone the repository with the provided URI.
+   * @param gitUri The repository URI to clone.
+   * @param options The options that can be passed to "git clone".
+   */
+  public clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = [`clone`];
+    if (options.quiet) {
+      args.push(`--quiet`);
+    }
+    if (options.verbose) {
+      args.push(`--verbose`);
+    }
+    if (options.origin) {
+      args.push(`--origin`, options.origin);
+    }
+    if (options.branch) {
+      args.push(`--branch`, options.branch);
+    }
+    if (options.depth != undefined) {
+      args.push(`--depth`, options.depth.toString());
+    }
+    args.push(gitUri);
+    if (options.directory) {
+      args.push(options.directory);
+    }
+    return this.run(args, options);
+  }
+
+  /**
+   * Checkout the provided git reference (branch, tag, or commit ID) in the repository.
+   * @param refId The git reference to checkout.
+   */
+  public async checkout(refId: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.CheckoutResult> {
+    const runResult: ExecutableGit.Result = await this.run([`checkout`, refId], options);
+    let filesThatWouldBeOverwritten: string[] | undefined;
+    if (runResult.stderr) {
+      const stderrLines: string[] = getLines(runResult.stderr);
+      if (stderrLines[0].trim() === "error: The following untracked working tree files would be overwritten by checkout:") {
+        filesThatWouldBeOverwritten = [];
+        let lineIndex = 1;
+        while (lineIndex < stderrLines.length) {
+          const line: string = stderrLines[lineIndex];
+          if (line.trim() === "Please move or remove them before you switch branches.") {
+            break;
+          } else {
+            filesThatWouldBeOverwritten.push(joinPath((options && options.executionFolderPath) || "", line.trim()));
+            ++lineIndex;
+          }
         }
       }
     }
+    return {
+      ...runResult,
+      filesThatWouldBeOverwritten
+    };
   }
-  return {
-    ...runResult,
-    filesThatWouldBeOverwritten
-  };
-}
 
-export function gitPull(options: RunOptions = {}): Promise<GitRunResult> {
-  return git([`pull`], options);
-}
-
-/**
- * The options for determining how gitPush() will run.
- */
-export interface GitPushOptions {
   /**
-   * The upstream repository to push to if the current branch doesn't already have an upstream
-   * branch.
+   * Pull the latest changes for the current branch from the registered remote branch.
    */
-  setUpstream?: boolean | string;
+  public pull(options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return this.run([`pull`], options);
+  }
+
   /**
-   * The name of the branch to push.
+   * Push the current branch to the remote tracked repository.
+   * @param options The options for determining how this command will run.
    */
-  branchName?: string;
-}
-
-/**
- * Push the current branch to the remote tracked repository.
- * @param options The options for determining how this command will run.
- */
-export async function gitPush(options: GitPushOptions & RunOptions = {}): Promise<GitRunResult> {
-  const args: string[] = ["push"];
-  if (options.setUpstream) {
-    const upstream: string = typeof options.setUpstream === "string" ? options.setUpstream : "origin";
-    const branchName: string = options.branchName || await gitCurrentBranch(options);
-    args.push(`--set-upstream`, upstream, branchName);
+  public async push(options: ExecutableGit.PushOptions = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = ["push"];
+    if (options.setUpstream) {
+      const upstream: string = typeof options.setUpstream === "string" ? options.setUpstream : "origin";
+      const branchName: string = options.branchName || await this.currentBranch(options);
+      args.push(`--set-upstream`, upstream, branchName);
+    }
+    return await this.run(args, options);
   }
-  return await git(args, options);
-}
 
-/**
- * Add/stage the provided files.
- * @param filePaths The paths to the files to stage.
- * @param options The options for determining how this command will run.
- */
-export function gitAdd(filePaths: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
-  const args: string[] = ["add"];
-  if (typeof filePaths === "string") {
-    args.push(filePaths);
-  } else {
-    args.push(...filePaths);
-  }
-  return git(args, options);
-}
-
-/**
- * Add/stage all of the current unstaged files.
- * @param options The options that determine how this command will run.
- */
-export function gitAddAll(options: RunOptions = {}): Promise<GitRunResult> {
-  return gitAdd("*", options);
-}
-
-/**
- * Options that modify how a "git commit" operation will run.
- */
-export interface GitCommitOptions {
   /**
-   * Whether or not pre-commit checks will be run.
+   * Add/stage the provided files.
+   * @param filePaths The paths to the files to stage.
+   * @param options The options for determining how this command will run.
    */
-  noVerify?: boolean;
-}
-
-export function gitCommit(commitMessages: string | string[], options: GitCommitOptions & RunOptions = {}): Promise<GitRunResult> {
-  const args: string[] = ["commit"];
-
-  if (options.noVerify) {
-    args.push("--no-verify");
+  public add(filePaths: string | string[], options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = ["add"];
+    if (typeof filePaths === "string") {
+      args.push(filePaths);
+    } else {
+      args.push(...filePaths);
+    }
+    return this.run(args, options);
   }
 
-  if (typeof commitMessages === "string") {
-    commitMessages = [commitMessages];
-  }
-  for (const commitMessage of commitMessages) {
-    args.push("-m", commitMessage);
-  }
-
-  return git(args, options);
-}
-
-export function gitDeleteLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
-  return git([`branch`, `-D`, branchName], options);
-}
-
-/**
- * Create a new local branch with the provided name.
- * @param branchName The name of the new branch.
- * @param options The options for determining how this command will run.
- */
-export function gitCreateLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
-  return git([`checkout`, `-b`, branchName], options);
-}
-
-/**
- * The options for determining how this command will run.
- */
-export interface GitDeleteRemoteBranchOptions {
   /**
-   * The name of the tracked remote repository. Defaults to "origin".
+   * Add/stage all of the current unstaged files.
+   * @param options The options that determine how this command will run.
    */
-  remoteName?: string;
-}
-
-/**
- * Remote the provided branch from the provided tracked remote repository.
- * @param branchName The name of the remote branch to delete.
- * @param remoteName The name of the tracked remote repository.
- * @param options The options for determining how this command will run.
- */
-export function gitDeleteRemoteBranch(branchName: string, options: GitDeleteRemoteBranchOptions & RunOptions = {}): Promise<GitRunResult> {
-  return git([`push`, options.remoteName || "origin", `:${branchName}`], options);
-}
-
-/**
- * Options that can be passed to gitDiff().
- */
-export interface GitDiffOptions {
-  /**
-   * The unique identifier for a commit to compare. If this is specified but commit2 is not
-   * specified, then this commit will be compared against HEAD.
-   */
-  commit1?: string;
-  /**
-   * The unique identifier for a commit to compare. If this is specified but commit1 is not
-   * specified, then this commit will be compared against HEAD.
-   */
-  commit2?: string;
-  /**
-   * Show only the names of changed files.
-   */
-  nameOnly?: boolean;
-  /**
-   * Whether or not to ignore whitespace changes in the diff, and if provided, to what extent should
-   * whitespace changes be ignored.
-   */
-  ignoreSpace?: "at-eol" | "change" | "all";
-  /**
-   * Whether or not to show all changes that are staged.
-   */
-  staged?: boolean;
-}
-
-/**
- * The result of a "git diff" command.
- */
-export interface GitDiffResult {
-  /**
-   * The files that are reported as being changed by the diff command.
-   */
-  filesChanged: string[];
-}
-
-export async function gitDiff(options: GitDiffOptions & RunOptions = {}): Promise<GitDiffResult & GitRunResult> {
-  const args: string[] = ["diff"];
-
-  if (options.commit1) {
-    args.push(options.commit1);
+  public addAll(options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return this.add("*", options);
   }
 
-  if (options.commit2) {
-    args.push(options.commit2);
+  /**
+   * Commit the currently staged/added changes to the current branch.
+   * @param commitMessages The commit messages to apply to this commit.
+   * @param options The options that determine how this command will run.
+   */
+  public commit(commitMessages: string | string[], options: ExecutableGit.CommitOptions = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = ["commit"];
+
+    if (options.noVerify) {
+      args.push("--no-verify");
+    }
+
+    if (typeof commitMessages === "string") {
+      commitMessages = [commitMessages];
+    }
+    for (const commitMessage of commitMessages) {
+      args.push("-m", commitMessage);
+    }
+
+    return this.run(args, options);
   }
 
-  if (options.staged) {
-    args.push(`--staged`);
+  /**
+   * Delete a local branch.
+   * @param branchName The name of the local branch to delete.
+   */
+  public deleteLocalBranch(branchName: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return this.run([`branch`, `-D`, branchName], options);
   }
 
-  if (options.nameOnly) {
-    args.push(`--name-only`);
+  /**
+   * Create a new local branch with the provided name.
+   * @param branchName The name of the new branch.
+   * @param options The options for determining how this command will run.
+   */
+  public createLocalBranch(branchName: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return this.run([`checkout`, `-b`, branchName], options);
   }
 
-  if (options.ignoreSpace === "all") {
-    args.push(`--ignore-all-space`);
-  } else if (options.ignoreSpace) {
-    args.push(`--ignore-space-${options.ignoreSpace}`);
+  /**
+   * Remote the provided branch from the provided tracked remote repository.
+   * @param branchName The name of the remote branch to delete.
+   * @param remoteName The name of the tracked remote repository.
+   * @param options The options for determining how this command will run.
+   */
+  public deleteRemoteBranch(branchName: string, options: ExecutableGit.DeleteRemoteBranchOptions = {}): Promise<ExecutableGit.Result> {
+    return this.run([`push`, options.remoteName || "origin", `:${branchName}`], options);
   }
 
-  const commandResult: RunResult = await git(args, options);
+  public async diff(options: ExecutableGit.DiffOptions = {}): Promise<ExecutableGit.DiffResult> {
+    const args: string[] = ["diff"];
 
-  let filesChanged: string[];
-  const repositoryFolderPath: string | undefined = options.executionFolderPath || process.cwd();
-  const stdoutLines: string[] = getLines(commandResult.stdout);
-  if (options.nameOnly) {
-    filesChanged = [];
-    for (const fileChanged of getLines(commandResult.stdout)) {
-      if (fileChanged) {
-        filesChanged.push(joinPath(repositoryFolderPath, fileChanged));
+    if (options.commit1) {
+      args.push(options.commit1);
+    }
+
+    if (options.commit2) {
+      args.push(options.commit2);
+    }
+
+    if (options.staged) {
+      args.push(`--staged`);
+    }
+
+    if (options.nameOnly) {
+      args.push(`--name-only`);
+    }
+
+    if (options.ignoreSpace === "all") {
+      args.push(`--ignore-all-space`);
+    } else if (options.ignoreSpace) {
+      args.push(`--ignore-space-${options.ignoreSpace}`);
+    }
+
+    const commandResult: ExecutableGit.Result = await this.run(args, options);
+
+    let filesChanged: string[];
+    const repositoryFolderPath: string | undefined = options.executionFolderPath || process.cwd();
+    const stdoutLines: string[] = getLines(commandResult.stdout);
+    if (options.nameOnly) {
+      filesChanged = [];
+      for (const fileChanged of getLines(commandResult.stdout)) {
+        if (fileChanged) {
+          filesChanged.push(joinPath(repositoryFolderPath, fileChanged));
+        }
+      }
+    } else {
+      filesChanged = getFilesChangedFromFullDiff(stdoutLines, repositoryFolderPath);
+    }
+    return {
+      ...commandResult,
+      filesChanged
+    };
+  }
+
+  /**
+   * Get the branches that are local to this repository.
+   */
+  public async localBranches(options: ExecutableGit.Options = {}): Promise<ExecutableGit.LocalBranchesResult> {
+    const commandResult: ExecutableGit.Result = await this.run(["branch"], options);
+    let currentBranch = "";
+    const localBranches: string[] = [];
+    for (let branch of getLines(commandResult.stdout)) {
+      if (branch) {
+        branch = branch.trim();
+        if (branch) {
+          if (branch.startsWith("*")) {
+            branch = branch.substring(1).trimLeft();
+            const detachedHeadMatch: RegExpMatchArray | null = branch.match(branchDetachedHeadRegExp);
+            if (detachedHeadMatch) {
+              branch = detachedHeadMatch[1];
+            }
+            currentBranch = branch;
+          }
+          localBranches.push(branch);
+        }
       }
     }
-  } else {
-    filesChanged = getFilesChangedFromFullDiff(stdoutLines, repositoryFolderPath);
+    return {
+      ...commandResult,
+      localBranches,
+      currentBranch,
+    };
   }
-  return {
-    ...commandResult,
-    filesChanged
-  };
+
+  /**
+   * Get the branch that the repository is currently on.
+   * @param options The options to run this command with.
+   */
+  public async currentBranch(options: ExecutableGit.Options = {}): Promise<string> {
+    return (await this.localBranches(options)).currentBranch;
+  }
+
+  /**
+   * Get the remote branches that this repository clone is aware of.
+   * @param options The options to run this command with.
+   */
+  public async remoteBranches(options: ExecutableGit.Options = {}): Promise<ExecutableGit.RemoteBranchesResult> {
+    const gitResult: ExecutableGit.Result = await this.run(["branch", "--remotes"], options);
+    const remoteBranches: GitRemoteBranch[] = [];
+    for (let remoteBranchLine of getLines(gitResult.stdout)) {
+      if (remoteBranchLine && remoteBranchLine.indexOf("->") === -1) {
+        remoteBranchLine = remoteBranchLine.trim();
+        if (remoteBranchLine) {
+          const firstSlashIndex: number = remoteBranchLine.indexOf("/");
+          const repositoryTrackingName: string = remoteBranchLine.substring(0, firstSlashIndex);
+          const branchName: string = remoteBranchLine.substring(firstSlashIndex + 1);
+          remoteBranches.push({
+            repositoryTrackingName,
+            branchName
+          });
+        }
+      }
+    }
+    return {
+      ...gitResult,
+      remoteBranches
+    };
+  }
+
+  /**
+   * Run "git status".
+   */
+  public async status(options: ExecutableGit.Options = {}): Promise<ExecutableGit.StatusResult> {
+    const folderPath: string = (options && options.executionFolderPath) || process.cwd();
+
+    let parseState: StatusParseState = "CurrentBranch";
+    let localBranch: string | undefined;
+    let remoteBranch: string | undefined;
+    let hasUncommittedChanges = false;
+    const stagedModifiedFiles: string[] = [];
+    const stagedDeletedFiles: string[] = [];
+    const notStagedModifiedFiles: string[] = [];
+    const notStagedDeletedFiles: string[] = [];
+    const untrackedFiles: string[] = [];
+
+    const runResult: ExecutableGit.Result = await this.run(["status"], options);
+    const lines: string[] = getLines(runResult.stdout);
+    let lineIndex = 0;
+    while (lineIndex < lines.length) {
+      const line: string = lines[lineIndex].trim();
+      if (!line) {
+        ++lineIndex;
+      } else {
+        switch (parseState) {
+          case "CurrentBranch":
+            const onBranchMatch: RegExpMatchArray | null = line.match(onBranchRegExp);
+            if (onBranchMatch) {
+              localBranch = onBranchMatch[1];
+            } else {
+              const detachedHeadMatch: RegExpMatchArray | null = line.match(statusDetachedHeadRegExp);
+              if (detachedHeadMatch) {
+                localBranch = detachedHeadMatch[1];
+              }
+            }
+            parseState = "RemoteBranch";
+            ++lineIndex;
+            break;
+
+          case "RemoteBranch":
+            const remoteBranchMatch: RegExpMatchArray | null = line.match(/.*\'(.*)\'.*/);
+            if (remoteBranchMatch) {
+              remoteBranch = remoteBranchMatch[1];
+              ++lineIndex;
+            }
+            parseState = "Changes";
+            break;
+
+          case "Changes":
+            hasUncommittedChanges = !line.match(/nothing to commit, working tree clean/i);
+            if (hasUncommittedChanges) {
+              if (line.match(/Changes to be committed:/i)) {
+                parseState = "ChangesToBeCommitted";
+              } if (isChangesNotStagedForCommitHeader(line)) {
+                parseState = "ChangesNotStagedForCommit";
+              } else if (isUntrackedFilesHeader(line)) {
+                parseState = "UntrackedFiles";
+              }
+            }
+            ++lineIndex;
+            break;
+
+          case "ChangesToBeCommitted":
+            if (!line.match(/\(use "git reset HEAD <file>..." to unstage\)/i)) {
+              const modifiedMatch: RegExpMatchArray | null = line.match(/modified:(.*)/i);
+              if (modifiedMatch) {
+                const modifiedFilePath: string = joinPath(folderPath, modifiedMatch[1].trim());
+                stagedModifiedFiles.push(modifiedFilePath);
+              } else {
+                const deletedMatch: RegExpMatchArray | null = line.match(/deleted:(.*)/i);
+                if (deletedMatch) {
+                  const deletedFilePath: string = joinPath(folderPath, deletedMatch[1].trim());
+                  stagedDeletedFiles.push(deletedFilePath);
+                } else if (isChangesNotStagedForCommitHeader(line)) {
+                  parseState = "ChangesNotStagedForCommit";
+                } else if (isUntrackedFilesHeader(line)) {
+                  parseState = "UntrackedFiles";
+                }
+              }
+            }
+            ++lineIndex;
+            break;
+
+          case "ChangesNotStagedForCommit":
+            if (!line.match(/\(use "git add <file>..." to update what will be committed\)/i) && !line.match(/\(use "git checkout -- <file>..." to discard changes in working directory\)/i)) {
+              const modifiedMatch: RegExpMatchArray | null = line.match(/modified:(.*)/i);
+              if (modifiedMatch) {
+                const modifiedFilePath: string = joinPath(folderPath, modifiedMatch[1].trim());
+                notStagedModifiedFiles.push(modifiedFilePath);
+              } else {
+                const deletedMatch: RegExpMatchArray | null = line.match(/deleted:(.*)/i);
+                if (deletedMatch) {
+                  const deletedFilePath: string = joinPath(folderPath, deletedMatch[1].trim());
+                  notStagedDeletedFiles.push(deletedFilePath);
+                } else if (isUntrackedFilesHeader(line)) {
+                  parseState = "UntrackedFiles";
+                }
+              }
+            }
+            ++lineIndex;
+            break;
+
+          case "UntrackedFiles":
+            if (!line.match(/\(use "git add <file>..." to include in what will be committed\)/i) &&
+              !line.match(/nothing added to commit but untracked files present \(use "git add" to track\)/i) &&
+              !line.match(/no changes added to commit \(use \"git add\" and\/or \"git commit -a\"\)/i)) {
+              const resolveUntrackedFilePath: string = joinPath(folderPath, line);
+              untrackedFiles.push(resolveUntrackedFilePath);
+            }
+            ++lineIndex;
+            break;
+        }
+      }
+    }
+
+    const modifiedFiles: string[] = [];
+    if (hasUncommittedChanges) {
+      modifiedFiles.push(
+        ...stagedModifiedFiles,
+        ...stagedDeletedFiles,
+        ...notStagedModifiedFiles,
+        ...notStagedDeletedFiles,
+        ...untrackedFiles);
+    }
+
+    return {
+      ...runResult,
+      localBranch,
+      remoteBranch,
+      hasUncommittedChanges,
+      modifiedFiles,
+      stagedModifiedFiles,
+      stagedDeletedFiles,
+      notStagedModifiedFiles,
+      notStagedDeletedFiles,
+      untrackedFiles,
+    };
+  }
+
+  /**
+   * Get the configuration value for the provided configuration value name.
+   * @param configurationValueName The name of the configuration value to get.
+   * @param options The options that can configure how the command will run.
+   */
+  public async getConfigurationValue(configurationValueName: string, options?: ExecutableGit.Options): Promise<ExecutableGit.GetConfigurationValueResult> {
+    const result: ExecutableGit.GetConfigurationValueResult = await this.run(["config", "--get", configurationValueName], options);
+    if (result.exitCode === 0 && result.stdout) {
+      result.configurationValue = result.stdout;
+    }
+    return result;
+  }
+
+  /**
+   * Get the URL of the current repository.
+   * @param options The options that can configure how the command will run.
+   */
+  public async getRepositoryUrl(options?: ExecutableGit.Options): Promise<string | undefined> {
+    let result: string | undefined = (await this.getConfigurationValue("remote.origin.url", options)).configurationValue;
+    if (result) {
+      result = result.trim();
+    }
+    return result;
+  }
+
+  /**
+   * Unstage all staged files.
+   * @param options The options that can configure how the command will run.
+   */
+  public resetAll(options?: ExecutableGit.Options): Promise<ExecutableGit.Result> {
+    return this.run(["reset", "*"], options);
+  }
 }
 
 /**
@@ -408,49 +866,7 @@ export function getFilesChangedFromFullDiff(text: string | string[], currentFold
   return result;
 }
 
-/**
- * The return type of gitLocalBranches().
- */
-export interface GitLocalBranchesResult {
-  localBranches: string[];
-  currentBranch: string;
-}
-
 const branchDetachedHeadRegExp: RegExp = /\(HEAD detached at (.*)\)/;
-export async function gitLocalBranches(options: RunOptions = {}): Promise<GitLocalBranchesResult & GitRunResult> {
-  const commandResult: RunResult = await git(["branch"], options);
-  let currentBranch = "";
-  const localBranches: string[] = [];
-  for (let branch of getLines(commandResult.stdout)) {
-    if (branch) {
-      branch = branch.trim();
-      if (branch) {
-        if (branch.startsWith("*")) {
-          branch = branch.substring(1).trimLeft();
-          const detachedHeadMatch: RegExpMatchArray | null = branch.match(branchDetachedHeadRegExp);
-          if (detachedHeadMatch) {
-            branch = detachedHeadMatch[1];
-          }
-          currentBranch = branch;
-        }
-        localBranches.push(branch);
-      }
-    }
-  }
-  return {
-    ...commandResult,
-    localBranches,
-    currentBranch,
-  };
-}
-
-/**
- * Get the branch that the repository is currently on.
- * @param options The options to run this command with.
- */
-export async function gitCurrentBranch(options: RunOptions = {}): Promise<string> {
-  return (await gitLocalBranches(options)).currentBranch;
-}
 
 /**
  * Get a GitRemoteBranch from the provided label. Labels usually follow the format
@@ -488,16 +904,6 @@ export interface GitRemoteBranch {
 }
 
 /**
- * The return type of gitRemoteBranches().
- */
-export interface GitRemoteBranchesResult {
-  /**
-   * The branches in remote repositories.
-   */
-  remoteBranches: GitRemoteBranch[];
-}
-
-/**
  * Get the full name of the provided remote branch.
  * @param remoteBranch The remote branch to get the full name of.
  */
@@ -505,72 +911,6 @@ export function getRemoteBranchFullName(remoteBranch: string | GitRemoteBranch):
   return !remoteBranch || typeof remoteBranch === "string"
     ? remoteBranch
     : `${remoteBranch.repositoryTrackingName}:${remoteBranch.branchName}`;
-}
-
-/**
- * Get the remote branches that this repository clone is aware of.
- * @param options The options to run this command with.
- */
-export async function gitRemoteBranches(options: RunOptions = {}): Promise<GitRemoteBranchesResult & GitRunResult> {
-  const gitResult: GitRunResult = await git(["branch", "--remotes"], options);
-  const remoteBranches: GitRemoteBranch[] = [];
-  for (let remoteBranchLine of getLines(gitResult.stdout)) {
-    if (remoteBranchLine && remoteBranchLine.indexOf("->") === -1) {
-      remoteBranchLine = remoteBranchLine.trim();
-      if (remoteBranchLine) {
-        const firstSlashIndex: number = remoteBranchLine.indexOf("/");
-        const repositoryTrackingName: string = remoteBranchLine.substring(0, firstSlashIndex);
-        const branchName: string = remoteBranchLine.substring(firstSlashIndex + 1);
-        remoteBranches.push({
-          repositoryTrackingName,
-          branchName
-        });
-      }
-    }
-  }
-  return {
-    ...gitResult,
-    remoteBranches
-  };
-}
-
-export interface GitStatusResult {
-  /**
-   * The current local branch.
-   */
-  localBranch?: string;
-  /**
-   * The remote tracking branch for the current local branch.
-   */
-  remoteBranch?: string;
-  /**
-   * Whether or not the current local branch has uncommitted changes.
-   */
-  hasUncommittedChanges: boolean;
-  /**
-   * Staged, not staged, and untracked files that have either been modified, added, or deleted.
-   */
-  modifiedFiles: string[];
-  /**
-   * Files that have been modified and staged.
-   */
-  stagedModifiedFiles: string[];
-  /**
-   * Files that have been deleted and staged.
-   */
-  stagedDeletedFiles: string[];
-  /**
-   * Files that have been modified but not staged yet.
-   */
-  notStagedModifiedFiles: string[];
-  /**
-   * Files that have been deleted but not staged yet.
-   */
-  notStagedDeletedFiles: string[];
-  /**
-   * Files that don't currently exist in the repository.
-   */
-  untrackedFiles: string[];
 }
 
 type StatusParseState = "CurrentBranch" | "RemoteBranch" | "Changes" | "ChangesToBeCommitted" | "ChangesNotStagedForCommit" | "UntrackedFiles";
@@ -585,404 +925,3 @@ function isUntrackedFilesHeader(text: string): boolean {
 
 const statusDetachedHeadRegExp: RegExp = /HEAD detached at (.*)/i;
 const onBranchRegExp: RegExp = /On branch (.*)/i;
-
-/**
- * Run "git status".
- */
-export async function gitStatus(options: RunOptions = {}): Promise<GitStatusResult & GitRunResult> {
-  const folderPath: string = (options && options.executionFolderPath) || process.cwd();
-
-  let parseState: StatusParseState = "CurrentBranch";
-  let localBranch: string | undefined;
-  let remoteBranch: string | undefined;
-  let hasUncommittedChanges = false;
-  const stagedModifiedFiles: string[] = [];
-  const stagedDeletedFiles: string[] = [];
-  const notStagedModifiedFiles: string[] = [];
-  const notStagedDeletedFiles: string[] = [];
-  const untrackedFiles: string[] = [];
-
-  const runResult: RunResult = await git(["status"], options);
-  const lines: string[] = getLines(runResult.stdout);
-  let lineIndex = 0;
-  while (lineIndex < lines.length) {
-    const line: string = lines[lineIndex].trim();
-    if (!line) {
-      ++lineIndex;
-    } else {
-      switch (parseState) {
-        case "CurrentBranch":
-          const onBranchMatch: RegExpMatchArray | null = line.match(onBranchRegExp);
-          if (onBranchMatch) {
-            localBranch = onBranchMatch[1];
-          } else {
-            const detachedHeadMatch: RegExpMatchArray | null = line.match(statusDetachedHeadRegExp);
-            if (detachedHeadMatch) {
-              localBranch = detachedHeadMatch[1];
-            }
-          }
-          parseState = "RemoteBranch";
-          ++lineIndex;
-          break;
-
-        case "RemoteBranch":
-          const remoteBranchMatch: RegExpMatchArray | null = line.match(/.*\'(.*)\'.*/);
-          if (remoteBranchMatch) {
-            remoteBranch = remoteBranchMatch[1];
-            ++lineIndex;
-          }
-          parseState = "Changes";
-          break;
-
-        case "Changes":
-          hasUncommittedChanges = !line.match(/nothing to commit, working tree clean/i);
-          if (hasUncommittedChanges) {
-            if (line.match(/Changes to be committed:/i)) {
-              parseState = "ChangesToBeCommitted";
-            } if (isChangesNotStagedForCommitHeader(line)) {
-              parseState = "ChangesNotStagedForCommit";
-            } else if (isUntrackedFilesHeader(line)) {
-              parseState = "UntrackedFiles";
-            }
-          }
-          ++lineIndex;
-          break;
-
-        case "ChangesToBeCommitted":
-          if (!line.match(/\(use "git reset HEAD <file>..." to unstage\)/i)) {
-            const modifiedMatch: RegExpMatchArray | null = line.match(/modified:(.*)/i);
-            if (modifiedMatch) {
-              const modifiedFilePath: string = joinPath(folderPath, modifiedMatch[1].trim());
-              stagedModifiedFiles.push(modifiedFilePath);
-            } else {
-              const deletedMatch: RegExpMatchArray | null = line.match(/deleted:(.*)/i);
-              if (deletedMatch) {
-                const deletedFilePath: string = joinPath(folderPath, deletedMatch[1].trim());
-                stagedDeletedFiles.push(deletedFilePath);
-              } else if (isChangesNotStagedForCommitHeader(line)) {
-                parseState = "ChangesNotStagedForCommit";
-              } else if (isUntrackedFilesHeader(line)) {
-                parseState = "UntrackedFiles";
-              }
-            }
-          }
-          ++lineIndex;
-          break;
-
-        case "ChangesNotStagedForCommit":
-          if (!line.match(/\(use "git add <file>..." to update what will be committed\)/i) && !line.match(/\(use "git checkout -- <file>..." to discard changes in working directory\)/i)) {
-            const modifiedMatch: RegExpMatchArray | null = line.match(/modified:(.*)/i);
-            if (modifiedMatch) {
-              const modifiedFilePath: string = joinPath(folderPath, modifiedMatch[1].trim());
-              notStagedModifiedFiles.push(modifiedFilePath);
-            } else {
-              const deletedMatch: RegExpMatchArray | null = line.match(/deleted:(.*)/i);
-              if (deletedMatch) {
-                const deletedFilePath: string = joinPath(folderPath, deletedMatch[1].trim());
-                notStagedDeletedFiles.push(deletedFilePath);
-              } else if (isUntrackedFilesHeader(line)) {
-                parseState = "UntrackedFiles";
-              }
-            }
-          }
-          ++lineIndex;
-          break;
-
-        case "UntrackedFiles":
-          if (!line.match(/\(use "git add <file>..." to include in what will be committed\)/i) &&
-            !line.match(/nothing added to commit but untracked files present \(use "git add" to track\)/i) &&
-            !line.match(/no changes added to commit \(use \"git add\" and\/or \"git commit -a\"\)/i)) {
-            const resolveUntrackedFilePath: string = joinPath(folderPath, line);
-            untrackedFiles.push(resolveUntrackedFilePath);
-          }
-          ++lineIndex;
-          break;
-      }
-    }
-  }
-
-  const modifiedFiles: string[] = [];
-  if (hasUncommittedChanges) {
-    modifiedFiles.push(
-      ...stagedModifiedFiles,
-      ...stagedDeletedFiles,
-      ...notStagedModifiedFiles,
-      ...notStagedDeletedFiles,
-      ...untrackedFiles);
-  }
-
-  return {
-    ...runResult,
-    localBranch,
-    remoteBranch,
-    hasUncommittedChanges,
-    modifiedFiles,
-    stagedModifiedFiles,
-    stagedDeletedFiles,
-    notStagedModifiedFiles,
-    notStagedDeletedFiles,
-    untrackedFiles,
-  };
-}
-
-/**
- * The result of running gitGetConfig().
- */
-export interface GitGetConfigResult {
-  /**
-   * The requested configuration value or undefined if the value was not found.
-   */
-  configurationValue?: string;
-}
-
-/**
- * Get the configuration value for the provided configuration value name.
- * @param configurationValueName The name of the configuration value to get.
- * @param options The options that can configure how the command will run.
- */
-export async function gitConfigGet(configurationValueName: string, options?: RunOptions): Promise<GitGetConfigResult & GitRunResult> {
-  const result: GitGetConfigResult & GitRunResult = await git(["config", "--get", configurationValueName], options);
-  if (result.exitCode === 0 && result.stdout) {
-    result.configurationValue = result.stdout;
-  }
-  return result;
-}
-
-/**
- * Get the URL of the current repository.
- * @param options The options that can configure how the command will run.
- */
-export async function gitGetRepositoryUrl(options?: RunOptions): Promise<string | undefined> {
-  let result: string | undefined = (await gitConfigGet("remote.origin.url", options)).configurationValue;
-  if (result) {
-    result = result.trim();
-  }
-  return result;
-}
-
-/**
- * Unstage all staged files.
- * @param options The options that can configure how the command will run.
- */
-export async function gitResetAll(options?: RunOptions): Promise<GitRunResult> {
-  return git(["reset", "*"], options);
-}
-
-export class GitScope {
-  constructor(private options: RunOptions) {
-  }
-
-  public run(args: string[], options: RunOptions = {}): Promise<GitRunResult> {
-    return git(args, {
-      ...this.options,
-      ...options,
-    });
-  }
-
-  /**
-   * Get the SHA of the currently checked out commit.
-   */
-  public currentCommitSha(options: RunOptions = {}): Promise<GitCurrentCommitShaResult> {
-    return gitCurrentCommitSha({
-      ...this.options,
-      ...options,
-    });
-  }
-
-  /**
-   * Download objects and refs from another repository.
-   * @param options The options that can be passed to `git fetch`.
-   */
-  public fetch(options: RunOptions = {}): Promise<GitRunResult> {
-    return gitFetch({
-      ...this.options,
-      ...options,
-    });
-  }
-
-  public mergeOriginMaster(options: RunOptions = {}): Promise<GitRunResult> {
-    return gitMergeOriginMaster({
-      ...this.options,
-      ...options
-    });
-  }
-
-  /**
-   * Clone the repository with the provided URI.
-   * @param gitUri The repository URI to clone.
-   * @param options The options that can be passed to "git clone".
-   */
-  public clone(gitUri: string, options: GitCloneOptions = {}): Promise<GitRunResult> {
-    return gitClone(gitUri, {
-      ...this.options,
-      ...options
-    });
-  }
-
-  public checkout(refId: string, options: RunOptions = {}): Promise<GitCheckoutResult> {
-    return gitCheckout(refId, {
-      ...this.options,
-      ...options
-    });
-  }
-
-  public pull(options: RunOptions = {}): Promise<GitRunResult> {
-    return gitPull({
-      ...this.options,
-      ...options
-    });
-  }
-
-  /**
-   * Push the current branch to the remote tracked repository.
-   * @param options The options for determining how this command will run.
-   */
-  public push(options: GitPushOptions = {}): Promise<GitRunResult> {
-    return gitPush({
-      ...this.options,
-      ...options
-    });
-  }
-
-  /**
-   * Add/stage the provided files.
-   * @param filePaths The paths to the files to stage.
-   * @param options The options for determining how this command will run.
-   */
-  public add(filePaths: string | string[], options: RunOptions = {}): Promise<GitRunResult> {
-    return gitAdd(filePaths, {
-      ...this.options,
-      ...options
-    });
-  }
-
-  /**
-   * Add/stage all of the current unstaged files.
-   * @param options The options that determine how this command will run.
-   */
-  public addAll(options: RunOptions = {}): Promise<GitRunResult> {
-    return gitAddAll({
-      ...this.options,
-      ...options
-    });
-  }
-
-  public commit(commitMessage: string | string[], options: GitCommitOptions = {}): Promise<GitRunResult> {
-    return gitCommit(commitMessage, {
-      ...this.options,
-      ...options
-    });
-  }
-
-  public deleteLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
-    return gitDeleteLocalBranch(branchName, {
-      ...this.options,
-      ...options
-    });
-  }
-
-  /**
-   * Create a new local branch with the provided name.
-   * @param branchName The name of the new branch.
-   * @param options The options for determining how this command will run.
-   */
-  public createLocalBranch(branchName: string, options: RunOptions = {}): Promise<GitRunResult> {
-    return gitCreateLocalBranch(branchName, {
-      ...this.options,
-      ...options
-    });
-  }
-
-  /**
-   * Remote the provided branch from the provided tracked remote repository.
-   * @param branchName The name of the remote branch to delete.
-   * @param remoteName The name of the tracked remote repository.
-   * @param options The options for determining how this command will run.
-   */
-  public deleteRemoteBranch(branchName: string, options: GitDeleteRemoteBranchOptions = {}): Promise<GitRunResult> {
-    return gitDeleteRemoteBranch(branchName, {
-      ...this.options,
-      ...options
-    });
-  }
-
-  public diff(options: GitDiffOptions = {}): Promise<GitDiffResult> {
-    return gitDiff({
-      ...this.options,
-      ...options,
-    });
-  }
-
-  public localBranches(options: RunOptions = {}): Promise<GitLocalBranchesResult> {
-    return gitLocalBranches({
-      ...this.options,
-      ...options,
-    });
-  }
-
-  /**
-   * Get the remote branches that this repository clone is aware of.
-   * @param options The options to run this command with.
-   */
-  public remoteBranches(options: RunOptions = {}): Promise<GitRemoteBranchesResult> {
-    return gitRemoteBranches({
-      ...this.options,
-      ...options
-    });
-  }
-
-  /**
-   * Get the branch that the repository is currently on.
-   * @param options The options to run this command with.
-   */
-  public currentBranch(options: RunOptions = {}): Promise<string> {
-    return gitCurrentBranch({
-      ...this.options,
-      ...options
-    });
-  }
-
-  /**
-   * Run "git status".
-   */
-  public status(options: RunOptions = {}): Promise<GitStatusResult> {
-    return gitStatus({
-      ...this.options,
-      ...options,
-    });
-  }
-
-  /**
-   * Get the configuration value for the provided configuration value name.
-   * @param configurationValueName The name of the configuration value to get.
-   * @param options The options that can configure how the command will run.
-   */
-  public configGet(configurationValueName: string, options?: RunOptions): Promise<GitGetConfigResult> {
-    return gitConfigGet(configurationValueName, {
-      ...this.options,
-      ...options,
-    });
-  }
-
-  /**
-   * Get the URL of the current repository.
-   * @param options The options that can configure how the command will run.
-   */
-  public getRepositoryUrl(options?: RunOptions): Promise<string | undefined> {
-    return gitGetRepositoryUrl({
-      ...this.options,
-      ...options,
-    });
-  }
-
-  /**
-   * Unstage all staged files.
-   * @param options The options that can configure how the command will run.
-   */
-  public async resetAll(options?: RunOptions): Promise<GitRunResult> {
-    return gitResetAll({
-      ...this.options,
-      ...options,
-    });
-  }
-}
