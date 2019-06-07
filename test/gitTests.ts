@@ -1014,7 +1014,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
       it("with origin remote string", async function () {
         const git = new ExecutableGit();
-        assert.strictEqual(await git.getRemoteUrl("origin"), `https://github.com/ts-common/azure-js-dev-tools.git`);
+        assertEx.startsWith((await git.getRemoteUrl("origin"))!, `https://github.com/ts-common/azure-js-dev-tools`);
       });
     });
 
