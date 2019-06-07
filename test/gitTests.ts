@@ -1014,7 +1014,17 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
       it("with origin remote string", async function () {
         const git = new ExecutableGit();
-        assert.strictEqual(await git.getRemoteUrl("origin"), undefined);
+        assert.strictEqual(await git.getRemoteUrl("origin"), `https://github.com/ts-common/azure-js-dev-tools.git`);
+      });
+    });
+
+    describe("setRemoteUrl()", function () {
+      it("command line arguments", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: ExecutableGit.Result = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({ executable: "git", args: ["remote", "set-url", "abc", "def"], result: expectedResult });
+        const git = new ExecutableGit();
+        assert.strictEqual(await git.setRemoteUrl("abc", "def", { runner }), expectedResult);
       });
     });
   });

@@ -1046,7 +1046,7 @@ export class ExecutableGit implements Git {
    */
   public async getRemoteUrl(remoteName: string, options: ExecutableGit.Options = {}): Promise<string | undefined> {
     const result: string | undefined = (await this.run(["remote", "get-url", remoteName], options)).stdout;
-    return result || undefined;
+    return (result && result.trim()) || undefined;
   }
 
   /**
