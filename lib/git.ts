@@ -90,6 +90,35 @@ export namespace Git {
   }
 
   /**
+   * Options that can be passed to `git diff`.
+   */
+  export interface DiffOptions {
+    /**
+     * The unique identifier for a commit to compare. If this is specified but commit2 is not
+     * specified, then this commit will be compared against HEAD.
+     */
+    commit1?: string;
+    /**
+     * The unique identifier for a commit to compare. If this is specified but commit1 is not
+     * specified, then this commit will be compared against HEAD.
+     */
+    commit2?: string;
+    /**
+     * Show only the names of changed files.
+     */
+    nameOnly?: boolean;
+    /**
+     * Whether or not to ignore whitespace changes in the diff, and if provided, to what extent should
+     * whitespace changes be ignored.
+     */
+    ignoreSpace?: "at-eol" | "change" | "all";
+    /**
+     * Whether or not to show all changes that are staged.
+     */
+    staged?: boolean;
+  }
+
+  /**
    * The result of a "git diff" command.
    */
   export interface DiffResult {
@@ -174,6 +203,132 @@ export namespace Git {
      */
     configurationValue?: string;
   }
+}
+
+/**
+ * An interface for interacting with Git repositories.
+ */
+export interface Git {
+  /**
+   * Get the SHA of the currently checked out commit.
+   */
+  currentCommitSha(): Promise<Git.CurrentCommitShaResult>;
+
+  /**
+   * Download objects and refs from another repository.
+   */
+  fetch(): Promise<unknown>;
+
+  /**
+   * Merge the registed origin remote repository's master branch into the current branch.
+   */
+  mergeOriginMaster(): Promise<unknown>;
+
+  /**
+   * Clone the repository with the provided URI.
+   * @param gitUri The repository URI to clone.
+   * @param options The options that can be passed to "git clone".
+   */
+  clone(gitUri: string, options?: Git.CloneOptions): Promise<unknown>;
+
+  /**
+   * Checkout the provided git reference (branch, tag, or commit ID) in the repository.
+   * @param refId The git reference to checkout.
+   */
+  checkout(refId: string): Promise<Git.CheckoutResult>;
+
+  /**
+   * Pull the latest changes for the current branch from the registered remote branch.
+   */
+  pull(): Promise<unknown>;
+
+  /**
+   * Push the current branch to the remote tracked repository.
+   * @param options The options for determining how this command will run.
+   */
+  push(options?: Git.PushOptions): Promise<unknown>;
+
+  /**
+   * Add/stage the provided files.
+   * @param filePaths The paths to the files to stage.
+   */
+  add(filePaths: string | string[]): Promise<unknown>;
+
+  /**
+   * Add/stage all of the current unstaged files.
+   * @param options The options that determine how this command will run.
+   */
+  addAll(): Promise<unknown>;
+
+  /**
+   * Commit the currently staged/added changes to the current branch.
+   * @param commitMessages The commit messages to apply to this commit.
+   */
+  commit(commitMessages: string | string[]): Promise<unknown>;
+
+  /**
+   * Delete a local branch.
+   * @param branchName The name of the local branch to delete.
+   */
+  deleteLocalBranch(branchName: string): Promise<unknown>;
+
+  /**
+   * Create a new local branch with the provided name.
+   * @param branchName The name of the new branch.
+   */
+  createLocalBranch(branchName: string): Promise<unknown>;
+
+  /**
+   * Remote the provided branch from the provided tracked remote repository.
+   * @param branchName The name of the remote branch to delete.
+   * @param remoteName The name of the tracked remote repository.
+   * @param options The options for determining how this command will run.
+   */
+  deleteRemoteBranch(branchName: string, options?: Git.DeleteRemoteBranchOptions): Promise<unknown>;
+
+  /**
+   * Get the diff between two commits.
+   * @options The options for determining how this command will run.
+   */
+  diff(options?: Git.DiffOptions): Promise<Git.DiffResult>;
+
+  /**
+   * Get the branches that are local to this repository.
+   */
+  localBranches(): Promise<Git.LocalBranchesResult>;
+
+  /**
+   * Get the branch that the repository is currently on.
+   */
+  currentBranch(): Promise<string>;
+
+  /**
+   * Get the remote branches that this repository clone is aware of.
+   */
+  remoteBranches(): Promise<Git.RemoteBranchesResult>;
+
+  /**
+   * Run "git status".
+   */
+  status(): Promise<Git.StatusResult>;
+
+  /**
+   * Get the configuration value for the provided configuration value name.
+   * @param configurationValueName The name of the configuration value to get.
+   */
+  getConfigurationValue(configurationValueName: string): Promise<Git.GetConfigurationValueResult>;
+
+  /**
+   * Get the URL of the current repository.
+   * @param options The options that can configure how the command will run.
+   */
+  getRepositoryUrl(options?: ExecutableGit.Options): Promise<string | undefined>;
+
+  /**
+   * Unstage all staged files.
+   * @param options The options that can configure how the command will run.
+   */
+  resetAll(options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
 }
 
 /**
@@ -268,30 +423,7 @@ export namespace ExecutableGit {
   /**
    * Options that can be passed to `git diff`.
    */
-  export interface DiffOptions extends Options {
-    /**
-     * The unique identifier for a commit to compare. If this is specified but commit2 is not
-     * specified, then this commit will be compared against HEAD.
-     */
-    commit1?: string;
-    /**
-     * The unique identifier for a commit to compare. If this is specified but commit1 is not
-     * specified, then this commit will be compared against HEAD.
-     */
-    commit2?: string;
-    /**
-     * Show only the names of changed files.
-     */
-    nameOnly?: boolean;
-    /**
-     * Whether or not to ignore whitespace changes in the diff, and if provided, to what extent should
-     * whitespace changes be ignored.
-     */
-    ignoreSpace?: "at-eol" | "change" | "all";
-    /**
-     * Whether or not to show all changes that are staged.
-     */
-    staged?: boolean;
+  export interface DiffOptions extends Git.DiffOptions, Options {
   }
 
   /**
@@ -332,7 +464,7 @@ export namespace ExecutableGit {
 /**
  * An implementation of Git that uses a Git executable to run commands.
  */
-export class ExecutableGit {
+export class ExecutableGit implements Git {
   /**
    * Create a new ExecutableGit object.
    * @param gitFilePath The file path to the git executable to use to run commands. This can be
