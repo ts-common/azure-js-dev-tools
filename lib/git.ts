@@ -24,7 +24,7 @@ export namespace Git {
   }
 
   /**
-   * Options that can be passed to gitClone().
+   * Options that can be passed to `git clone`.
    */
   export interface CloneOptions {
     /**
@@ -54,25 +54,9 @@ export namespace Git {
   }
 
   /**
-   * The result of attempting checking out a git reference (such as a branch or commit id).
-   */
-  export interface CheckoutResult {
-    /**
-     * Get the files that would've been overwritten if this checkout operation had taken place. This
-     * property will only be populated in an error scenario.
-     */
-    filesThatWouldBeOverwritten?: string[];
-  }
-
-  /**
    * The options for determining how pushing the current branch will run.
    */
   export interface PushOptions {
-    /**
-     * The upstream repository to push to if the current branch doesn't already have an upstream
-     * branch.
-     */
-    setUpstream?: boolean | string;
     /**
      * The name of the branch to push.
      */
@@ -235,7 +219,7 @@ export interface Git {
    * Checkout the provided git reference (branch, tag, or commit ID) in the repository.
    * @param refId The git reference to checkout.
    */
-  checkout(refId: string): Promise<Git.CheckoutResult>;
+  checkout(refId: string): Promise<unknown>;
 
   /**
    * Pull the latest changes for the current branch from the registered remote branch.
@@ -322,13 +306,13 @@ export interface Git {
    * Get the URL of the current repository.
    * @param options The options that can configure how the command will run.
    */
-  getRepositoryUrl(options?: ExecutableGit.Options): Promise<string | undefined>;
+  getRepositoryUrl(): Promise<string | undefined>;
 
   /**
    * Unstage all staged files.
    * @param options The options that can configure how the command will run.
    */
-  resetAll(options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
+  resetAll(): Promise<unknown>;
 }
 
 /**
@@ -395,13 +379,23 @@ export namespace ExecutableGit {
   /**
    * The result of attempting to run `git checkout`.
    */
-  export interface CheckoutResult extends Git.CheckoutResult, Result {
+  export interface CheckoutResult extends Result {
+    /**
+     * Get the files that would've been overwritten if this checkout operation had taken place. This
+     * property will only be populated in an error scenario.
+     */
+    filesThatWouldBeOverwritten?: string[];
   }
 
   /**
    * The options for determining how pushing the current branch will run.
    */
   export interface PushOptions extends Git.PushOptions, Options {
+    /**
+     * The upstream repository to push to if the current branch doesn't already have an upstream
+     * branch.
+     */
+    setUpstream?: boolean | string;
   }
 
   /**
