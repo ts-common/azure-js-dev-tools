@@ -6,8 +6,8 @@
 
 import { Logger } from "@azure/logger-js";
 import { AdditionalCheck } from "./checkEverything";
-import { gitStatus, GitStatusResult } from "./git";
 import { getDefaultLogger } from "./logger";
+import { ExecutableGit, Git } from "./git";
 
 export interface CheckForUnstagedChangesOptions {
   /**
@@ -43,7 +43,8 @@ export async function checkForUnstagedChangesCheck(options: CheckForUnstagedChan
     await logger.logWarning("Check is disabled. Allowing unstaged changes if they exist.");
   } else {
     await logger.logSection("Looking for unstaged changes...");
-    const gitStatusResult: GitStatusResult = await gitStatus();
+    const git = new ExecutableGit();
+    const gitStatusResult: Git.StatusResult = await git.status();
     const notStagedDeletedFileCount: number = gitStatusResult.notStagedDeletedFiles.length;
     const notStagedModifiedFileCount: number = gitStatusResult.notStagedModifiedFiles.length;
     const untrackedFileCount: number = gitStatusResult.untrackedFiles.length;

@@ -1,11 +1,11 @@
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
 import { writeFileContents } from "../lib/fileSystem2";
-import { GitScope } from "../lib/git";
 import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub, getGitHubRepositoryFromUrl, GitHubReference, GitHubBranch } from "../lib/github";
 import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
 import { contains } from "../lib/arrays";
+import { ExecutableGit } from "../lib";
 
 describe("github.ts", function () {
   describe("getGitHubRepository(string)", function () {
@@ -532,7 +532,7 @@ describe("github.ts", function () {
           this.timeout(30000);
 
           const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
-          const git = new GitScope({ executionFolderPath: repositoryFolderPath });
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
 
           const currentBranch: string = await git.currentBranch();
           const headBranchName = "fake-head-branch";
@@ -568,7 +568,7 @@ describe("github.ts", function () {
           this.timeout(30000);
 
           const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
-          const git = new GitScope({ executionFolderPath: repositoryFolderPath });
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
 
           const currentBranch: string = await git.currentBranch();
           const headBranchName = "fake-head-branch";
