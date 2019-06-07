@@ -14,6 +14,48 @@ import { run, RunOptions, RunResult } from "./run";
  */
 export namespace Git {
   /**
+   * Credentials that will authenticate the current application with a remote endpoint.
+   */
+  export interface Credentials {
+    /**
+     * The user to authenticate with the remote endpoint.
+     */
+    username: string;
+    /**
+     * The access token that will authenticate this user to the remote endpoint.
+     */
+    accessToken: string;
+  }
+
+  /**
+   * The details of the person who authored the changes of the commit.
+   */
+  export interface Author {
+    /**
+     * The name of the commit author.
+     */
+    name?: string;
+    /**
+     * The e-mail address of the commit author.
+     */
+    email?: string;
+  }
+
+  /**
+   * Options that can be passed to a Git implementation's constructor.
+   */
+  export interface ConstructorOptions {
+    /**
+     * The credentials that will be used to interact with remote endpoints.
+     */
+    credentials?: Credentials;
+    /**
+     * The details of the entity who may make commits.
+     */
+    author?: Author;
+  }
+
+  /**
    * The result of getting the current commit SHA.
    */
   export interface CurrentCommitShaResult {
@@ -61,6 +103,10 @@ export namespace Git {
      * The name of the branch to push.
      */
     branchName?: string;
+    /**
+     * The credentials that will be used to push the changes.
+     */
+    credentials?: Credentials;
   }
 
   /**
@@ -187,6 +233,16 @@ export namespace Git {
      */
     configurationValue?: string;
   }
+
+  /**
+   * The options that can be passed to a `git commit` operation.
+   */
+  export interface CommitOptions {
+    /**
+     * The details of the person who authored the changes of the commit.
+     */
+    author?: Author;
+  }
 }
 
 /**
@@ -248,7 +304,7 @@ export interface Git {
    * Commit the currently staged/added changes to the current branch.
    * @param commitMessages The commit messages to apply to this commit.
    */
-  commit(commitMessages: string | string[]): Promise<unknown>;
+  commit(commitMessages: string | string[], options?: Git.CommitOptions): Promise<unknown>;
 
   /**
    * Delete a local branch.
@@ -313,6 +369,21 @@ export interface Git {
    * @param options The options that can configure how the command will run.
    */
   resetAll(): Promise<unknown>;
+
+  /**
+   * Get the URL associated with the provided remote repository.
+   * @param remoteName The name of the remote repository.
+   * @returns The URL associated with the provided remote repository or undefined if the remote name
+   * is not found.
+   */
+  getRemoteUrl(remoteName: string): Promise<string | undefined>;
+
+  /**
+   * Set the URL associated with the provided remote repository.
+   * @param remoteName The name of the remote repository.
+   * @param remoteUrl The URL associated with the provided remote repository.
+   */
+  setRemoteUrl(remoteName: string, remoteUrl: string): Promise<unknown>;
 }
 
 /**
@@ -452,6 +523,12 @@ export namespace ExecutableGit {
    * The result of getting a git configuration value.
    */
   export interface GetConfigurationValueResult extends Git.GetConfigurationValueResult, Result {
+  }
+
+  /**
+   * The options that can be passed to a `git commit` operation.
+   */
+  export interface CommitOptions extends Git.CommitOptions, Options {
   }
 }
 
@@ -945,7 +1022,7 @@ export class ExecutableGit implements Git {
    * Get the URL of the current repository.
    * @param options The options that can configure how the command will run.
    */
-  public async getRepositoryUrl(options?: ExecutableGit.Options): Promise<string | undefined> {
+  public async getRepositoryUrl(options: ExecutableGit.Options = {}): Promise<string | undefined> {
     let result: string | undefined = (await this.getConfigurationValue("remote.origin.url", options)).configurationValue;
     if (result) {
       result = result.trim();
@@ -957,8 +1034,28 @@ export class ExecutableGit implements Git {
    * Unstage all staged files.
    * @param options The options that can configure how the command will run.
    */
-  public resetAll(options?: ExecutableGit.Options): Promise<ExecutableGit.Result> {
+  public resetAll(options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
     return this.run(["reset", "*"], options);
+  }
+
+  /**
+   * Get the URL associated with the provided remote repository.
+   * @param remoteName The name of the remote repository.
+   * @returns The URL associated with the provided remote repository or undefined if the remote name
+   * is not found.
+   */
+  public async getRemoteUrl(remoteName: string, options: ExecutableGit.Options = {}): Promise<string | undefined> {
+    const result: string | undefined = (await this.run(["remote", "get-url", remoteName], options)).stdout;
+    return result || undefined;
+  }
+
+  /**
+   * Set the URL associated with the provided remote repository.
+   * @param remoteName The name of the remote repository.
+   * @param remoteUrl The URL associated with the provided remote repository.
+   */
+  public setRemoteUrl(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return this.run(["remote", "set-url", remoteName, remoteUrl], options);
   }
 }
 

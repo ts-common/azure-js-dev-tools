@@ -995,5 +995,27 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         assert.strictEqual(await git.resetAll({ runner }), expectedResult);
       });
     });
+
+    describe("gitRemoteUrl()", function () {
+      it("with undefined", async function () {
+        const git = new ExecutableGit();
+        assert.strictEqual(await git.getRemoteUrl(undefined as any), undefined);
+      });
+
+      it("with empty string", async function () {
+        const git = new ExecutableGit();
+        assert.strictEqual(await git.getRemoteUrl(""), undefined);
+      });
+
+      it("with non-existing remote string", async function () {
+        const git = new ExecutableGit();
+        assert.strictEqual(await git.getRemoteUrl("idontexist"), undefined);
+      });
+
+      it("with origin remote string", async function () {
+        const git = new ExecutableGit();
+        assert.strictEqual(await git.getRemoteUrl("origin"), undefined);
+      });
+    });
   });
 });
