@@ -1,9 +1,18 @@
 import { assert } from "chai";
 import { joinPath } from "../lib";
 import { assertEx } from "../lib/assertEx";
-import { findFileInPath, findFileInPathSync } from "../lib/fileSystem2";
-import { getGitRemoteBranch, getRemoteBranchFullName, ExecutableGit, GitRemoteBranch } from "../lib/git";
+import { deleteFolder, findFileInPath, findFileInPathSync, folderExists } from "../lib/fileSystem2";
+import { AuthenticatedExecutableGit, ExecutableGit, getAuthenticationString, getGitRemoteBranch, getRemoteBranchFullName, GitRemoteBranch } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
+
+let folderCount = 1;
+function getFolderName(): string {
+  return `fake-folder-${folderCount++}`;
+}
+
+function getFolderPath(): string {
+  return joinPath(process.cwd(), getFolderName());
+}
 
 const runPushRemoteBranchTests: boolean = !!findFileInPathSync("github.auth");
 
@@ -175,6 +184,43 @@ describe("git.ts", function () {
             directory: "fake-directory"
           }),
           expectedResult);
+      });
+
+      it("with executionFolderPath that doesn't exist", async function () {
+        const executionFolderPath: string = getFolderPath();
+        const git = new ExecutableGit({
+          executionFolderPath,
+        });
+        const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git");
+        try {
+          assert.strictEqual(cloneResult.exitCode, undefined);
+          assert.strictEqual(cloneResult.processId, undefined);
+          assert.strictEqual(cloneResult.stderr, undefined);
+          assert.strictEqual(cloneResult.stdout, undefined);
+          const error: Error = assertEx.defined(cloneResult.error);
+          assert.strictEqual(error.message, "spawn git ENOENT");
+          assert.strictEqual(error.name, "Error");
+        } finally {
+          await deleteFolder(executionFolderPath);
+        }
+      });
+
+      it("with repository directory that doesn't exist", async function () {
+        const repositoryFolderPath: string = getFolderPath();
+        const git = new ExecutableGit();
+        const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+          directory: repositoryFolderPath
+        });
+        try {
+          assert.strictEqual(cloneResult.exitCode, 0);
+          assertEx.defined(cloneResult.processId, "cloneResult.processId");
+          assert.strictEqual(cloneResult.stderr, `Cloning into '${repositoryFolderPath}'...\n`);
+          assert.strictEqual(cloneResult.stdout, "");
+          assert.strictEqual(cloneResult.error, undefined);
+          assert.strictEqual(await folderExists(repositoryFolderPath), true);
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
       });
     });
 
@@ -1026,6 +1072,47 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         const git = new ExecutableGit();
         assert.strictEqual(await git.setRemoteUrl("abc", "def", { runner }), expectedResult);
       });
+    });
+  });
+
+  describe("AuthenticatedExecutableGit", function () {
+    it("clone()", async function () {
+      const repositoryFolderPath: string = getFolderPath();
+      const git = new AuthenticatedExecutableGit({
+        username: "foo",
+        token: "berry",
+      });
+      const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+        directory: repositoryFolderPath,
+      });
+      try {
+        assert.strictEqual(cloneResult.exitCode, 0);
+        assertEx.defined(cloneResult.processId, "cloneResult.processId");
+        assert.strictEqual(cloneResult.stderr, "");
+        assert.strictEqual(cloneResult.stdout, "");
+        assert.strictEqual(cloneResult.error, undefined);
+        assert.strictEqual(await folderExists(repositoryFolderPath), true);
+        const remoteUrl: string | undefined = await git.getRemoteUrl("origin", {
+          executionFolderPath: repositoryFolderPath,
+        });
+        assert.strictEqual(remoteUrl, "https://foo:berry@github.com/ts-common/azure-js-dev-tools.git");
+      } finally {
+        await deleteFolder(repositoryFolderPath);
+      }
+    });
+  });
+
+  describe("getAuthenticationString()", function () {
+    it("with empty username", function () {
+      assert.strictEqual(getAuthenticationString("", "def"), "def:");
+    });
+
+    it("with empty token", function () {
+      assert.strictEqual(getAuthenticationString("abc", ""), "abc:");
+    });
+
+    it("with non-empty username and token", function () {
+      assert.strictEqual(getAuthenticationString("abc", "def"), "abc:def");
     });
   });
 });
