@@ -119,6 +119,8 @@ describe("fileSystem2.ts", function () {
   });
 
   describe("copyEntry()", function () {
+    this.timeout(10000);
+
     it("from entry that doesn't exist", async function () {
       const sourceFilePath = `./idontexist.txt`;
       const destFilePath = `./ialsodontexist.txt`;
