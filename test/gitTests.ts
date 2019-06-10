@@ -187,6 +187,8 @@ describe("git.ts", function () {
       });
 
       it("with executionFolderPath that doesn't exist", async function () {
+        this.timeout(10000);
+
         const executionFolderPath: string = getFolderPath();
         const git = new ExecutableGit({
           executionFolderPath,
@@ -206,6 +208,8 @@ describe("git.ts", function () {
       });
 
       it("with repository directory that doesn't exist", async function () {
+        this.timeout(10000);
+
         const repositoryFolderPath: string = getFolderPath();
         const git = new ExecutableGit();
         const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
@@ -1077,6 +1081,8 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
   describe("AuthenticatedExecutableGit", function () {
     it("clone()", async function () {
+      this.timeout(10000);
+
       const repositoryFolderPath: string = getFolderPath();
       const git = new AuthenticatedExecutableGit({
         username: "foo",
