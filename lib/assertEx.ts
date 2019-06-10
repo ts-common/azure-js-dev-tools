@@ -144,8 +144,14 @@ export namespace assertEx {
     assert(value.startsWith(prefix), `${expressionName || "value"} (${value}) must start with the provided prefix (${prefix}).`);
   }
 
-  export function defined(value: any, expressionName?: string): void {
+  /**
+   * Assert that the provided value is defined. If it is, return the defined value.
+   * @param value The value to check.
+   * @param expressionName The name of the expression that provided the value.
+   */
+  export function defined<T>(value: T | undefined, expressionName?: string): T {
     assert(value != undefined, `${expressionName || "value"} must be defined.`);
+    return value!;
   }
 
   export function definedAndNotEmpty(value: string | undefined, expressionName?: string): void {
