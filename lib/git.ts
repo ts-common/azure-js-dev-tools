@@ -650,7 +650,7 @@ export class ExecutableGit implements Git {
           if (line.trim() === "Please move or remove them before you switch branches.") {
             break;
           } else {
-            filesThatWouldBeOverwritten.push(joinPath((options && options.executionFolderPath) || "", line.trim()));
+            filesThatWouldBeOverwritten.push(joinPath(options.executionFolderPath || this.options.executionFolderPath || "", line.trim()));
             ++lineIndex;
           }
         }
@@ -783,7 +783,7 @@ export class ExecutableGit implements Git {
     const commandResult: ExecutableGit.Result = await this.run(args, options);
 
     let filesChanged: string[];
-    const repositoryFolderPath: string | undefined = options.executionFolderPath || process.cwd();
+    const repositoryFolderPath: string | undefined = options.executionFolderPath || this.options.executionFolderPath || process.cwd();
     const stdoutLines: string[] = getLines(commandResult.stdout);
     if (options.nameOnly) {
       filesChanged = [];
@@ -870,7 +870,7 @@ export class ExecutableGit implements Git {
    * Run "git status".
    */
   public async status(options: ExecutableGit.Options = {}): Promise<ExecutableGit.StatusResult> {
-    const folderPath: string = (options && options.executionFolderPath) || process.cwd();
+    const folderPath: string = options.executionFolderPath || this.options.executionFolderPath || process.cwd();
 
     let parseState: StatusParseState = "CurrentBranch";
     let localBranch: string | undefined;
