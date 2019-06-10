@@ -1202,6 +1202,7 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
       result = await this.setRemoteUrl("origin", remoteUrl, {
         ...options,
         executionFolderPath,
+        showCommand: false,
       });
     }
     return result;
