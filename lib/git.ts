@@ -1199,6 +1199,10 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
       const executionFolderPath: string = isRooted(repositoryFolderName)
         ? repositoryFolderName :
         joinPath(options.executionFolderPath || process.cwd(), repositoryFolderName);
+      if (options.log) {
+        const maskedRemoteUrl = `${gitUriBuilder.getScheme()}://xxxxx:xxxxx@${gitUriBuilder.getHost()}${gitUriBuilder.getPath()}`;
+        await Promise.resolve(options.log(`git remote set-url origin ${maskedRemoteUrl}`));
+      }
       result = await this.setRemoteUrl("origin", remoteUrl, {
         ...options,
         executionFolderPath,
@@ -1212,7 +1216,7 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
 export function getAuthenticationString(username: string, token: string): string {
   let result = "";
   if (!username) {
-    result = `${token}:`;
+    result = `${token}:x-oauth-basic`;
   } else {
     result = `${username}:${token}`;
   }
