@@ -1110,7 +1110,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
   describe("getAuthenticationString()", function () {
     it("with empty username", function () {
-      assert.strictEqual(getAuthenticationString("", "def"), "def:");
+      assert.strictEqual(getAuthenticationString("", "def"), "def:x-oauth-basic");
     });
 
     it("with empty token", function () {
