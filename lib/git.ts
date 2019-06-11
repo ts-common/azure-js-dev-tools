@@ -6,9 +6,8 @@
 
 import { URLBuilder } from "@azure/ms-rest-js";
 import { where } from "./arrays";
-import { getLines } from "./common";
-import { getGitHubRepositoryFromUrl } from "./github";
-import { isRooted, joinPath } from "./path";
+import { getLines, replaceAll } from "./common";
+import { joinPath } from "./path";
 import { run, RunOptions, RunResult } from "./run";
 
 /**
@@ -545,7 +544,7 @@ export class ExecutableGit implements Git {
    * variable to resolve the executable's location.
    * @param options The optional arguments that will be applied to each operation.
    */
-  constructor(private readonly options: ExecutableGit.Options = {}) {
+  constructor(protected readonly options: ExecutableGit.Options = {}) {
     if (!options.gitFilePath) {
       options.gitFilePath = "git";
     }
@@ -612,26 +611,7 @@ export class ExecutableGit implements Git {
    * @param options The options that can be passed to "git clone".
    */
   public clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
-    const args: string[] = [`clone`];
-    if (options.quiet) {
-      args.push(`--quiet`);
-    }
-    if (options.verbose) {
-      args.push(`--verbose`);
-    }
-    if (options.origin) {
-      args.push(`--origin`, options.origin);
-    }
-    if (options.branch) {
-      args.push(`--branch`, options.branch);
-    }
-    if (options.depth != undefined) {
-      args.push(`--depth`, options.depth.toString());
-    }
-    args.push(gitUri);
-    if (options.directory) {
-      args.push(options.directory);
-    }
+    const args: string[] = getCloneArguments(gitUri, options);
     return this.run(args, options);
   }
 
@@ -1061,6 +1041,30 @@ export class ExecutableGit implements Git {
   }
 }
 
+function getCloneArguments(gitUri: string, options: ExecutableGit.CloneOptions = {}): string[] {
+  const args: string[] = [`clone`];
+  if (options.quiet) {
+    args.push(`--quiet`);
+  }
+  if (options.verbose) {
+    args.push(`--verbose`);
+  }
+  if (options.origin) {
+    args.push(`--origin`, options.origin);
+  }
+  if (options.branch) {
+    args.push(`--branch`, options.branch);
+  }
+  if (options.depth != undefined) {
+    args.push(`--depth`, options.depth.toString());
+  }
+  args.push(gitUri);
+  if (options.directory) {
+    args.push(options.directory);
+  }
+  return args;
+}
+
 /**
  * The prefix that marks the beginning of a diff-ed file line.
  */
@@ -1160,10 +1164,6 @@ export namespace AuthenticatedExecutableGit {
    */
   export interface Options extends ExecutableGit.Options {
     /**
-     * The username that will be used to authenticate with remote repositories.
-     */
-    username?: string;
-    /**
      * The token that will be used to authenticate with remote repositories.
      */
     token: string;
@@ -1174,13 +1174,11 @@ export namespace AuthenticatedExecutableGit {
  * An implementation of Git that uses a Git executable to run commands.
  */
 export class AuthenticatedExecutableGit extends ExecutableGit {
-  private readonly username: string;
   private readonly token: string;
 
   constructor(options: AuthenticatedExecutableGit.Options) {
     super(options);
 
-    this.username = options.username || "";
     this.token = options.token;
   }
 
@@ -1189,36 +1187,15 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
    * @param gitUri The repository URI to clone.
    * @param options The options that can be passed to "git clone".
    */
-  public async clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
-    let result: ExecutableGit.Result = await super.clone(gitUri, options);
-    if (result.exitCode === 0) {
-      const gitUriBuilder: URLBuilder = URLBuilder.parse(gitUri);
-      const authentication: string = getAuthenticationString(this.username, this.token);
-      const remoteUrl = `${gitUriBuilder.getScheme()}://${authentication}@${gitUriBuilder.getHost()}${gitUriBuilder.getPath()}`;
-      const repositoryFolderName: string = options.directory || getGitHubRepositoryFromUrl(gitUri)!.name;
-      const executionFolderPath: string = isRooted(repositoryFolderName)
-        ? repositoryFolderName :
-        joinPath(options.executionFolderPath || process.cwd(), repositoryFolderName);
-      if (options.log) {
-        const maskedRemoteUrl = `${gitUriBuilder.getScheme()}://xxxxx:xxxxx@${gitUriBuilder.getHost()}${gitUriBuilder.getPath()}`;
-        await Promise.resolve(options.log(`git remote set-url origin ${maskedRemoteUrl}`));
-      }
-      result = await this.setRemoteUrl("origin", remoteUrl, {
-        ...options,
-        executionFolderPath,
-        showCommand: false,
-      });
+  public clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
+    const builder: URLBuilder = URLBuilder.parse(gitUri);
+    builder.setHost(`${this.token}@${builder.getHost()}`);
+    const log: undefined | ((text: string) => any) = options.log;
+    if (log) {
+      options.log = (text: string) => {
+        return log(replaceAll(text, this.token, "xxxxx")!);
+      };
     }
-    return result;
+    return super.clone(builder.toString(), options);
   }
-}
-
-export function getAuthenticationString(username: string, token: string): string {
-  let result = "";
-  if (!username) {
-    result = `${token}:x-oauth-basic`;
-  } else {
-    result = `${username}:${token}`;
-  }
-  return result;
 }

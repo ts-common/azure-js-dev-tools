@@ -1,8 +1,9 @@
+import { getInMemoryLogger, InMemoryLogger } from "@azure/logger-js";
 import { assert } from "chai";
 import { joinPath } from "../lib";
 import { assertEx } from "../lib/assertEx";
 import { deleteFolder, findFileInPath, findFileInPathSync, folderExists } from "../lib/fileSystem2";
-import { AuthenticatedExecutableGit, ExecutableGit, getAuthenticationString, getGitRemoteBranch, getRemoteBranchFullName, GitRemoteBranch } from "../lib/git";
+import { AuthenticatedExecutableGit, ExecutableGit, getGitRemoteBranch, getRemoteBranchFullName, GitRemoteBranch } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
 
 let folderCount = 1;
@@ -1085,11 +1086,16 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
       const repositoryFolderPath: string = getFolderPath();
       const git = new AuthenticatedExecutableGit({
-        username: "foo",
         token: "berry",
       });
+      const logger: InMemoryLogger = getInMemoryLogger();
       const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
         directory: repositoryFolderPath,
+        showCommand: true,
+        showResult: true,
+        captureError: true,
+        captureOutput: true,
+        log: (text: string) => logger.logInfo(text),
       });
       try {
         assert.strictEqual(cloneResult.exitCode, 0);
@@ -1105,20 +1111,6 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       } finally {
         await deleteFolder(repositoryFolderPath);
       }
-    });
-  });
-
-  describe("getAuthenticationString()", function () {
-    it("with empty username", function () {
-      assert.strictEqual(getAuthenticationString("", "def"), "def:x-oauth-basic");
-    });
-
-    it("with empty token", function () {
-      assert.strictEqual(getAuthenticationString("abc", ""), "abc:");
-    });
-
-    it("with non-empty username and token", function () {
-      assert.strictEqual(getAuthenticationString("abc", "def"), "abc:def");
     });
   });
 });
