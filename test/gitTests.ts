@@ -1100,14 +1100,20 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       try {
         assert.strictEqual(cloneResult.exitCode, 0);
         assertEx.defined(cloneResult.processId, "cloneResult.processId");
-        assert.strictEqual(cloneResult.stderr, "");
+        assert.strictEqual(cloneResult.stderr, `Cloning into '${repositoryFolderPath}'...\n`);
         assert.strictEqual(cloneResult.stdout, "");
         assert.strictEqual(cloneResult.error, undefined);
+        assert.deepEqual(logger.allLogs, [
+          `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+          `Exit Code: 0`,
+          `Error:`,
+          `Cloning into '${repositoryFolderPath}'...\n`
+        ]);
         assert.strictEqual(await folderExists(repositoryFolderPath), true);
         const remoteUrl: string | undefined = await git.getRemoteUrl("origin", {
           executionFolderPath: repositoryFolderPath,
         });
-        assert.strictEqual(remoteUrl, "https://foo:berry@github.com/ts-common/azure-js-dev-tools.git");
+        assert.strictEqual(remoteUrl, "https://berry@github.com/ts-common/azure-js-dev-tools.git");
       } finally {
         await deleteFolder(repositoryFolderPath);
       }
