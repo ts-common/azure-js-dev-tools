@@ -1164,9 +1164,9 @@ export namespace AuthenticatedExecutableGit {
    */
   export interface Options extends ExecutableGit.Options {
     /**
-     * The token that will be used to authenticate with remote repositories.
+     * The authentication section that will be inserted into remote repository URLs.
      */
-    token: string;
+    authentication: string;
   }
 }
 
@@ -1174,12 +1174,12 @@ export namespace AuthenticatedExecutableGit {
  * An implementation of Git that uses a Git executable to run commands.
  */
 export class AuthenticatedExecutableGit extends ExecutableGit {
-  private readonly token: string;
+  private readonly authentication: string;
 
   constructor(options: AuthenticatedExecutableGit.Options) {
     super(options);
 
-    this.token = options.token;
+    this.authentication = options.authentication;
   }
 
   /**
@@ -1189,13 +1189,27 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
    */
   public clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
     const builder: URLBuilder = URLBuilder.parse(gitUri);
-    builder.setHost(`${this.token}@${builder.getHost()}`);
+    builder.setHost(`${this.authentication}@${builder.getHost()}`);
     const log: undefined | ((text: string) => any) = options.log;
     if (log) {
       options.log = (text: string) => {
-        return log(replaceAll(text, this.token, "xxxxx")!);
+        return log(replaceAll(text, this.authentication, "xxxxx")!);
       };
     }
     return super.clone(builder.toString(), options);
+  }
+
+  /**
+   * Push the current branch to the remote tracked repository.
+   * @param options The options for determining how this command will run.
+   */
+  public push(options: ExecutableGit.PushOptions = {}): Promise<ExecutableGit.Result> {
+    const log: undefined | ((text: string) => any) = options.log;
+    if (log) {
+      options.log = (text: string) => {
+        return log(replaceAll(text, this.authentication, "xxxxx")!);
+      };
+    }
+    return super.push(options);
   }
 }

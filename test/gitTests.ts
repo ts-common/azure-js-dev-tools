@@ -1086,7 +1086,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
       const repositoryFolderPath: string = getFolderPath();
       const git = new AuthenticatedExecutableGit({
-        token: "berry",
+        authentication: "berry",
       });
       const logger: InMemoryLogger = getInMemoryLogger();
       const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
@@ -1117,6 +1117,43 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       } finally {
         await deleteFolder(repositoryFolderPath);
       }
+    });
+
+    describe("push()", function () {
+      it("with invalid username and password", async function () {
+        const authentication = "berry";
+        const runner = new FakeRunner();
+        runner.set({
+          executable: "git",
+          args: ["push"],
+          result: {
+            exitCode: 128,
+            stderr: `fatal: could not read Password for 'https://${authentication}@github.com': No such device or address`
+          }
+        });
+        const git = new AuthenticatedExecutableGit({
+          authentication,
+          runner,
+        });
+        const logger: InMemoryLogger = getInMemoryLogger();
+        const cloneResult: ExecutableGit.Result = await git.push({
+          showCommand: true,
+          showResult: true,
+          captureError: true,
+          captureOutput: true,
+          log: (text: string) => logger.logInfo(text),
+        });
+        assert.strictEqual(cloneResult.exitCode, 128);
+        assert.strictEqual(cloneResult.stderr, `fatal: could not read Password for 'https://${authentication}@github.com': No such device or address`);
+        assert.strictEqual(cloneResult.stdout, undefined);
+        assert.strictEqual(cloneResult.error, undefined);
+        assert.deepEqual(logger.allLogs, [
+          `git push`,
+          `Exit Code: 128`,
+          `Error:`,
+          `fatal: could not read Password for 'https://xxxxx@github.com': No such device or address`,
+        ]);
+      });
     });
   });
 });
