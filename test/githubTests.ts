@@ -376,6 +376,12 @@ describe("github.ts", function () {
           assertEx.defined(labels, "labels");
           assertEx.greaterThan(labels.length, 0, "labels.length");
         });
+
+        it(`with "test-repo-billy/azure-sdk-for-js"`, async function () {
+          const labels: GitHubLabel[] = await github.getLabels("test-repo-billy/azure-sdk-for-js");
+          assertEx.defined(labels, "labels");
+          assertEx.greaterThan(labels.length, 0, "labels.length");
+        });
       });
 
       describe("getSprintLabels()", function () {
@@ -441,7 +447,7 @@ describe("github.ts", function () {
           await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "fake label name", ""));
         });
 
-        it(`with valid label name and color`, async function () {
+        it(`with valid label name and color with no # prefix in ts-common/azure-js-dev-tools`, async function () {
           const labelName = "fakelabelthatjustgotcreated";
           const labelColor = "123456";
           const createdLabel: GitHubLabel = await github.createLabel("ts-common/azure-js-dev-tools", labelName, labelColor);
@@ -451,9 +457,47 @@ describe("github.ts", function () {
             assert.strictEqual(createdLabel.color, labelColor);
 
             const labels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
-            assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName), true);
+            assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName && label.color === labelColor), true);
           } finally {
             await github.deleteLabel("ts-common/azure-js-dev-tools", labelName);
+          }
+        });
+
+        it(`with valid label name and color with # prefix in ts-common/azure-js-dev-tools`, async function () {
+          const labelName = "fakelabelthatjustgotcreated";
+          const labelColor = "#123456";
+          try {
+            const error: Error = await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", labelName, labelColor));
+            assertEx.containsAll(error.message, ["label", "color"]);
+          } finally {
+            await github.deleteLabel("ts-common/azure-js-dev-tools", labelName).catch(() => {});
+          }
+        });
+
+        it(`with valid label name and color with no # prefix in test-repo-billy/azure-sdk-for-js`, async function () {
+          const labelName = "fakelabelthatjustgotcreated";
+          const labelColor = "123456";
+          const createdLabel: GitHubLabel = await github.createLabel("test-repo-billy/azure-sdk-for-js", labelName, labelColor);
+          try {
+            assertEx.defined(createdLabel, "createdLabel");
+            assert.strictEqual(createdLabel.name, labelName);
+            assert.strictEqual(createdLabel.color, labelColor);
+
+            const labels: GitHubLabel[] = await github.getLabels("test-repo-billy/azure-sdk-for-js");
+            assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName && label.color === labelColor), true);
+          } finally {
+            await github.deleteLabel("test-repo-billy/azure-sdk-for-js", labelName);
+          }
+        });
+
+        it(`with valid label name and color with # prefix in test-repo-billy/azure-sdk-for-js`, async function () {
+          const labelName = "fakelabelthatjustgotcreated";
+          const labelColor = "#123456";
+          try {
+            const error: Error = await assertEx.throwsAsync(github.createLabel("test-repo-billy/azure-sdk-for-js", labelName, labelColor));
+            assertEx.containsAll(error.message, ["label", "color"]);
+          } finally {
+            await github.deleteLabel("test-repo-billy/azure-sdk-for-js", labelName).catch(() => {});
           }
         });
       });
@@ -1242,6 +1286,9 @@ function createFakeGitHub(): FakeGitHub {
     title: "Buffer external process output and error until newline character",
     url: "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/113"
   }));
+
+  fakeGitHub.createRepository("test-repo-billy/azure-sdk-for-js");
+  fakeGitHub.createLabel("test-repo-billy/azure-sdk-for-js", "Fake-Label", "fake label color2");
 
   return fakeGitHub;
 }

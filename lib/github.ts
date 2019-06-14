@@ -761,7 +761,9 @@ export class FakeGitHub implements GitHub {
     if (!labelName) {
       result = Promise.reject(new Error(`labelName cannot be undefined or empty.`));
     } else if (!color) {
-      result = Promise.reject(new Error(`color cannot be undefined or empty.`));
+      result = Promise.reject(new Error(`label color cannot be undefined or empty.`));
+    } else if (color.startsWith("#")) {
+      result = Promise.reject(new Error(`label color (${color}) cannot start with a '#' symbol.`));
     } else {
       const fakeRepository: FakeGitHubRepository = await this.getRepository(repository);
       const label: GitHubLabel = {
@@ -770,7 +772,7 @@ export class FakeGitHub implements GitHub {
         node_id: "fake label node_id",
         url: "fake label url",
         name: labelName,
-        color: color
+        color,
       };
       fakeRepository.labels.push(label);
       result = Promise.resolve(label);
