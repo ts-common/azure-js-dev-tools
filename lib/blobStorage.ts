@@ -5,11 +5,11 @@
  */
 
 import { Aborter, AnonymousCredential, AppendBlobURL, BlockBlobURL, ContainerGetAccessPolicyResponse, ContainerURL, Credential, generateBlobSASQueryParameters, IBlobSASSignatureValues, Models, Pipeline, SASQueryParameters, ServiceURL, SharedKeyCredential, StorageURL } from "@azure/storage-blob";
+import { AppendBlobAppendBlockResponse, BlockBlobUploadResponse } from "@azure/storage-blob/typings/lib/generated/lib/models";
 import * as fs from "fs";
 import { map } from "./arrays";
 import { readEntireString, StringMap } from "./common";
 import { URLBuilder } from "./url";
-import { BlockBlobUploadResponse, AppendBlobAppendBlockResponse } from "@azure/storage-blob/typings/lib/generated/lib/models";
 
 const defaultEncoding = "utf8";
 
@@ -1232,6 +1232,11 @@ export function getAzureContainerAccessPermissions(permissions?: ContainerAccess
 }
 
 /**
+ * The maximum number of bytes that can be uploaded in a single AppendBlob block.
+ */
+const maximumAppendBlobUploadSize = 4 * 1024 * 1024;
+
+/**
  * A BlobStorage system that uses Azure Blob Storage to store data.
  */
 export class AzureBlobStorage extends BlobStorage {
@@ -1375,19 +1380,28 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public async addToAppendBlobContentsFromString(appendBlobPath: string | BlobPath, blobContentsToAppend: string, options: ETagOptions = {}): Promise<ETagResult> {
-    const bufferLength: number = Buffer.byteLength(blobContentsToAppend, defaultEncoding);
-    const buffer: Buffer = Buffer.alloc(bufferLength, defaultEncoding);
+    const bytesToUpload: number = Buffer.byteLength(blobContentsToAppend, defaultEncoding);
+    const buffer: Buffer = Buffer.alloc(bytesToUpload, defaultEncoding);
     buffer.write(blobContentsToAppend);
     const appendBlobUrl: AppendBlobURL = this.getAppendBlobURL(appendBlobPath);
-    const appendBlockResult: AppendBlobAppendBlockResponse = await appendBlobUrl.appendBlock(Aborter.none, buffer, buffer.length, {
-      accessConditions: {
-        modifiedAccessConditions: {
-          ifMatch: options.etag,
+    let etag: string | undefined = options.etag;
+    let bytesUploaded = 0;
+    while (bytesUploaded < bytesToUpload) {
+      const bytesToWrite: number = Math.min(maximumAppendBlobUploadSize, bytesToUpload - bytesUploaded);
+      const bufferToWrite: Buffer = buffer.slice(bytesUploaded, bytesUploaded + bytesToWrite);
+      const appendBlockResult: AppendBlobAppendBlockResponse = await appendBlobUrl.appendBlock(Aborter.none, bufferToWrite, bytesToWrite, {
+        accessConditions: {
+          modifiedAccessConditions: {
+            ifMatch: options.etag && etag,
+          }
         }
-      }
-    });
+      });
+      bytesUploaded += bytesToWrite;
+      etag = appendBlockResult.eTag;
+    }
+
     const result: ETagResult = {
-      etag: appendBlockResult.eTag,
+      etag,
     };
     return result;
   }
