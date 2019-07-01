@@ -67,7 +67,7 @@ export namespace Git {
   }
 
   /**
-   * Options that can be passed to `git clone`.
+   * Options that can be passed to "git clone".
    */
   export interface CloneOptions {
     /**
@@ -94,6 +94,16 @@ export namespace Git {
      * Cloning into an existing directory is only allowed if the directory is empty.
      */
     directory?: string;
+  }
+
+  /**
+   * Options that can be passed to "git checkout".
+   */
+  export interface CheckoutOptions {
+    /**
+     * The name of the remote repository where the branch should be checked out from.
+     */
+    remote?: string;
   }
 
   /**
@@ -279,8 +289,9 @@ export interface Git {
   /**
    * Checkout the provided git reference (branch, tag, or commit ID) in the repository.
    * @param refId The git reference to checkout.
+   * @param options The options that can be passed to "git checkout".
    */
-  checkout(refId: string): Promise<unknown>;
+  checkout(refId: string, options?: Git.CheckoutOptions): Promise<unknown>;
 
   /**
    * Pull the latest changes for the current branch from the registered remote branch.
@@ -439,7 +450,7 @@ export namespace ExecutableGit {
   }
 
   /**
-   * Options that can be passed to `git clone`.
+   * Options that can be passed to "git clone".
    */
   export interface CloneOptions extends Git.CloneOptions, Options {
     /**
@@ -450,6 +461,12 @@ export namespace ExecutableGit {
      * Run verbosely. Does not affect the reporting of progress status to the standard error stream.
      */
     verbose?: boolean;
+  }
+
+  /**
+   * Options that can be passed to "git checkout".
+   */
+  export interface CheckoutOptions extends Git.CheckoutOptions, Options {
   }
 
   /**
@@ -623,8 +640,14 @@ export class ExecutableGit implements Git {
    * Checkout the provided git reference (branch, tag, or commit ID) in the repository.
    * @param refId The git reference to checkout.
    */
-  public async checkout(refId: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.CheckoutResult> {
-    const runResult: ExecutableGit.Result = await this.run([`checkout`, refId], options);
+  public async checkout(refId: string, options: ExecutableGit.CheckoutOptions = {}): Promise<ExecutableGit.CheckoutResult> {
+    const args: string[] = [`checkout`];
+    if (!options.remote) {
+      args.push(refId);
+    } else {
+      args.push(`--track`, `${options.remote}/${refId}`);
+    }
+    const runResult: ExecutableGit.Result = await this.run(args, options);
     let filesThatWouldBeOverwritten: string[] | undefined;
     if (runResult.stderr) {
       const stderrLines: string[] = getLines(runResult.stderr);
