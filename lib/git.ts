@@ -104,6 +104,10 @@ export namespace Git {
      * The name of the remote repository where the branch should be checked out from.
      */
     remote?: string;
+    /**
+     * The name to use for the local branch.
+     */
+    localBranchName?: string;
   }
 
   /**
@@ -122,6 +126,16 @@ export namespace Git {
      * Whether or not to force the remote repository to accept this push's changes.
      */
     force?: boolean;
+  }
+
+  /**
+   * The options that can be passed to createLocalBranch().
+   */
+  export interface CreateLocalBranchOptions {
+    /**
+     * The reference point that the new branch will be created from.
+     */
+    startPoint?: string;
   }
 
   /**
@@ -502,6 +516,12 @@ export namespace ExecutableGit {
   }
 
   /**
+   * The options that can be passed to createLocalBranch().
+   */
+  export interface CreateLocalBranchOptions extends Git.CreateLocalBranchOptions, Options {
+  }
+
+  /**
    * Options that can be passed to `git push <remote> :<branch-name>`.
    */
   export interface DeleteRemoteBranchOptions extends Git.DeleteRemoteBranchOptions, Options {
@@ -647,6 +667,9 @@ export class ExecutableGit implements Git {
     } else {
       args.push(`--track`, `${options.remote}/${refId}`);
     }
+    if (options.localBranchName) {
+      args.push("-b", options.localBranchName);
+    }
     const runResult: ExecutableGit.Result = await this.run(args, options);
     let filesThatWouldBeOverwritten: string[] | undefined;
     if (runResult.stderr) {
@@ -753,8 +776,12 @@ export class ExecutableGit implements Git {
    * @param branchName The name of the new branch.
    * @param options The options for determining how this command will run.
    */
-  public createLocalBranch(branchName: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return this.run([`checkout`, `-b`, branchName], options);
+  public createLocalBranch(branchName: string, options: ExecutableGit.CreateLocalBranchOptions = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = ["checkout", "-b", branchName];
+    if (options.startPoint) {
+      args.push(options.startPoint);
+    }
+    return this.run(args, options);
   }
 
   /**
