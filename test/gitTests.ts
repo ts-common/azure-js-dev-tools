@@ -311,6 +311,22 @@ describe("git.ts", function () {
         assert.deepEqual(await git.push({ setUpstream: false, runner }), expectedResult);
       });
 
+      it("command line arguments with false force", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({ executable: "git", args: ["push"], result: expectedResult });
+        const git = new ExecutableGit();
+        assert.deepEqual(await git.push({ force: false, runner }), expectedResult);
+      });
+
+      it("command line arguments with true force", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({ executable: "git", args: ["push", "--force"], result: expectedResult });
+        const git = new ExecutableGit();
+        assert.deepEqual(await git.push({ force: true, runner }), expectedResult);
+      });
+
       it("when branch doesn't exist remotely and set-upstream isn't defined", async function () {
         const git = new ExecutableGit();
         const currentBranch: string = await git.currentBranch();
