@@ -242,6 +242,32 @@ describe("git.ts", function () {
             filesThatWouldBeOverwritten: undefined
           });
       });
+
+      it("with empty remote", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "blah", stderr: "" };
+        runner.set({ executable: "git", args: ["checkout", "master"], result: expectedResult });
+        const git = new ExecutableGit();
+        assert.deepEqual(
+          await git.checkout("master", { remote: "", runner }),
+          {
+            ...expectedResult,
+            filesThatWouldBeOverwritten: undefined
+          });
+      });
+
+      it("with non-empty remote", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "blah", stderr: "" };
+        runner.set({ executable: "git", args: ["checkout", "--track", "hello/master"], result: expectedResult });
+        const git = new ExecutableGit();
+        assert.deepEqual(
+          await git.checkout("master", { remote: "hello", runner }),
+          {
+            ...expectedResult,
+            filesThatWouldBeOverwritten: undefined
+          });
+      });
     });
 
     it("pull()", async function () {
