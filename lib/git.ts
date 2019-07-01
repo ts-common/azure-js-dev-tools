@@ -108,6 +108,10 @@ export namespace Git {
      * The credentials that will be used to push the changes.
      */
     credentials?: Credentials;
+    /**
+     * Whether or not to force the remote repository to accept this push's changes.
+     */
+    force?: boolean;
   }
 
   /**
@@ -662,6 +666,9 @@ export class ExecutableGit implements Git {
       const branchName: string = options.branchName || await this.currentBranch(options);
       args.push(`--set-upstream`, upstream, branchName);
     }
+    if (options.force) {
+      args.push(`--force`);
+    }
     return await this.run(args, options);
   }
 
@@ -1190,13 +1197,7 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
   public clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
     const builder: URLBuilder = URLBuilder.parse(gitUri);
     builder.setHost(`${this.authentication}@${builder.getHost()}`);
-    const log: undefined | ((text: string) => any) = options.log;
-    if (log) {
-      options.log = (text: string) => {
-        return log(replaceAll(text, this.authentication, "xxxxx")!);
-      };
-    }
-    return super.clone(builder.toString(), options);
+    return super.clone(builder.toString(), this.maskAuthenticationInLog(options));
   }
 
   /**
@@ -1204,12 +1205,16 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
    * @param options The options for determining how this command will run.
    */
   public push(options: ExecutableGit.PushOptions = {}): Promise<ExecutableGit.Result> {
+    return super.push(this.maskAuthenticationInLog(options));
+  }
+
+  private maskAuthenticationInLog<T extends ExecutableGit.Options>(options: T): T {
     const log: undefined | ((text: string) => any) = options.log;
     if (log) {
       options.log = (text: string) => {
         return log(replaceAll(text, this.authentication, "xxxxx")!);
       };
     }
-    return super.push(options);
+    return options;
   }
 }
