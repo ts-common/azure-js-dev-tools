@@ -1089,6 +1089,16 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       });
     });
 
+    describe("addRemote()", function () {
+      it("command line arguments", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: ExecutableGit.Result = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({ executable: "git", args: ["remote", "add", "abc", "def"], result: expectedResult });
+        const git = new ExecutableGit();
+        assert.strictEqual(await git.addRemote("abc", "def", { runner }), expectedResult);
+      });
+    });
+
     describe("gitRemoteUrl()", function () {
       it("with undefined", async function () {
         const git = new ExecutableGit();
