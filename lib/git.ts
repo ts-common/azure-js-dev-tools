@@ -401,6 +401,14 @@ export interface Git {
   resetAll(): Promise<unknown>;
 
   /**
+   * Add the provided remote URL to this local repository's list of remote repositories using the
+   * provided remoteName.
+   * @param remoteName The name/reference that will be used to refer to the remote repository.
+   * @param remoteUrl The URL of the remote repository.
+   */
+  addRemote(remoteName: string, remoteUrl: string): Promise<unknown>;
+
+  /**
    * Get the URL associated with the provided remote repository.
    * @param remoteName The name of the remote repository.
    * @returns The URL associated with the provided remote repository or undefined if the remote name
@@ -1075,6 +1083,17 @@ export class ExecutableGit implements Git {
    */
   public resetAll(options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
     return this.run(["reset", "*"], options);
+  }
+
+  /**
+   * Add the provided remote URL to this local repository's list of remote repositories using the
+   * provided remoteName.
+   * @param remoteName The name/reference that will be used to refer to the remote repository.
+   * @param remoteUrl The URL of the remote repository.
+   * @param options Options that can be used to modify the way that this operation is run.
+   */
+  public addRemote(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return this.run(["remote", "add", remoteName, remoteUrl], options);
   }
 
   /**
