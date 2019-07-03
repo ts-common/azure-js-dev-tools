@@ -150,6 +150,22 @@ describe("git.ts", function () {
         const git = new ExecutableGit();
         assert.deepEqual(await git.fetch({ runner, prune: false }), expectedResult);
       });
+
+      it("with all: true", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
+        runner.set({ executable: "git", args: ["fetch", "--all"], result: () => expectedResult });
+        const git = new ExecutableGit();
+        assert.deepEqual(await git.fetch({ runner, all: true }), expectedResult);
+      });
+
+      it("with all: false", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
+        runner.set({ executable: "git", args: ["fetch"], result: () => expectedResult });
+        const git = new ExecutableGit();
+        assert.deepEqual(await git.fetch({ runner, all: false }), expectedResult);
+      });
     });
 
     it("mergeOriginMaster()", async function () {
@@ -1127,7 +1143,36 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         const expectedResult: ExecutableGit.Result = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["remote", "set-url", "abc", "def"], result: expectedResult });
         const git = new ExecutableGit();
-        assert.strictEqual(await git.setRemoteUrl("abc", "def", { runner }), expectedResult);
+        assert.deepEqual(await git.setRemoteUrl("abc", "def", { runner }), expectedResult);
+      });
+    });
+
+    describe("listRemotes()", function () {
+      it("command line arguments", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: ExecutableGit.ListRemotesResult = {
+          exitCode: 2,
+          stdout: "c https://github.com/@ts-common/azure-js-dev-tools",
+          stderr: "d",
+          remotes: {
+            "c": "https://github.com/@ts-common/azure-js-dev-tools"
+          }
+        };
+        runner.set({ executable: "git", args: ["remote", "--verbose"], result: expectedResult });
+        const git = new ExecutableGit();
+        const result: ExecutableGit.ListRemotesResult = await git.listRemotes({ runner });
+        assert.deepEqual(result, expectedResult);
+      });
+
+      it("with real remotes", async function () {
+        const git = new ExecutableGit();
+        const remotes: ExecutableGit.ListRemotesResult = await git.listRemotes();
+        assertEx.defined(remotes, "remotes");
+        assertEx.defined(remotes.remotes, "remotes.remotes");
+        assertEx.containsAll(remotes.remotes["origin"], [
+          "https://github.com/",
+          "/azure-js-dev-tools"
+        ]);
       });
     });
   });

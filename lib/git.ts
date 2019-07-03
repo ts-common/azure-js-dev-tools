@@ -6,7 +6,7 @@
 
 import { URLBuilder } from "@azure/ms-rest-js";
 import { where } from "./arrays";
-import { getLines, replaceAll } from "./common";
+import { getLines, replaceAll, StringMap } from "./common";
 import { joinPath } from "./path";
 import { run, RunOptions, RunResult } from "./run";
 
@@ -272,6 +272,16 @@ export namespace Git {
      */
     author?: Author;
   }
+
+  /**
+   * The result of listing the remote repositories referenced by this local repository.
+   */
+  export interface ListRemotesResult {
+    /**
+     * The remote repositories referenced by this local repository.
+     */
+    remotes: StringMap<string>;
+  }
 }
 
 /**
@@ -422,6 +432,11 @@ export interface Git {
    * @param remoteUrl The URL associated with the provided remote repository.
    */
   setRemoteUrl(remoteName: string, remoteUrl: string): Promise<unknown>;
+
+  /**
+   * Get the remote repositories that are referenced in this local repository.
+   */
+  listRemotes(): Promise<Git.ListRemotesResult>;
 }
 
 /**
@@ -469,6 +484,11 @@ export namespace ExecutableGit {
      * for providing the tag refspec.
      */
     prune?: boolean;
+
+    /**
+     * Whether or not to fetch branch updates about all known remote repositories.
+     */
+    all?: boolean;
   }
 
   /**
@@ -580,6 +600,12 @@ export namespace ExecutableGit {
    */
   export interface CommitOptions extends Git.CommitOptions, Options {
   }
+
+  /**
+   * The result of listing the remote repositories referenced by this local repository.
+   */
+  export interface ListRemotesResult extends Git.ListRemotesResult, Result {
+  }
 }
 
 /**
@@ -642,6 +668,9 @@ export class ExecutableGit implements Git {
     const args: string[] = ["fetch"];
     if (options.prune) {
       args.push("--prune");
+    }
+    if (options.all) {
+      args.push("--all");
     }
     return this.run(args, options);
   }
@@ -1115,6 +1144,23 @@ export class ExecutableGit implements Git {
   public setRemoteUrl(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
     return this.run(["remote", "set-url", remoteName, remoteUrl], options);
   }
+
+  /**
+   * Get the remote repositories that are referenced in this local repository.
+   */
+  public async listRemotes(options: ExecutableGit.Options = {}): Promise<ExecutableGit.ListRemotesResult> {
+    const runResult: ExecutableGit.Result = await this.run(["remote", "--verbose"], options);
+    const remotes: StringMap<string> = {};
+    for (const line of getLines(runResult.stdout)) {
+      const lineParts: string[] = line.split(/\s+/g);
+      remotes[lineParts[0]] = lineParts[1];
+    }
+    const result: ExecutableGit.ListRemotesResult = {
+      ...runResult,
+      remotes,
+    };
+    return result;
+  }
 }
 
 function getCloneArguments(gitUri: string, options: ExecutableGit.CloneOptions = {}): string[] {
@@ -1259,31 +1305,61 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
   }
 
   /**
+   * Run an arbitrary Git command.
+   * @param args The arguments to provide to the Git executable.
+   */
+  public run(args: string[], options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return run(options.gitFilePath || this.options.gitFilePath!, args, this.maskAuthenticationInLog({
+      ...this.options,
+      ...options
+    }));
+  }
+
+  /**
    * Clone the repository with the provided URI.
    * @param gitUri The repository URI to clone.
    * @param options The options that can be passed to "git clone".
    */
   public clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
-    const builder: URLBuilder = URLBuilder.parse(gitUri);
-    builder.setHost(`${this.authentication}@${builder.getHost()}`);
-    return super.clone(builder.toString(), this.maskAuthenticationInLog(options));
+    return super.clone(this.addAuthenticationToURL(gitUri), options);
   }
 
   /**
-   * Push the current branch to the remote tracked repository.
-   * @param options The options for determining how this command will run.
+   * Add the provided remote URL to this local repository's list of remote repositories using the
+   * provided remoteName.
+   * @param remoteName The name/reference that will be used to refer to the remote repository.
+   * @param remoteUrl The URL of the remote repository.
    */
-  public push(options: ExecutableGit.PushOptions = {}): Promise<ExecutableGit.Result> {
-    return super.push(this.maskAuthenticationInLog(options));
+  public addRemote(remoteName: string, remoteUrl: string): Promise<ExecutableGit.Result> {
+    return super.addRemote(remoteName, this.addAuthenticationToURL(remoteUrl));
+  }
+
+  /**
+   * Set the URL associated with the provided remote repository.
+   * @param remoteName The name of the remote repository.
+   * @param remoteUrl The URL associated with the provided remote repository.
+   */
+  public setRemoteUrl(remoteName: string, remoteUrl: string): Promise<ExecutableGit.Result> {
+    return super.setRemoteUrl(remoteName, this.addAuthenticationToURL(remoteUrl));
+  }
+
+  private maskAuthentication(text: string): string {
+    return replaceAll(text, this.authentication, "xxxxx")!;
   }
 
   private maskAuthenticationInLog<T extends ExecutableGit.Options>(options: T): T {
     const log: undefined | ((text: string) => any) = options.log;
     if (log) {
       options.log = (text: string) => {
-        return log(replaceAll(text, this.authentication, "xxxxx")!);
+        return log(this.maskAuthentication(text));
       };
     }
     return options;
+  }
+
+  private addAuthenticationToURL(url: string): string {
+    const builder: URLBuilder = URLBuilder.parse(url);
+    builder.setHost(`${this.authentication}@${builder.getHost()}`);
+    return builder.toString();
   }
 }
