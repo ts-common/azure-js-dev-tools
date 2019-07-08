@@ -3,7 +3,7 @@ import { assert } from "chai";
 import { joinPath } from "../lib";
 import { assertEx } from "../lib/assertEx";
 import { deleteFolder, findFileInPath, findFileInPathSync, folderExists } from "../lib/fileSystem2";
-import { AuthenticatedExecutableGit, ExecutableGit, getGitRemoteBranch, getRemoteBranchFullName, GitRemoteBranch } from "../lib/git";
+import { ExecutableGit, getGitRemoteBranch, getRemoteBranchFullName, GitRemoteBranch } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
 
 let folderCount = 1;
@@ -90,6 +90,15 @@ describe("git.ts", function () {
   });
 
   describe("ExecutableGit", function () {
+    it("scope()", async function () {
+      const git1 = new ExecutableGit({
+        authentication: "berry",
+      });
+      const git2: ExecutableGit = git1.scope({});
+      assert.notStrictEqual(git2, git1);
+      assert.deepEqual(git2, git1);
+    });
+
     describe("run()", function () {
       it("with unrecognized command", async function () {
         const git = new ExecutableGit();
@@ -239,6 +248,44 @@ describe("git.ts", function () {
           assert.strictEqual(cloneResult.stdout, "");
           assert.strictEqual(cloneResult.error, undefined);
           assert.strictEqual(await folderExists(repositoryFolderPath), true);
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with authentication", async function () {
+        this.timeout(10000);
+
+        const repositoryFolderPath: string = getFolderPath();
+        const git = new ExecutableGit({
+          authentication: "berry",
+        });
+        const logger: InMemoryLogger = getInMemoryLogger();
+        const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+          directory: repositoryFolderPath,
+          showCommand: true,
+          showResult: true,
+          captureError: true,
+          captureOutput: true,
+          log: (text: string) => logger.logInfo(text),
+        });
+        try {
+          assert.strictEqual(cloneResult.exitCode, 0);
+          assertEx.defined(cloneResult.processId, "cloneResult.processId");
+          assert.strictEqual(cloneResult.stderr, `Cloning into '${repositoryFolderPath}'...\n`);
+          assert.strictEqual(cloneResult.stdout, "");
+          assert.strictEqual(cloneResult.error, undefined);
+          assert.deepEqual(logger.allLogs, [
+            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `Exit Code: 0`,
+            `Error:`,
+            `Cloning into '${repositoryFolderPath}'...\n`
+          ]);
+          assert.strictEqual(await folderExists(repositoryFolderPath), true);
+          const remoteUrl: string | undefined = await git.getRemoteUrl("origin", {
+            executionFolderPath: repositoryFolderPath,
+          });
+          assert.strictEqual(remoteUrl, "https://berry@github.com/ts-common/azure-js-dev-tools.git");
         } finally {
           await deleteFolder(repositoryFolderPath);
         }
@@ -519,6 +566,41 @@ describe("git.ts", function () {
           await git.deleteLocalBranch("myFakeBranch");
           await git.deleteRemoteBranch("myFakeBranch");
         }
+      });
+
+      it("with invalid authentication", async function () {
+        const authentication = "berry";
+        const runner = new FakeRunner();
+        runner.set({
+          executable: "git",
+          args: ["push"],
+          result: {
+            exitCode: 128,
+            stderr: `fatal: could not read Password for 'https://${authentication}@github.com': No such device or address`
+          }
+        });
+        const git = new ExecutableGit({
+          authentication,
+          runner,
+        });
+        const logger: InMemoryLogger = getInMemoryLogger();
+        const cloneResult: ExecutableGit.Result = await git.push({
+          showCommand: true,
+          showResult: true,
+          captureError: true,
+          captureOutput: true,
+          log: (text: string) => logger.logInfo(text),
+        });
+        assert.strictEqual(cloneResult.exitCode, 128);
+        assert.strictEqual(cloneResult.stderr, `fatal: could not read Password for 'https://${authentication}@github.com': No such device or address`);
+        assert.strictEqual(cloneResult.stdout, undefined);
+        assert.strictEqual(cloneResult.error, undefined);
+        assert.deepEqual(logger.allLogs, [
+          `git push`,
+          `Exit Code: 128`,
+          `Error:`,
+          `fatal: could not read Password for 'https://xxxxx@github.com': No such device or address`,
+        ]);
       });
     });
 
@@ -1113,6 +1195,52 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         const git = new ExecutableGit();
         assert.strictEqual(await git.addRemote("abc", "def", { runner }), expectedResult);
       });
+
+      it("with authentication()", async function () {
+        this.timeout(10000);
+
+        const repositoryFolderPath: string = getFolderPath();
+        const git = new ExecutableGit({
+          authentication: "berry",
+          showCommand: true,
+          showResult: true,
+          captureError: true,
+          captureOutput: true,
+          log: (text: string) => logger.logInfo(text),
+        });
+        const logger: InMemoryLogger = getInMemoryLogger();
+        await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+          directory: repositoryFolderPath,
+        });
+        try {
+          const addRemoteResult: ExecutableGit.Result = await git.addRemote("fakeremote", "https://fake.git/remote/repository", {
+            executionFolderPath: repositoryFolderPath,
+          });
+          const remoteUrl: string | undefined = await git.getRemoteUrl("fakeremote", {
+            executionFolderPath: repositoryFolderPath,
+          });
+          assert.strictEqual(remoteUrl, "https://berry@fake.git/remote/repository");
+          assert.strictEqual(addRemoteResult.exitCode, 0);
+          assertEx.defined(addRemoteResult.processId, "addRemoteResult.processId");
+          assert.strictEqual(addRemoteResult.stderr, "");
+          assert.strictEqual(addRemoteResult.stdout, "");
+          assert.strictEqual(addRemoteResult.error, undefined);
+          assert.deepEqual(logger.allLogs, [
+            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `Exit Code: 0`,
+            `Error:`,
+            `Cloning into '${repositoryFolderPath}'...\n`,
+            `${repositoryFolderPath}: git remote add fakeremote https://xxxxx@fake.git/remote/repository`,
+            `Exit Code: 0`,
+            `${repositoryFolderPath}: git remote get-url fakeremote`,
+            `Exit Code: 0`,
+            `Output:`,
+            `https://xxxxx@fake.git/remote/repository\n`,
+          ]);
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
     });
 
     describe("gitRemoteUrl()", function () {
@@ -1172,83 +1300,6 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         assertEx.containsAll(remotes.remotes["origin"], [
           "https://github.com/",
           "/azure-js-dev-tools"
-        ]);
-      });
-    });
-  });
-
-  describe("AuthenticatedExecutableGit", function () {
-    it("clone()", async function () {
-      this.timeout(10000);
-
-      const repositoryFolderPath: string = getFolderPath();
-      const git = new AuthenticatedExecutableGit({
-        authentication: "berry",
-      });
-      const logger: InMemoryLogger = getInMemoryLogger();
-      const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
-        directory: repositoryFolderPath,
-        showCommand: true,
-        showResult: true,
-        captureError: true,
-        captureOutput: true,
-        log: (text: string) => logger.logInfo(text),
-      });
-      try {
-        assert.strictEqual(cloneResult.exitCode, 0);
-        assertEx.defined(cloneResult.processId, "cloneResult.processId");
-        assert.strictEqual(cloneResult.stderr, `Cloning into '${repositoryFolderPath}'...\n`);
-        assert.strictEqual(cloneResult.stdout, "");
-        assert.strictEqual(cloneResult.error, undefined);
-        assert.deepEqual(logger.allLogs, [
-          `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
-          `Exit Code: 0`,
-          `Error:`,
-          `Cloning into '${repositoryFolderPath}'...\n`
-        ]);
-        assert.strictEqual(await folderExists(repositoryFolderPath), true);
-        const remoteUrl: string | undefined = await git.getRemoteUrl("origin", {
-          executionFolderPath: repositoryFolderPath,
-        });
-        assert.strictEqual(remoteUrl, "https://berry@github.com/ts-common/azure-js-dev-tools.git");
-      } finally {
-        await deleteFolder(repositoryFolderPath);
-      }
-    });
-
-    describe("push()", function () {
-      it("with invalid username and password", async function () {
-        const authentication = "berry";
-        const runner = new FakeRunner();
-        runner.set({
-          executable: "git",
-          args: ["push"],
-          result: {
-            exitCode: 128,
-            stderr: `fatal: could not read Password for 'https://${authentication}@github.com': No such device or address`
-          }
-        });
-        const git = new AuthenticatedExecutableGit({
-          authentication,
-          runner,
-        });
-        const logger: InMemoryLogger = getInMemoryLogger();
-        const cloneResult: ExecutableGit.Result = await git.push({
-          showCommand: true,
-          showResult: true,
-          captureError: true,
-          captureOutput: true,
-          log: (text: string) => logger.logInfo(text),
-        });
-        assert.strictEqual(cloneResult.exitCode, 128);
-        assert.strictEqual(cloneResult.stderr, `fatal: could not read Password for 'https://${authentication}@github.com': No such device or address`);
-        assert.strictEqual(cloneResult.stdout, undefined);
-        assert.strictEqual(cloneResult.error, undefined);
-        assert.deepEqual(logger.allLogs, [
-          `git push`,
-          `Exit Code: 128`,
-          `Error:`,
-          `fatal: could not read Password for 'https://xxxxx@github.com': No such device or address`,
         ]);
       });
     });
