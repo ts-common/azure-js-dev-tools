@@ -1178,6 +1178,15 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
   });
 
   describe("AuthenticatedExecutableGit", function () {
+    it("scope()", async function() {
+      const git1 = new AuthenticatedExecutableGit({
+        authentication: "berry",
+      });
+      const git2: AuthenticatedExecutableGit = git1.scope();
+      assert.notStrictEqual(git2, git1);
+      assert.deepEqual(git2, git1);
+    });
+
     it("clone()", async function () {
       this.timeout(10000);
 
@@ -1211,6 +1220,52 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
           executionFolderPath: repositoryFolderPath,
         });
         assert.strictEqual(remoteUrl, "https://berry@github.com/ts-common/azure-js-dev-tools.git");
+      } finally {
+        await deleteFolder(repositoryFolderPath);
+      }
+    });
+
+    it("addRemote()", async function () {
+      this.timeout(10000);
+
+      const repositoryFolderPath: string = getFolderPath();
+      const git = new AuthenticatedExecutableGit({
+        authentication: "berry",
+        showCommand: true,
+        showResult: true,
+        captureError: true,
+        captureOutput: true,
+        log: (text: string) => logger.logInfo(text),
+      });
+      const logger: InMemoryLogger = getInMemoryLogger();
+      await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+        directory: repositoryFolderPath,
+      });
+      try {
+        const addRemoteResult: ExecutableGit.Result = await git.addRemote("fakeremote", "https://fake.git/remote/repository", {
+          executionFolderPath: repositoryFolderPath,
+        });
+        const remoteUrl: string | undefined = await git.getRemoteUrl("fakeremote", {
+          executionFolderPath: repositoryFolderPath,
+        });
+        assert.strictEqual(remoteUrl, "https://berry@fake.git/remote/repository");
+        assert.strictEqual(addRemoteResult.exitCode, 0);
+        assertEx.defined(addRemoteResult.processId, "addRemoteResult.processId");
+        assert.strictEqual(addRemoteResult.stderr, "");
+        assert.strictEqual(addRemoteResult.stdout, "");
+        assert.strictEqual(addRemoteResult.error, undefined);
+        assert.deepEqual(logger.allLogs, [
+          `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+          `Exit Code: 0`,
+          `Error:`,
+          `Cloning into '${repositoryFolderPath}'...\n`,
+          `${repositoryFolderPath}: git remote add fakeremote https://xxxxx@fake.git/remote/repository`,
+          `Exit Code: 0`,
+          `${repositoryFolderPath}: git remote get-url fakeremote`,
+          `Exit Code: 0`,
+          `Output:`,
+          `https://xxxxx@fake.git/remote/repository\n`,
+        ]);
       } finally {
         await deleteFolder(repositoryFolderPath);
       }

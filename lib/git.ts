@@ -1305,6 +1305,20 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
   }
 
   /**
+   * Create a new AuthenticatedExecutableGit object that combines this AuthenticatedExecutableGit's
+   * options with the provided
+   * options.
+   * @param options The options to combine with this ExecutableGit's options.
+   */
+  public scope(options: ExecutableGit.Options = {}): AuthenticatedExecutableGit {
+    return new AuthenticatedExecutableGit({
+      ...this.options,
+      authentication: this.authentication,
+      ...options,
+    });
+  }
+
+  /**
    * Run an arbitrary Git command.
    * @param args The arguments to provide to the Git executable.
    */
@@ -1330,8 +1344,8 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
    * @param remoteName The name/reference that will be used to refer to the remote repository.
    * @param remoteUrl The URL of the remote repository.
    */
-  public addRemote(remoteName: string, remoteUrl: string): Promise<ExecutableGit.Result> {
-    return super.addRemote(remoteName, this.addAuthenticationToURL(remoteUrl));
+  public addRemote(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return super.addRemote(remoteName, this.addAuthenticationToURL(remoteUrl), options);
   }
 
   /**
@@ -1339,8 +1353,8 @@ export class AuthenticatedExecutableGit extends ExecutableGit {
    * @param remoteName The name of the remote repository.
    * @param remoteUrl The URL associated with the provided remote repository.
    */
-  public setRemoteUrl(remoteName: string, remoteUrl: string): Promise<ExecutableGit.Result> {
-    return super.setRemoteUrl(remoteName, this.addAuthenticationToURL(remoteUrl));
+  public setRemoteUrl(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return super.setRemoteUrl(remoteName, this.addAuthenticationToURL(remoteUrl), options);
   }
 
   private maskAuthentication(text: string): string {

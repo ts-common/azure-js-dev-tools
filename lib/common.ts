@@ -53,7 +53,7 @@ export type StringMap<TValue> = { [key: string]: TValue };
  * @param text The text to get the lines of.
  */
 export function getLines(text: string | undefined): string[] {
-  return !text ? [] : text.split(/\r?\n/);
+  return text == undefined ? [] : text.split(/\r?\n/);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import { padLeft } from "../lib/common";
+import { padLeft, getLines } from "../lib/common";
 
 describe("common.ts", function () {
   describe("padLeft()", function () {
@@ -37,6 +37,37 @@ describe("common.ts", function () {
 
     it(`with 20, 5, and "0"`, function () {
       assert.strictEqual(padLeft(20, 5, "0"), "00020");
+    });
+  });
+
+  describe("getLines()", function () {
+    it("with undefined", function () {
+      assert.deepEqual(getLines(undefined), []);
+    });
+
+    it("with null", function () {
+      // tslint:disable-next-line: no-null-keyword
+      assert.deepEqual(getLines(null as any), []);
+    });
+
+    it(`with ""`, function () {
+      assert.deepEqual(getLines(""), [""]);
+    });
+
+    it(`with "abc"`, function () {
+      assert.deepEqual(getLines("abc"), ["abc"]);
+    });
+
+    it(`with "\\n"`, function () {
+      assert.deepEqual(getLines("\n"), ["", ""]);
+    });
+
+    it(`with "a\\nb"`, function () {
+      assert.deepEqual(getLines("a\nb"), ["a", "b"]);
+    });
+
+    it(`with "a\\r\\nb"`, function () {
+      assert.deepEqual(getLines("a\r\nb"), ["a", "b"]);
     });
   });
 });
