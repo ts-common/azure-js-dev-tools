@@ -456,6 +456,16 @@ export namespace ExecutableGit {
   }
 
   /**
+   * A set of optional properties that can be applied to the ExecutableGit constructor.
+   */
+  export interface ConstructorOptions extends Options {
+    /**
+     * The authentication section that will be inserted into remote repository URLs.
+     */
+    authentication?: string;
+  }
+
+  /**
    * The result of running a git operation.
    */
   export interface Result extends RunResult {
@@ -619,10 +629,29 @@ export class ExecutableGit implements Git {
    * variable to resolve the executable's location.
    * @param options The optional arguments that will be applied to each operation.
    */
-  constructor(protected readonly options: ExecutableGit.Options = {}) {
+  constructor(private readonly options: ExecutableGit.ConstructorOptions = {}) {
     if (!options.gitFilePath) {
       options.gitFilePath = "git";
     }
+  }
+
+  private maskAuthenticationInLog<T extends ExecutableGit.Options>(options: T): T {
+    const authentication: string | undefined = this.options.authentication;
+    const log: undefined | ((text: string) => any) = options.log;
+    if (authentication && log) {
+      options.log = (text: string) => log(replaceAll(text, authentication, "xxxxx")!);
+    }
+    return options;
+  }
+
+  private addAuthenticationToURL(url: string): string {
+    let result: string = url;
+    if (this.options.authentication) {
+      const builder: URLBuilder = URLBuilder.parse(url);
+      builder.setHost(`${this.options.authentication}@${builder.getHost()}`);
+      result = builder.toString();
+    }
+    return result;
   }
 
   /**
@@ -630,7 +659,7 @@ export class ExecutableGit implements Git {
    * options.
    * @param options The options to combine with this ExecutableGit's options.
    */
-  public scope(options: ExecutableGit.Options): ExecutableGit {
+  public scope(options: ExecutableGit.ConstructorOptions): ExecutableGit {
     return new ExecutableGit({
       ...this.options,
       ...options,
@@ -642,10 +671,10 @@ export class ExecutableGit implements Git {
    * @param args The arguments to provide to the Git executable.
    */
   public run(args: string[], options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return run(options.gitFilePath || this.options.gitFilePath!, args, {
+    return run(options.gitFilePath || this.options.gitFilePath!, args, this.maskAuthenticationInLog({
       ...this.options,
       ...options
-    });
+    }));
   }
 
   /**
@@ -689,7 +718,7 @@ export class ExecutableGit implements Git {
    * @param options The options that can be passed to "git clone".
    */
   public clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
-    const args: string[] = getCloneArguments(gitUri, options);
+    const args: string[] = getCloneArguments(this.addAuthenticationToURL(gitUri), options);
     return this.run(args, options);
   }
 
@@ -1122,7 +1151,7 @@ export class ExecutableGit implements Git {
    * @param options Options that can be used to modify the way that this operation is run.
    */
   public addRemote(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return this.run(["remote", "add", remoteName, remoteUrl], options);
+    return this.run(["remote", "add", remoteName, this.addAuthenticationToURL(remoteUrl)], options);
   }
 
   /**
@@ -1142,7 +1171,7 @@ export class ExecutableGit implements Git {
    * @param remoteUrl The URL associated with the provided remote repository.
    */
   public setRemoteUrl(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return this.run(["remote", "set-url", remoteName, remoteUrl], options);
+    return this.run(["remote", "set-url", remoteName, this.addAuthenticationToURL(remoteUrl)], options);
   }
 
   /**
@@ -1276,104 +1305,3 @@ function isUntrackedFilesHeader(text: string): boolean {
 
 const statusDetachedHeadRegExp: RegExp = /HEAD detached at (.*)/i;
 const onBranchRegExp: RegExp = /On branch (.*)/i;
-
-/**
- * A set of interfaces and types that relate to the ExecutableGit class.
- */
-export namespace AuthenticatedExecutableGit {
-  /**
-   * A set of optional properties that can be applied to an ExecutableGit operation.
-   */
-  export interface Options extends ExecutableGit.Options {
-    /**
-     * The authentication section that will be inserted into remote repository URLs.
-     */
-    authentication: string;
-  }
-}
-
-/**
- * An implementation of Git that uses a Git executable to run commands.
- */
-export class AuthenticatedExecutableGit extends ExecutableGit {
-  private readonly authentication: string;
-
-  constructor(options: AuthenticatedExecutableGit.Options) {
-    super(options);
-
-    this.authentication = options.authentication;
-  }
-
-  /**
-   * Create a new AuthenticatedExecutableGit object that combines this AuthenticatedExecutableGit's
-   * options with the provided
-   * options.
-   * @param options The options to combine with this ExecutableGit's options.
-   */
-  public scope(options: ExecutableGit.Options = {}): AuthenticatedExecutableGit {
-    return new AuthenticatedExecutableGit({
-      ...this.options,
-      authentication: this.authentication,
-      ...options,
-    });
-  }
-
-  /**
-   * Run an arbitrary Git command.
-   * @param args The arguments to provide to the Git executable.
-   */
-  public run(args: string[], options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return run(options.gitFilePath || this.options.gitFilePath!, args, this.maskAuthenticationInLog({
-      ...this.options,
-      ...options
-    }));
-  }
-
-  /**
-   * Clone the repository with the provided URI.
-   * @param gitUri The repository URI to clone.
-   * @param options The options that can be passed to "git clone".
-   */
-  public clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
-    return super.clone(this.addAuthenticationToURL(gitUri), options);
-  }
-
-  /**
-   * Add the provided remote URL to this local repository's list of remote repositories using the
-   * provided remoteName.
-   * @param remoteName The name/reference that will be used to refer to the remote repository.
-   * @param remoteUrl The URL of the remote repository.
-   */
-  public addRemote(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return super.addRemote(remoteName, this.addAuthenticationToURL(remoteUrl), options);
-  }
-
-  /**
-   * Set the URL associated with the provided remote repository.
-   * @param remoteName The name of the remote repository.
-   * @param remoteUrl The URL associated with the provided remote repository.
-   */
-  public setRemoteUrl(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return super.setRemoteUrl(remoteName, this.addAuthenticationToURL(remoteUrl), options);
-  }
-
-  private maskAuthentication(text: string): string {
-    return replaceAll(text, this.authentication, "xxxxx")!;
-  }
-
-  private maskAuthenticationInLog<T extends ExecutableGit.Options>(options: T): T {
-    const log: undefined | ((text: string) => any) = options.log;
-    if (log) {
-      options.log = (text: string) => {
-        return log(this.maskAuthentication(text));
-      };
-    }
-    return options;
-  }
-
-  private addAuthenticationToURL(url: string): string {
-    const builder: URLBuilder = URLBuilder.parse(url);
-    builder.setHost(`${this.authentication}@${builder.getHost()}`);
-    return builder.toString();
-  }
-}
