@@ -177,12 +177,96 @@ describe("git.ts", function () {
       });
     });
 
-    it("mergeOriginMaster()", async function () {
-      const runner = new FakeRunner();
-      const expectedResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
-      runner.set({ executable: "git", args: ["merge", "origin", "master"], result: expectedResult });
-      const git = new ExecutableGit();
-      assert.deepEqual(await git.mergeOriginMaster({ runner }), expectedResult);
+    describe("merge()", function () {
+      it("with all options truthy", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({
+          executable: "git",
+          args: [
+            "merge",
+            "--squash",
+            "--edit",
+            "--strategy-option=theirs",
+            "--quiet",
+            "-m", "a",
+            "-m", "b",
+            "-m", "c",
+            "branch-to-merge"],
+          result: expectedResult
+        });
+        const git = new ExecutableGit();
+        assert.deepEqual(
+          await git.merge({
+            refsToMerge: "branch-to-merge",
+            runner,
+            quiet: true,
+            edit: true,
+            messages: ["a", "b", "c"],
+            squash: true,
+            strategyOptions: "theirs",
+          }),
+          expectedResult);
+      });
+
+      it("with all options falsy", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({
+          executable: "git",
+          args: [
+            "merge",
+            "--no-squash",
+            "--no-edit",
+            "branch-to-merge"],
+          result: expectedResult
+        });
+        const git = new ExecutableGit();
+        assert.deepEqual(
+          await git.merge({
+            refsToMerge: "branch-to-merge",
+            runner,
+            quiet: false,
+            edit: false,
+            messages: [],
+            squash: false,
+            strategyOptions: "",
+          }),
+          expectedResult);
+      });
+
+      it("with no options", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({
+          executable: "git",
+          args: ["merge"],
+          result: expectedResult
+        });
+        const git = new ExecutableGit();
+        assert.deepEqual(
+          await git.merge({
+            runner,
+          }),
+          expectedResult);
+      });
+
+      it("with multiple refs to merge", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({
+          executable: "git",
+          args: ["merge", "a", "b", "c"],
+          result: expectedResult
+        });
+        const git = new ExecutableGit();
+        assert.deepEqual(
+          await git.merge({
+            refsToMerge: ["a", "b", "c"],
+            runner,
+          }),
+          expectedResult);
+      });
     });
 
     describe("clone()", function () {

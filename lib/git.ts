@@ -5,7 +5,7 @@
  */
 
 import { URLBuilder } from "@azure/ms-rest-js";
-import { where } from "./arrays";
+import { toArray, where } from "./arrays";
 import { getLines, replaceAll, StringMap } from "./common";
 import { joinPath } from "./path";
 import { run, RunOptions, RunResult } from "./run";
@@ -64,6 +64,41 @@ export namespace Git {
      * The SHA of the current commit.
      */
     currentCommitSha?: string;
+  }
+
+  /**
+   * Options that can be passed to "git merge".
+   */
+  export interface MergeOptions {
+    /**
+     * Commits, usually other branch heads, to merge into our branch. Specifying more than one
+     * commit will create a merge with more than two parents (affectionately called an Octopus
+     * merge).
+     */
+    refsToMerge?: string | string[];
+    /**
+     * Produce the working tree and index state as if a real merge happened (except for the merge
+     * information), but do not actually make a commit, move the HEAD, or record $GIT_DIR/MERGE_HEAD
+     * (to cause the next git commit command to create a merge commit).
+     */
+    squash?: boolean;
+    /**
+     * Invoke an editor before committing successful mechanical merge to further edit the
+     * auto-generated merge message, so that the user can explain and justify the merge.
+     */
+    edit?: boolean;
+    /**
+     * The options that will be passed to the merge strategy.
+     */
+    strategyOptions?: string | string[];
+    /**
+     * Operate quietly. Implies --no-progress.
+     */
+    quiet?: boolean;
+    /**
+     * Set the commit messages to be used for the merge commit (in case one is created).
+     */
+    messages?: string | string[];
   }
 
   /**
@@ -299,9 +334,11 @@ export interface Git {
   fetch(): Promise<unknown>;
 
   /**
-   * Merge the registed origin remote repository's master branch into the current branch.
+   * Merge The provided references (branches or tags) into the current branch using the provided
+   * options.
+   * @param options Options that can be passed to "git merge".
    */
-  mergeOriginMaster(): Promise<unknown>;
+  merge(options?: Git.MergeOptions): Promise<unknown>;
 
   /**
    * Clone the repository with the provided URI.
@@ -499,6 +536,12 @@ export namespace ExecutableGit {
      * Whether or not to fetch branch updates about all known remote repositories.
      */
     all?: boolean;
+  }
+
+  /**
+   * Options that can be passed to "git merge".
+   */
+  export interface MergeOptions extends Git.MergeOptions, Options {
   }
 
   /**
@@ -705,11 +748,50 @@ export class ExecutableGit implements Git {
   }
 
   /**
-   * Merge the registed origin remote repository's master branch into the current branch.
-   * @param options The options that can be passed to `git merge origin master`.
+   * Merge The provided references (branches or tags) into the current branch using the provided
+   * options.
+   * @param refsToMerge The references to merge into the current branch.
+   * @param options Options that can be passed to "git merge".
    */
-  public mergeOriginMaster(options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return this.run(["merge", "origin", "master"], options);
+  public merge(options: ExecutableGit.MergeOptions = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = ["merge"];
+    if (options.squash != undefined) {
+      if (options.squash) {
+        args.push("--squash");
+      } else {
+        args.push("--no-squash");
+      }
+    }
+    if (options.edit != undefined) {
+      if (options.edit) {
+        args.push("--edit");
+      } else {
+        args.push("--no-edit");
+      }
+    }
+    if (options.strategyOptions) {
+      options.strategyOptions = toArray(options.strategyOptions);
+      for (const strategyOption of options.strategyOptions) {
+        args.push(`--strategy-option=${strategyOption}`);
+      }
+    }
+    if (options.quiet) {
+      args.push(`--quiet`);
+    }
+    if (options.messages != undefined) {
+      options.messages = toArray(options.messages);
+      for (const message of options.messages) {
+        args.push("-m", message);
+      }
+    }
+    if (options.refsToMerge) {
+      for (const refToMerge of toArray(options.refsToMerge)) {
+        if (refToMerge) {
+          args.push(refToMerge);
+        }
+      }
+    }
+    return this.run(args, options);
   }
 
   /**
