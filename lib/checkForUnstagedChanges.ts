@@ -43,7 +43,7 @@ export async function checkForUnstagedChangesCheck(options: CheckForUnstagedChan
     await logger.logWarning("Check is disabled. Allowing unstaged changes if they exist.");
   } else {
     await logger.logSection("Looking for unstaged changes...");
-    const git = new ExecutableGit();
+    const git: ExecutableGit = ExecutableGit.createReal();
     const gitStatusResult: Git.StatusResult = await git.status();
     const notStagedDeletedFileCount: number = gitStatusResult.notStagedDeletedFiles.length;
     const notStagedModifiedFileCount: number = gitStatusResult.notStagedModifiedFiles.length;

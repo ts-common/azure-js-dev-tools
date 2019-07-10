@@ -3,7 +3,7 @@ import { assert } from "chai";
 import { joinPath } from "../lib";
 import { assertEx } from "../lib/assertEx";
 import { deleteFolder, findFileInPath, findFileInPathSync, folderExists } from "../lib/fileSystem2";
-import { ExecutableGit, getGitRemoteBranch, getRemoteBranchFullName, GitRemoteBranch } from "../lib/git";
+import { ExecutableGit, RealExecutableGit, getGitRemoteBranch, getRemoteBranchFullName, GitRemoteBranch } from "../lib/git";
 import { FakeRunner, RunResult } from "../lib/run";
 
 let folderCount = 1;
@@ -89,19 +89,19 @@ describe("git.ts", function () {
     });
   });
 
-  describe("ExecutableGit", function () {
+  describe("RealExecutableGit", function () {
     it("scope()", async function () {
-      const git1 = new ExecutableGit({
+      const git1 = new RealExecutableGit({
         authentication: "berry",
       });
-      const git2: ExecutableGit = git1.scope({});
+      const git2: RealExecutableGit = git1.scope({});
       assert.notStrictEqual(git2, git1);
       assert.deepEqual(git2, git1);
     });
 
     describe("run()", function () {
       it("with unrecognized command", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: RunResult = await git.run(["foo"]);
         assert(result);
         assert.strictEqual(result.exitCode, 1);
@@ -118,12 +118,12 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: ExecutableGit.CurrentCommitShaResult = { exitCode: 2, stdout: "c", stderr: "d", currentCommitSha: "c" };
         runner.set({ executable: "git", args: ["rev-parse", "HEAD"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.currentCommitSha({ runner }), expectedResult);
       });
 
       it("with real runner", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: ExecutableGit.CurrentCommitShaResult = await git.currentCommitSha();
         assertEx.defined(result, "result");
         assert.strictEqual(result.exitCode, 0);
@@ -140,7 +140,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["fetch"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.fetch({ runner }), expectedResult);
       });
 
@@ -148,7 +148,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
         runner.set({ executable: "git", args: ["fetch", "--prune"], result: () => expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.fetch({ runner, prune: true }), expectedResult);
       });
 
@@ -156,7 +156,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
         runner.set({ executable: "git", args: ["fetch"], result: () => expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.fetch({ runner, prune: false }), expectedResult);
       });
 
@@ -164,7 +164,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
         runner.set({ executable: "git", args: ["fetch", "--all"], result: () => expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.fetch({ runner, all: true }), expectedResult);
       });
 
@@ -172,7 +172,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 3, stdout: "e", stderr: "f" };
         runner.set({ executable: "git", args: ["fetch"], result: () => expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.fetch({ runner, all: false }), expectedResult);
       });
     });
@@ -195,7 +195,7 @@ describe("git.ts", function () {
             "branch-to-merge"],
           result: expectedResult
         });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(
           await git.merge({
             refsToMerge: "branch-to-merge",
@@ -221,7 +221,7 @@ describe("git.ts", function () {
             "branch-to-merge"],
           result: expectedResult
         });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(
           await git.merge({
             refsToMerge: "branch-to-merge",
@@ -243,7 +243,7 @@ describe("git.ts", function () {
           args: ["merge"],
           result: expectedResult
         });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(
           await git.merge({
             runner,
@@ -259,7 +259,7 @@ describe("git.ts", function () {
           args: ["merge", "a", "b", "c"],
           result: expectedResult
         });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(
           await git.merge({
             refsToMerge: ["a", "b", "c"],
@@ -274,7 +274,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["clone", "https://my.fake.git/url"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.clone("https://my.fake.git/url", { runner }), expectedResult);
       });
 
@@ -282,7 +282,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["clone", "--quiet", "--verbose", "--origin", "foo", "--branch", "fake-branch", "--depth", "5", "https://my.fake.git/url", "fake-directory"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(
           await git.clone("https://my.fake.git/url", {
             runner,
@@ -300,7 +300,7 @@ describe("git.ts", function () {
         this.timeout(10000);
 
         const executionFolderPath: string = getFolderPath();
-        const git = new ExecutableGit({
+        const git = new RealExecutableGit({
           executionFolderPath,
         });
         const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git");
@@ -321,7 +321,7 @@ describe("git.ts", function () {
         this.timeout(10000);
 
         const repositoryFolderPath: string = getFolderPath();
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
           directory: repositoryFolderPath
         });
@@ -341,7 +341,7 @@ describe("git.ts", function () {
         this.timeout(10000);
 
         const repositoryFolderPath: string = getFolderPath();
-        const git = new ExecutableGit({
+        const git = new RealExecutableGit({
           authentication: "berry",
         });
         const logger: InMemoryLogger = getInMemoryLogger();
@@ -381,7 +381,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "blah", stderr: "" };
         runner.set({ executable: "git", args: ["checkout", "master"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(
           await git.checkout("master", { runner }),
           {
@@ -394,7 +394,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "blah", stderr: "" };
         runner.set({ executable: "git", args: ["checkout", "master"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(
           await git.checkout("master", { remote: "", runner }),
           {
@@ -407,7 +407,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "blah", stderr: "" };
         runner.set({ executable: "git", args: ["checkout", "--track", "hello/master"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(
           await git.checkout("master", { remote: "hello", runner }),
           {
@@ -421,7 +421,7 @@ describe("git.ts", function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 1, stdout: "a", stderr: "b" };
       runner.set({ executable: "git", args: ["pull"], result: expectedResult });
-      const git = new ExecutableGit();
+      const git = new RealExecutableGit();
       assert.deepEqual(await git.pull({ runner }), expectedResult);
     });
 
@@ -430,7 +430,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.push({ runner }), expectedResult);
       });
 
@@ -438,7 +438,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.push({ setUpstream: undefined, runner }), expectedResult);
       });
 
@@ -446,7 +446,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.push({ setUpstream: undefined, runner }), expectedResult);
       });
 
@@ -454,7 +454,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.push({ setUpstream: "", runner }), expectedResult);
       });
 
@@ -463,7 +463,7 @@ describe("git.ts", function () {
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push", "--set-upstream", "hello", "myfakebranch"], result: expectedResult });
         runner.set({ executable: "git", args: ["branch"], result: { exitCode: 0, stdout: "* myfakebranch" } });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.push({ setUpstream: "hello", runner }), expectedResult);
       });
 
@@ -472,7 +472,7 @@ describe("git.ts", function () {
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push", "--set-upstream", "origin", "myfakebranch"], result: expectedResult });
         runner.set({ executable: "git", args: ["branch"], result: { exitCode: 0, stdout: "* myfakebranch" } });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.push({ setUpstream: true, runner }), expectedResult);
       });
 
@@ -480,7 +480,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.push({ setUpstream: false, runner }), expectedResult);
       });
 
@@ -488,7 +488,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.push({ force: false, runner }), expectedResult);
       });
 
@@ -496,12 +496,12 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push", "--force"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.push({ force: true, runner }), expectedResult);
       });
 
       it("when branch doesn't exist remotely and set-upstream isn't defined", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const currentBranch: string = await git.currentBranch();
         await git.createLocalBranch("myFakeBranch");
         try {
@@ -523,7 +523,7 @@ describe("git.ts", function () {
       });
 
       it("when branch doesn't exist remotely and set-upstream is false", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const currentBranch: string = await git.currentBranch();
         await git.createLocalBranch("myFakeBranch");
         try {
@@ -547,7 +547,7 @@ describe("git.ts", function () {
       (runPushRemoteBranchTests ? it : it.skip)("when branch doesn't exist remotely and set-upstream is origin and branchName is myFakeBranch", async function () {
         this.timeout(20000);
 
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const currentBranch: string = await git.currentBranch();
         await git.createLocalBranch("myFakeBranch");
         try {
@@ -574,7 +574,7 @@ describe("git.ts", function () {
       (runPushRemoteBranchTests ? it : it.skip)("when branch doesn't exist remotely and set-upstream is origin and branchName is not defined", async function () {
         this.timeout(20000);
 
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const currentBranch: string = await git.currentBranch();
         await git.createLocalBranch("myFakeBranch");
         try {
@@ -601,7 +601,7 @@ describe("git.ts", function () {
       (runPushRemoteBranchTests ? it : it.skip)("when branch doesn't exist remotely and set-upstream is true and branchName is myFakeBranch", async function () {
         this.timeout(20000);
 
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const currentBranch: string = await git.currentBranch();
         await git.createLocalBranch("myFakeBranch");
         try {
@@ -628,7 +628,7 @@ describe("git.ts", function () {
       (runPushRemoteBranchTests ? it : it.skip)("when branch doesn't exist remotely and set-upstream is true and branchName is not defined", async function () {
         this.timeout(20000);
 
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const currentBranch: string = await git.currentBranch();
         await git.createLocalBranch("myFakeBranch");
         try {
@@ -663,7 +663,7 @@ describe("git.ts", function () {
             stderr: `fatal: could not read Password for 'https://${authentication}@github.com': No such device or address`
           }
         });
-        const git = new ExecutableGit({
+        const git = new RealExecutableGit({
           authentication,
           runner,
         });
@@ -692,7 +692,7 @@ describe("git.ts", function () {
       const runner = new FakeRunner();
       const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
       runner.set({ executable: "git", args: ["add", "*"], result: expectedResult });
-      const git = new ExecutableGit();
+      const git = new RealExecutableGit();
       assert.deepEqual(await git.addAll({ runner }), expectedResult);
     });
 
@@ -701,7 +701,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["commit", "-m", "Hello World"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.commit("Hello World", { runner }), expectedResult);
       });
 
@@ -709,7 +709,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["commit", "-m", "Hello", "-m", "World"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.commit(["Hello", "World"], { runner }), expectedResult);
       });
     });
@@ -719,12 +719,12 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["branch", "-D", "branchToDelete"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.deleteLocalBranch("branchToDelete", { runner }), expectedResult);
       });
 
       it("when deleting current branch", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const currentBranchName: string = await git.currentBranch();
         await git.createLocalBranch("myFakeBranch");
         try {
@@ -747,12 +747,12 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["checkout", "-b", "branchToCreate"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.createLocalBranch("branchToCreate", { runner }), expectedResult);
       });
 
       it("when branch doesn't exist", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const currentBranchName: string = await git.currentBranch();
         const createBranchResult: ExecutableGit.Result = await git.createLocalBranch("newBranchName");
         try {
@@ -770,7 +770,7 @@ describe("git.ts", function () {
       });
 
       it("when branch is the current branch", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const currentBranchName: string = await git.currentBranch();
         await git.createLocalBranch("myFakeBranch");
         try {
@@ -793,7 +793,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push", "origin", ":branchToDelete"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.deleteRemoteBranch("branchToDelete", { runner }), expectedResult);
       });
 
@@ -801,7 +801,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push", "origin", ":branchToDelete"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.deleteRemoteBranch("branchToDelete", { remoteName: undefined, runner }), expectedResult);
       });
 
@@ -809,7 +809,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push", "origin", ":branchToDelete"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         // tslint:disable-next-line:no-null-keyword
         assert.deepEqual(await git.deleteRemoteBranch("branchToDelete", { remoteName: null as any, runner }), expectedResult);
       });
@@ -818,7 +818,7 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push", "origin", ":branchToDelete"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.deleteRemoteBranch("branchToDelete", { remoteName: "", runner }), expectedResult);
       });
 
@@ -826,12 +826,12 @@ describe("git.ts", function () {
         const runner = new FakeRunner();
         const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["push", "fancypants", ":branchToDelete"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.deleteRemoteBranch("branchToDelete", { remoteName: "fancypants", runner }), expectedResult);
       });
 
       it("when remote doesn't exist", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: ExecutableGit.Result = await git.deleteRemoteBranch("myFakeBranch", { remoteName: "fancypants" });
         assertEx.defined(result, "result");
         assertEx.defined(result.processId, "result.processId");
@@ -856,7 +856,7 @@ describe("git.ts", function () {
           filesChanged: []
         };
         runner.set({ executable: "git", args: ["diff"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.diff({ runner }), expectedResult);
       });
 
@@ -869,7 +869,7 @@ describe("git.ts", function () {
           filesChanged: []
         };
         runner.set({ executable: "git", args: ["diff", "fake-commit1"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.diff({ runner, commit1: "fake-commit1" }), expectedResult);
       });
 
@@ -882,7 +882,7 @@ describe("git.ts", function () {
           filesChanged: []
         };
         runner.set({ executable: "git", args: ["diff", "fake-commit2"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.diff({ runner, commit2: "fake-commit2" }), expectedResult);
       });
 
@@ -895,7 +895,7 @@ describe("git.ts", function () {
           filesChanged: []
         };
         runner.set({ executable: "git", args: ["diff", "fake-commit1", "fake-commit2"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.diff({ runner, commit1: "fake-commit1", commit2: "fake-commit2" }), expectedResult);
       });
 
@@ -910,7 +910,7 @@ describe("git.ts", function () {
           ]
         };
         runner.set({ executable: "git", args: ["diff", "--name-only"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.diff({ runner, nameOnly: true }), expectedResult);
       });
 
@@ -923,7 +923,7 @@ describe("git.ts", function () {
           filesChanged: []
         };
         runner.set({ executable: "git", args: ["diff", "--staged"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.diff({ runner, staged: true }), expectedResult);
       });
 
@@ -936,7 +936,7 @@ describe("git.ts", function () {
           filesChanged: []
         };
         runner.set({ executable: "git", args: ["diff", "--ignore-all-space"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.diff({ runner, ignoreSpace: "all" }), expectedResult);
       });
 
@@ -949,7 +949,7 @@ describe("git.ts", function () {
           filesChanged: []
         };
         runner.set({ executable: "git", args: ["diff", "--ignore-space-change"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.diff({ runner, ignoreSpace: "change" }), expectedResult);
       });
 
@@ -964,7 +964,7 @@ describe("git.ts", function () {
           ]
         };
         runner.set({ executable: "git", args: ["diff", "--ignore-space-at-eol"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.diff({ runner, ignoreSpace: "at-eol" }), expectedResult);
       });
     });
@@ -982,7 +982,7 @@ describe("git.ts", function () {
           ]
         };
         runner.set({ executable: "git", args: ["branch"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const branchResult: ExecutableGit.LocalBranchesResult = await git.localBranches({ runner });
         assert.deepEqual(branchResult, expectedResult);
       });
@@ -1000,7 +1000,7 @@ describe("git.ts", function () {
           stderr: "",
         };
         runner.set({ executable: "git", args: ["branch"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const branchResult: ExecutableGit.LocalBranchesResult = await git.localBranches({ runner });
         assert.deepEqual(branchResult, expectedResult);
       });
@@ -1021,7 +1021,7 @@ describe("git.ts", function () {
           ],
         };
         runner.set({ executable: "git", args: ["branch", "--remotes"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const branchResult: ExecutableGit.Result = await git.remoteBranches({ runner });
         assert.deepEqual(branchResult, expectedResult);
       });
@@ -1040,7 +1040,7 @@ describe("git.ts", function () {
           ]
         };
         runner.set({ executable: "git", args: ["branch", "--remotes"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const branchResult: ExecutableGit.Result = await git.remoteBranches({ runner });
         assert.deepEqual(branchResult, expectedResult);
       });
@@ -1063,7 +1063,7 @@ Changes not staged for commit:
 no changes added to commit (use "git add" and/or "git commit -a")`
         };
         runner.set({ executable: "git", args: ["status"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const statusResult: ExecutableGit.StatusResult = await git.status({
           executionFolderPath: "/mock/folder/",
           runner
@@ -1096,7 +1096,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`
           stderr: ""
         };
         runner.set({ executable: "git", args: ["status"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const statusResult: ExecutableGit.StatusResult = await git.status({
           runner,
           executionFolderPath: "/mock/folder/"
@@ -1140,7 +1140,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
           stderr: ""
         };
         runner.set({ executable: "git", args: ["status"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const statusResult: ExecutableGit.StatusResult = await git.status({
           runner,
           executionFolderPath: "/mock/folder/"
@@ -1176,12 +1176,12 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         const runner = new FakeRunner();
         const expectedResult: ExecutableGit.GetConfigurationValueResult = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["config", "--get", "a"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.getConfigurationValue("a", { runner }), expectedResult);
       });
 
       it("with undefined configurationValueName", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: ExecutableGit.GetConfigurationValueResult = await git.getConfigurationValue(undefined as any);
         assertEx.defined(result, "result");
         assert.strictEqual(result.exitCode, 1);
@@ -1192,7 +1192,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       });
 
       it("with null configurationValueName", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         // tslint:disable-next-line:no-null-keyword
         const result: ExecutableGit.GetConfigurationValueResult = await git.getConfigurationValue(null as any);
         assertEx.defined(result, "result");
@@ -1204,7 +1204,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       });
 
       it("with non-existing configurationValueName", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: ExecutableGit.GetConfigurationValueResult = await git.getConfigurationValue("blah");
         assertEx.defined(result, "result");
         assert.strictEqual(result.exitCode, 1);
@@ -1215,7 +1215,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       });
 
       it("with existing configurationValueName", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: ExecutableGit.GetConfigurationValueResult = await git.getConfigurationValue("remote.origin.url");
         assertEx.defined(result, "result");
         assert.strictEqual(result.exitCode, 0);
@@ -1227,7 +1227,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
       it("outside git repository", async function () {
         const folderPath: string = joinPath((await findFileInPath("package.json"))!, "../..");
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: ExecutableGit.GetConfigurationValueResult = await git.getConfigurationValue("remote.origin.url", { executionFolderPath: folderPath });
         assertEx.defined(result, "result");
         assert.strictEqual(result.exitCode, 1);
@@ -1243,19 +1243,19 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         const runner = new FakeRunner();
         const expectedResult: ExecutableGit.GetConfigurationValueResult = { exitCode: 2, stdout: "c", stderr: "d", configurationValue: "e" };
         runner.set({ executable: "git", args: ["config", "--get", "remote.origin.url"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.getRepositoryUrl({ runner }), expectedResult.configurationValue);
       });
 
       it("inside git repository", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: string | undefined = await git.getRepositoryUrl();
         assertEx.oneOf(result, ["https://github.com/ts-common/azure-js-dev-tools.git", "https://github.com/ts-common/azure-js-dev-tools"]);
       });
 
       it("outside git repository", async function () {
         const folderPath: string = joinPath((await findFileInPath("package.json"))!, "../..");
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: string | undefined = await git.getRepositoryUrl({ executionFolderPath: folderPath });
         assert.strictEqual(result, undefined);
       });
@@ -1266,7 +1266,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         const runner = new FakeRunner();
         const expectedResult: ExecutableGit.Result = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["reset", "*"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.strictEqual(await git.resetAll({ runner }), expectedResult);
       });
     });
@@ -1276,7 +1276,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         const runner = new FakeRunner();
         const expectedResult: ExecutableGit.Result = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["remote", "add", "abc", "def"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.strictEqual(await git.addRemote("abc", "def", { runner }), expectedResult);
       });
 
@@ -1284,7 +1284,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         this.timeout(10000);
 
         const repositoryFolderPath: string = getFolderPath();
-        const git = new ExecutableGit({
+        const git = new RealExecutableGit({
           authentication: "berry",
           showCommand: true,
           showResult: true,
@@ -1329,22 +1329,22 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
 
     describe("gitRemoteUrl()", function () {
       it("with undefined", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.strictEqual(await git.getRemoteUrl(undefined as any), undefined);
       });
 
       it("with empty string", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.strictEqual(await git.getRemoteUrl(""), undefined);
       });
 
       it("with non-existing remote string", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.strictEqual(await git.getRemoteUrl("idontexist"), undefined);
       });
 
       it("with origin remote string", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assertEx.startsWith((await git.getRemoteUrl("origin"))!, `https://github.com/ts-common/azure-js-dev-tools`);
       });
     });
@@ -1354,7 +1354,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
         const runner = new FakeRunner();
         const expectedResult: ExecutableGit.Result = { exitCode: 2, stdout: "c", stderr: "d" };
         runner.set({ executable: "git", args: ["remote", "set-url", "abc", "def"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         assert.deepEqual(await git.setRemoteUrl("abc", "def", { runner }), expectedResult);
       });
     });
@@ -1371,13 +1371,13 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
           }
         };
         runner.set({ executable: "git", args: ["remote", "--verbose"], result: expectedResult });
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const result: ExecutableGit.ListRemotesResult = await git.listRemotes({ runner });
         assert.deepEqual(result, expectedResult);
       });
 
       it("with real remotes", async function () {
-        const git = new ExecutableGit();
+        const git = new RealExecutableGit();
         const remotes: ExecutableGit.ListRemotesResult = await git.listRemotes();
         assertEx.defined(remotes, "remotes");
         assertEx.defined(remotes.remotes, "remotes.remotes");

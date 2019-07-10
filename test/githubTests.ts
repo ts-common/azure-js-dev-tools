@@ -5,7 +5,7 @@ import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFul
 import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
 import { contains } from "../lib/arrays";
-import { ExecutableGit } from "../lib";
+import { ExecutableGit, RealExecutableGit } from "../lib";
 
 describe("github.ts", function () {
   describe("getGitHubRepository(string)", function () {
@@ -576,7 +576,7 @@ describe("github.ts", function () {
           this.timeout(30000);
 
           const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
-          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const git: RealExecutableGit = ExecutableGit.createReal({ executionFolderPath: repositoryFolderPath });
 
           const currentBranch: string = await git.currentBranch();
           const headBranchName = "fake-head-branch";
@@ -612,7 +612,7 @@ describe("github.ts", function () {
           this.timeout(30000);
 
           const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
-          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const git: RealExecutableGit = ExecutableGit.createReal({ executionFolderPath: repositoryFolderPath });
 
           const currentBranch: string = await git.currentBranch();
           const headBranchName = "fake-head-branch";

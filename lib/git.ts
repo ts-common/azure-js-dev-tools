@@ -7,6 +7,7 @@
 import { URLBuilder } from "@azure/ms-rest-js";
 import { toArray, where } from "./arrays";
 import { getLines, replaceAll, StringMap } from "./common";
+import { FakeGitHub } from "./github";
 import { joinPath } from "./path";
 import { run, RunOptions, RunResult } from "./run";
 
@@ -481,6 +482,22 @@ export interface Git {
  */
 export namespace ExecutableGit {
   /**
+   * Create a RealExecutableGit object that can be used to invoke real Git operations against the
+   * file system.
+   */
+  export function createReal(options: ExecutableGit.ConstructorOptions = {}): RealExecutableGit {
+    return new RealExecutableGit(options);
+  }
+
+  /**
+   * Create a FakeExecutableGit object that will simulate Git operations in memory. This should be
+   * used in testing scenarios.
+   */
+  export function createFake(options: FakeExecutableGit.ConstructorOptions = {}): FakeExecutableGit {
+    return new FakeExecutableGit(options);
+  }
+
+  /**
    * A set of optional properties that can be applied to an ExecutableGit operation.
    */
   export interface Options extends RunOptions {
@@ -661,15 +678,183 @@ export namespace ExecutableGit {
   }
 }
 
+export interface ExecutableGit extends Git {
+  /**
+   * Create a new ExecutableGit object that combines this ExecutableGit's options with the provieded
+   * options.
+   * @param options The options to combine with this ExecutableGit's options.
+   */
+  scope(options: ExecutableGit.ConstructorOptions): ExecutableGit;
+
+  /**
+   * Run an arbitrary Git command.
+   * @param args The arguments to provide to the Git executable.
+   */
+  run(args: string[], options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
+
+  /**
+   * Get the SHA of the currently checked out commit.
+   */
+  currentCommitSha(options?: ExecutableGit.Options): Promise<ExecutableGit.CurrentCommitShaResult>;
+
+  /**
+   * Download objects and refs from another repository.
+   * @param options The options that can be passed to `git fetch`.
+   */
+  fetch(options?: ExecutableGit.FetchOptions): Promise<ExecutableGit.Result>;
+
+  /**
+   * Merge The provided references (branches or tags) into the current branch using the provided
+   * options.
+   * @param refsToMerge The references to merge into the current branch.
+   * @param options Options that can be passed to "git merge".
+   */
+  merge(options?: ExecutableGit.MergeOptions): Promise<ExecutableGit.Result>;
+
+  /**
+   * Clone the repository with the provided URI.
+   * @param gitUri The repository URI to clone.
+   * @param options The options that can be passed to "git clone".
+   */
+  clone(gitUri: string, options?: ExecutableGit.CloneOptions): Promise<ExecutableGit.Result>;
+
+  /**
+   * Checkout the provided git reference (branch, tag, or commit ID) in the repository.
+   * @param refId The git reference to checkout.
+   */
+  checkout(refId: string, options?: ExecutableGit.CheckoutOptions): Promise<ExecutableGit.CheckoutResult>;
+
+  /**
+   * Pull the latest changes for the current branch from the registered remote branch.
+   */
+  pull(options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
+
+  /**
+   * Push the current branch to the remote tracked repository.
+   * @param options The options for determining how this command will run.
+   */
+  push(options?: ExecutableGit.PushOptions): Promise<ExecutableGit.Result>;
+
+  /**
+   * Add/stage the provided files.
+   * @param filePaths The paths to the files to stage.
+   * @param options The options for determining how this command will run.
+   */
+  add(filePaths: string | string[], options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
+
+  /**
+   * Add/stage all of the current unstaged files.
+   * @param options The options that determine how this command will run.
+   */
+  addAll(options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
+
+  /**
+   * Commit the currently staged/added changes to the current branch.
+   * @param commitMessages The commit messages to apply to this commit.
+   * @param options The options that determine how this command will run.
+   */
+  commit(commitMessages: string | string[], options?: ExecutableGit.CommitOptions): Promise<ExecutableGit.Result>;
+
+  /**
+   * Delete a local branch.
+   * @param branchName The name of the local branch to delete.
+   */
+  deleteLocalBranch(branchName: string, options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
+
+  /**
+   * Create a new local branch with the provided name.
+   * @param branchName The name of the new branch.
+   * @param options The options for determining how this command will run.
+   */
+  createLocalBranch(branchName: string, options?: ExecutableGit.CreateLocalBranchOptions): Promise<ExecutableGit.Result>;
+
+  /**
+   * Remote the provided branch from the provided tracked remote repository.
+   * @param branchName The name of the remote branch to delete.
+   * @param remoteName The name of the tracked remote repository.
+   * @param options The options for determining how this command will run.
+   */
+  deleteRemoteBranch(branchName: string, options?: ExecutableGit.DeleteRemoteBranchOptions): Promise<ExecutableGit.Result>;
+
+  diff(options?: ExecutableGit.DiffOptions): Promise<ExecutableGit.DiffResult>;
+
+  /**
+   * Get the branches that are local to this repository.
+   */
+  localBranches(options?: ExecutableGit.Options): Promise<ExecutableGit.LocalBranchesResult>;
+
+  /**
+   * Get the branch that the repository is currently on.
+   * @param options The options to run this command with.
+   */
+  currentBranch(options?: ExecutableGit.Options): Promise<string>;
+
+  /**
+   * Get the remote branches that this repository clone is aware of.
+   * @param options The options to run this command with.
+   */
+  remoteBranches(options?: ExecutableGit.Options): Promise<ExecutableGit.RemoteBranchesResult>;
+
+  /**
+   * Run "git status".
+   */
+  status(options?: ExecutableGit.Options): Promise<ExecutableGit.StatusResult>;
+
+  /**
+   * Get the configuration value for the provided configuration value name.
+   * @param configurationValueName The name of the configuration value to get.
+   * @param options The options that can configure how the command will run.
+   */
+  getConfigurationValue(configurationValueName: string, options?: ExecutableGit.Options): Promise<ExecutableGit.GetConfigurationValueResult>;
+
+  /**
+   * Get the URL of the current repository.
+   * @param options The options that can configure how the command will run.
+   */
+  getRepositoryUrl(options?: ExecutableGit.Options): Promise<string | undefined>;
+
+  /**
+   * Unstage all staged files.
+   * @param options The options that can configure how the command will run.
+   */
+  resetAll(options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
+
+  /**
+   * Add the provided remote URL to this local repository's list of remote repositories using the
+   * provided remoteName.
+   * @param remoteName The name/reference that will be used to refer to the remote repository.
+   * @param remoteUrl The URL of the remote repository.
+   * @param options Options that can be used to modify the way that this operation is run.
+   */
+  addRemote(remoteName: string, remoteUrl: string, options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
+
+  /**
+   * Get the URL associated with the provided remote repository.
+   * @param remoteName The name of the remote repository.
+   * @returns The URL associated with the provided remote repository or undefined if the remote name
+   * is not found.
+   */
+  getRemoteUrl(remoteName: string, options?: ExecutableGit.Options): Promise<string | undefined>;
+
+  /**
+   * Set the URL associated with the provided remote repository.
+   * @param remoteName The name of the remote repository.
+   * @param remoteUrl The URL associated with the provided remote repository.
+   */
+  setRemoteUrl(remoteName: string, remoteUrl: string, options?: ExecutableGit.Options): Promise<ExecutableGit.Result>;
+
+  /**
+   * Get the remote repositories that are referenced in this local repository.
+   */
+  listRemotes(options?: ExecutableGit.Options): Promise<ExecutableGit.ListRemotesResult>;
+}
+
 /**
  * An implementation of Git that uses a Git executable to run commands.
  */
-export class ExecutableGit implements Git {
+export class RealExecutableGit implements Git {
   /**
    * Create a new ExecutableGit object.
-   * @param gitFilePath The file path to the git executable to use to run commands. This can be
-   * either a rooted path to the executable, or a relative path that will use the environment's PATH
-   * variable to resolve the executable's location.
    * @param options The optional arguments that will be applied to each operation.
    */
   constructor(private readonly options: ExecutableGit.ConstructorOptions = {}) {
@@ -702,8 +887,8 @@ export class ExecutableGit implements Git {
    * options.
    * @param options The options to combine with this ExecutableGit's options.
    */
-  public scope(options: ExecutableGit.ConstructorOptions): ExecutableGit {
-    return new ExecutableGit({
+  public scope(options: ExecutableGit.ConstructorOptions): RealExecutableGit {
+    return new RealExecutableGit({
       ...this.options,
       ...options,
     });
@@ -1387,3 +1572,259 @@ function isUntrackedFilesHeader(text: string): boolean {
 
 const statusDetachedHeadRegExp: RegExp = /HEAD detached at (.*)/i;
 const onBranchRegExp: RegExp = /On branch (.*)/i;
+
+/**
+ * A set of interfaces and types that relate to the FakeExecutableGit class.
+ */
+export namespace FakeExecutableGit {
+  /**
+   * A set of optional properties that can be applied to the FakeExecutableGit constructor.
+   */
+  export interface ConstructorOptions extends ExecutableGit.ConstructorOptions {
+    /**
+     * The FakeGitHub instance that will be used when interacting with remote repositories.
+     */
+    github?: FakeGitHub;
+  }
+}
+
+/**
+ * A fake implementation of ExecutableGit.
+ */
+export class FakeExecutableGit implements ExecutableGit {
+  /**
+   * Create a new FakeExecutableGit object.
+   * @param options The optional arguments that will be applied to each operation.
+   */
+  constructor(private readonly options: FakeExecutableGit.ConstructorOptions = {}) {
+    if (!options.gitFilePath) {
+      options.gitFilePath = "git";
+    }
+  }
+
+  /**
+   * Create a new ExecutableGit object that combines this ExecutableGit's options with the provieded
+   * options.
+   * @param options The options to combine with this ExecutableGit's options.
+   */
+  public scope(options: FakeExecutableGit.ConstructorOptions): ExecutableGit {
+    return new FakeExecutableGit({
+      ...this.options,
+      ...options,
+    });
+  }
+
+  /**
+   * Run an arbitrary Git command.
+   * @param args The arguments to provide to the Git executable.
+   */
+  public run(_args: string[], _options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Get the SHA of the currently checked out commit.
+   */
+  public async currentCommitSha(_options: ExecutableGit.Options = {}): Promise<ExecutableGit.CurrentCommitShaResult> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Download objects and refs from another repository.
+   * @param options The options that can be passed to `git fetch`.
+   */
+  public fetch(_options: ExecutableGit.FetchOptions = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Merge The provided references (branches or tags) into the current branch using the provided
+   * options.
+   * @param refsToMerge The references to merge into the current branch.
+   * @param options Options that can be passed to "git merge".
+   */
+  public merge(_options: ExecutableGit.MergeOptions = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Clone the repository with the provided URI.
+   * @param gitUri The repository URI to clone.
+   * @param options The options that can be passed to "git clone".
+   */
+  public clone(_gitUri: string, _options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Checkout the provided git reference (branch, tag, or commit ID) in the repository.
+   * @param refId The git reference to checkout.
+   */
+  public async checkout(_refId: string, _options: ExecutableGit.CheckoutOptions = {}): Promise<ExecutableGit.CheckoutResult> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Pull the latest changes for the current branch from the registered remote branch.
+   */
+  public pull(_options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Push the current branch to the remote tracked repository.
+   * @param options The options for determining how this command will run.
+   */
+  public async push(_options: ExecutableGit.PushOptions = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Add/stage the provided files.
+   * @param filePaths The paths to the files to stage.
+   * @param options The options for determining how this command will run.
+   */
+  public add(_filePaths: string | string[], _options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Add/stage all of the current unstaged files.
+   * @param options The options that determine how this command will run.
+   */
+  public addAll(_options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Commit the currently staged/added changes to the current branch.
+   * @param commitMessages The commit messages to apply to this commit.
+   * @param options The options that determine how this command will run.
+   */
+  public commit(_commitMessages: string | string[], _options: ExecutableGit.CommitOptions = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Delete a local branch.
+   * @param branchName The name of the local branch to delete.
+   */
+  public deleteLocalBranch(_branchName: string, _options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Create a new local branch with the provided name.
+   * @param branchName The name of the new branch.
+   * @param options The options for determining how this command will run.
+   */
+  public createLocalBranch(_branchName: string, _options: ExecutableGit.CreateLocalBranchOptions = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Remote the provided branch from the provided tracked remote repository.
+   * @param branchName The name of the remote branch to delete.
+   * @param remoteName The name of the tracked remote repository.
+   * @param options The options for determining how this command will run.
+   */
+  public deleteRemoteBranch(_branchName: string, _options: ExecutableGit.DeleteRemoteBranchOptions = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  public async diff(_options: ExecutableGit.DiffOptions = {}): Promise<ExecutableGit.DiffResult> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Get the branches that are local to this repository.
+   */
+  public async localBranches(_options: ExecutableGit.Options = {}): Promise<ExecutableGit.LocalBranchesResult> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Get the branch that the repository is currently on.
+   * @param options The options to run this command with.
+   */
+  public async currentBranch(_options: ExecutableGit.Options = {}): Promise<string> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Get the remote branches that this repository clone is aware of.
+   * @param options The options to run this command with.
+   */
+  public async remoteBranches(_options: ExecutableGit.Options = {}): Promise<ExecutableGit.RemoteBranchesResult> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Run "git status".
+   */
+  public async status(_options: ExecutableGit.Options = {}): Promise<ExecutableGit.StatusResult> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Get the configuration value for the provided configuration value name.
+   * @param configurationValueName The name of the configuration value to get.
+   * @param options The options that can configure how the command will run.
+   */
+  public async getConfigurationValue(_configurationValueName: string, _options?: ExecutableGit.Options): Promise<ExecutableGit.GetConfigurationValueResult> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Get the URL of the current repository.
+   * @param options The options that can configure how the command will run.
+   */
+  public async getRepositoryUrl(_options: ExecutableGit.Options = {}): Promise<string | undefined> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Unstage all staged files.
+   * @param options The options that can configure how the command will run.
+   */
+  public resetAll(_options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Add the provided remote URL to this local repository's list of remote repositories using the
+   * provided remoteName.
+   * @param remoteName The name/reference that will be used to refer to the remote repository.
+   * @param remoteUrl The URL of the remote repository.
+   * @param options Options that can be used to modify the way that this operation is run.
+   */
+  public addRemote(_remoteName: string, _remoteUrl: string, _options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Get the URL associated with the provided remote repository.
+   * @param remoteName The name of the remote repository.
+   * @returns The URL associated with the provided remote repository or undefined if the remote name
+   * is not found.
+   */
+  public async getRemoteUrl(_remoteName: string, _options: ExecutableGit.Options = {}): Promise<string | undefined> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Set the URL associated with the provided remote repository.
+   * @param remoteName The name of the remote repository.
+   * @param remoteUrl The URL associated with the provided remote repository.
+   */
+  public setRemoteUrl(_remoteName: string, _remoteUrl: string, _options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    throw new Error("Not Implemented Yet");
+  }
+
+  /**
+   * Get the remote repositories that are referenced in this local repository.
+   */
+  public async listRemotes(_options: ExecutableGit.Options = {}): Promise<ExecutableGit.ListRemotesResult> {
+    throw new Error("Not Implemented Yet");
+  }
+}
