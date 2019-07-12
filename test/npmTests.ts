@@ -48,6 +48,8 @@ describe("npm.ts", function () {
 
   describe("npm()", function () {
     it("with unrecognized command", async function () {
+      this.timeout(5000);
+
       const result: RunResult = await npm(["foo"]);
       assert(result);
       assert.strictEqual(result.exitCode, 1);
