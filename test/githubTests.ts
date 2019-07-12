@@ -468,7 +468,7 @@ describe("github.ts", function () {
           const labelColor = "#123456";
           try {
             const error: Error = await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", labelName, labelColor));
-            assertEx.containsAll(error.message, ["label", "color"]);
+            assert.strictEqual(error.message, "Validation Failed");
           } finally {
             await github.deleteLabel("ts-common/azure-js-dev-tools", labelName).catch(() => {});
           }
@@ -495,7 +495,7 @@ describe("github.ts", function () {
           const labelColor = "#123456";
           try {
             const error: Error = await assertEx.throwsAsync(github.createLabel("test-repo-billy/azure-sdk-for-js", labelName, labelColor));
-            assertEx.containsAll(error.message, ["label", "color"]);
+            assert.strictEqual(error.message, "Validation Failed");
           } finally {
             await github.deleteLabel("test-repo-billy/azure-sdk-for-js", labelName).catch(() => {});
           }
