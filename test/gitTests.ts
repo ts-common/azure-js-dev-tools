@@ -337,7 +337,7 @@ describe("git.ts", function () {
         }
       });
 
-      it("with authentication", async function () {
+      it("with authentication string", async function () {
         this.timeout(10000);
 
         const repositoryFolderPath: string = getFolderPath();
@@ -370,6 +370,207 @@ describe("git.ts", function () {
             executionFolderPath: repositoryFolderPath,
           });
           assert.strictEqual(remoteUrl, "https://berry@github.com/ts-common/azure-js-dev-tools.git");
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with owner matching authentication scope", async function () {
+        this.timeout(10000);
+
+        const repositoryFolderPath: string = getFolderPath();
+        const git = new ExecutableGit({
+          authentication: {
+            "TS-COMMON": "berry",
+          }
+        });
+        const logger: InMemoryLogger = getInMemoryLogger();
+        const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+          directory: repositoryFolderPath,
+          showCommand: true,
+          showResult: true,
+          captureError: true,
+          captureOutput: true,
+          log: (text: string) => logger.logInfo(text),
+        });
+        try {
+          assert.strictEqual(cloneResult.exitCode, 0);
+          assertEx.defined(cloneResult.processId, "cloneResult.processId");
+          assert.strictEqual(cloneResult.stderr, `Cloning into '${repositoryFolderPath}'...\n`);
+          assert.strictEqual(cloneResult.stdout, "");
+          assert.strictEqual(cloneResult.error, undefined);
+          assert.deepEqual(logger.allLogs, [
+            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `Exit Code: 0`,
+            `Error:`,
+            `Cloning into '${repositoryFolderPath}'...\n`
+          ]);
+          assert.strictEqual(await folderExists(repositoryFolderPath), true);
+          const remoteUrl: string | undefined = await git.getRemoteUrl("origin", {
+            executionFolderPath: repositoryFolderPath,
+          });
+          assert.strictEqual(remoteUrl, "https://berry@github.com/ts-common/azure-js-dev-tools.git");
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository matching authentication scope", async function () {
+        this.timeout(10000);
+
+        const repositoryFolderPath: string = getFolderPath();
+        const git = new ExecutableGit({
+          authentication: {
+            "ts-common/azure-js-dev-tools": "berry",
+          }
+        });
+        const logger: InMemoryLogger = getInMemoryLogger();
+        const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+          directory: repositoryFolderPath,
+          showCommand: true,
+          showResult: true,
+          captureError: true,
+          captureOutput: true,
+          log: (text: string) => logger.logInfo(text),
+        });
+        try {
+          assert.strictEqual(cloneResult.exitCode, 0);
+          assertEx.defined(cloneResult.processId, "cloneResult.processId");
+          assert.strictEqual(cloneResult.stderr, `Cloning into '${repositoryFolderPath}'...\n`);
+          assert.strictEqual(cloneResult.stdout, "");
+          assert.strictEqual(cloneResult.error, undefined);
+          assert.deepEqual(logger.allLogs, [
+            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `Exit Code: 0`,
+            `Error:`,
+            `Cloning into '${repositoryFolderPath}'...\n`
+          ]);
+          assert.strictEqual(await folderExists(repositoryFolderPath), true);
+          const remoteUrl: string | undefined = await git.getRemoteUrl("origin", {
+            executionFolderPath: repositoryFolderPath,
+          });
+          assert.strictEqual(remoteUrl, "https://berry@github.com/ts-common/azure-js-dev-tools.git");
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with multiple repositories matching authentication scope", async function () {
+        this.timeout(10000);
+
+        const repositoryFolderPath: string = getFolderPath();
+        const git = new ExecutableGit({
+          authentication: {
+            "ts-common/azure-js-dev": "apples",
+            "ts-common/azure-js-dev-tools": "bananas",
+          }
+        });
+        const logger: InMemoryLogger = getInMemoryLogger();
+        const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+          directory: repositoryFolderPath,
+          showCommand: true,
+          showResult: true,
+          captureError: true,
+          captureOutput: true,
+          log: (text: string) => logger.logInfo(text),
+        });
+        try {
+          assert.strictEqual(cloneResult.exitCode, 0);
+          assertEx.defined(cloneResult.processId, "cloneResult.processId");
+          assert.strictEqual(cloneResult.stderr, `Cloning into '${repositoryFolderPath}'...\n`);
+          assert.strictEqual(cloneResult.stdout, "");
+          assert.strictEqual(cloneResult.error, undefined);
+          assert.deepEqual(logger.allLogs, [
+            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `Exit Code: 0`,
+            `Error:`,
+            `Cloning into '${repositoryFolderPath}'...\n`
+          ]);
+          assert.strictEqual(await folderExists(repositoryFolderPath), true);
+          const remoteUrl: string | undefined = await git.getRemoteUrl("origin", {
+            executionFolderPath: repositoryFolderPath,
+          });
+          assert.strictEqual(remoteUrl, "https://bananas@github.com/ts-common/azure-js-dev-tools.git");
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with owner non-matching authentication scope", async function () {
+        this.timeout(10000);
+
+        const repositoryFolderPath: string = getFolderPath();
+        const git = new ExecutableGit({
+          authentication: {
+            "TSUNCOMMON": "berry",
+          }
+        });
+        const logger: InMemoryLogger = getInMemoryLogger();
+        const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+          directory: repositoryFolderPath,
+          showCommand: true,
+          showResult: true,
+          captureError: true,
+          captureOutput: true,
+          log: (text: string) => logger.logInfo(text),
+        });
+        try {
+          assert.strictEqual(cloneResult.exitCode, 0);
+          assertEx.defined(cloneResult.processId, "cloneResult.processId");
+          assert.strictEqual(cloneResult.stderr, `Cloning into '${repositoryFolderPath}'...\n`);
+          assert.strictEqual(cloneResult.stdout, "");
+          assert.strictEqual(cloneResult.error, undefined);
+          assert.deepEqual(logger.allLogs, [
+            `git clone https://github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `Exit Code: 0`,
+            `Error:`,
+            `Cloning into '${repositoryFolderPath}'...\n`
+          ]);
+          assert.strictEqual(await folderExists(repositoryFolderPath), true);
+          const remoteUrl: string | undefined = await git.getRemoteUrl("origin", {
+            executionFolderPath: repositoryFolderPath,
+          });
+          assert.strictEqual(remoteUrl, "https://github.com/ts-common/azure-js-dev-tools.git");
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository non-matching authentication scope", async function () {
+        this.timeout(10000);
+
+        const repositoryFolderPath: string = getFolderPath();
+        const git = new ExecutableGit({
+          authentication: {
+            "ts-common/azure-js-prod-tools": "berry",
+          }
+        });
+        const logger: InMemoryLogger = getInMemoryLogger();
+        const cloneResult: ExecutableGit.Result = await git.clone("https://github.com/ts-common/azure-js-dev-tools.git", {
+          directory: repositoryFolderPath,
+          showCommand: true,
+          showResult: true,
+          captureError: true,
+          captureOutput: true,
+          log: (text: string) => logger.logInfo(text),
+        });
+        try {
+          assert.strictEqual(cloneResult.exitCode, 0);
+          assertEx.defined(cloneResult.processId, "cloneResult.processId");
+          assert.strictEqual(cloneResult.stderr, `Cloning into '${repositoryFolderPath}'...\n`);
+          assert.strictEqual(cloneResult.stdout, "");
+          assert.strictEqual(cloneResult.error, undefined);
+          assert.deepEqual(logger.allLogs, [
+            `git clone https://github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `Exit Code: 0`,
+            `Error:`,
+            `Cloning into '${repositoryFolderPath}'...\n`
+          ]);
+          assert.strictEqual(await folderExists(repositoryFolderPath), true);
+          const remoteUrl: string | undefined = await git.getRemoteUrl("origin", {
+            executionFolderPath: repositoryFolderPath,
+          });
+          assert.strictEqual(remoteUrl, "https://github.com/ts-common/azure-js-dev-tools.git");
         } finally {
           await deleteFolder(repositoryFolderPath);
         }
