@@ -497,9 +497,14 @@ export namespace ExecutableGit {
    */
   export interface ConstructorOptions extends Options {
     /**
-     * The authentication section that will be inserted into remote repository URLs.
+     * The authentication section that will be inserted into remote repository URLs. This can be
+     * either a string (the authentication token that will be inserted into every remote
+     * repository's URL), or a StringMap<string> where the entry's key is a scope and the entry's
+     * value is the authentication token that will be inserted into remote repository URLs that
+     * match the scope. The scope can be either the repository's owner or the full repository
+     * name (<owner>/<repository-name>).
      */
-    authentication?: string;
+    authentication?: string | StringMap<string>;
   }
 
   /**
@@ -679,10 +684,16 @@ export class ExecutableGit implements Git {
   }
 
   private maskAuthenticationInLog<T extends ExecutableGit.Options>(options: T): T {
-    const authentication: string | undefined = this.options.authentication;
+    const authentication: string | StringMap<string> | undefined = this.options.authentication;
     const log: undefined | ((text: string) => any) = options.log;
     if (authentication && log) {
-      options.log = (text: string) => log(replaceAll(text, authentication, "xxxxx")!);
+      const authenticationStrings: string[] = typeof authentication === "string" ? [authentication] : Object.values(authentication);
+      options.log = (text: string) => {
+        for (const authenticationString of authenticationStrings) {
+          text = replaceAll(text, authenticationString, "xxxxx")!;
+        }
+        return log(text);
+      };
     }
     return options;
   }
@@ -691,7 +702,32 @@ export class ExecutableGit implements Git {
     let result: string = url;
     if (this.options.authentication) {
       const builder: URLBuilder = URLBuilder.parse(url);
-      builder.setHost(`${this.options.authentication}@${builder.getHost()}`);
+
+      let authenticationToAdd: string | undefined;
+      if (typeof this.options.authentication === "string") {
+        authenticationToAdd = this.options.authentication;
+      } else {
+        let urlPath: string | undefined = builder.getPath();
+        if (urlPath) {
+          urlPath = urlPath.toLowerCase();
+
+          let matchingScope = "";
+          for (let [scope, authentication] of Object.entries(this.options.authentication)) {
+            if (!scope.startsWith("/")) {
+              scope = `/${scope}`;
+            }
+            scope = scope.toLowerCase();
+            if (urlPath.startsWith(scope) && scope.length > matchingScope.length) {
+              matchingScope = scope;
+              authenticationToAdd = authentication;
+            }
+          }
+        }
+      }
+
+      if (authenticationToAdd) {
+        builder.setHost(`${authenticationToAdd}@${builder.getHost()}`);
+      }
       result = builder.toString();
     }
     return result;
