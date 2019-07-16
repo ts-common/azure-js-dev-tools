@@ -698,7 +698,7 @@ export class ExecutableGit implements Git {
     return options;
   }
 
-  private addAuthenticationToURL(url: string): string {
+  private async addAuthenticationToURL(url: string, options: ExecutableGit.Options = {}): Promise<string> {
     let result: string = url;
     if (this.options.authentication) {
       const builder: URLBuilder = URLBuilder.parse(url);
@@ -720,6 +720,14 @@ export class ExecutableGit implements Git {
             if (urlPath.startsWith(scope) && scope.length > matchingScope.length) {
               matchingScope = scope;
               authenticationToAdd = authentication;
+            }
+          }
+          if (options.log) {
+            if (matchingScope) {
+              await Promise.resolve(options.log(`Git URL matches authentication scope "${matchingScope}". Inserting auth token "${authenticationToAdd}".`));
+            } else {
+              const scopes: string[] = Object.keys(this.options.authentication);
+              await Promise.resolve(options.log(`Git URL didn't match any of the authentication scopes (${scopes.join(",")}). Not inserting an auth token.`));
             }
           }
         }
@@ -835,9 +843,9 @@ export class ExecutableGit implements Git {
    * @param gitUri The repository URI to clone.
    * @param options The options that can be passed to "git clone".
    */
-  public clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
-    const args: string[] = getCloneArguments(this.addAuthenticationToURL(gitUri), options);
-    return this.run(args, options);
+  public async clone(gitUri: string, options: ExecutableGit.CloneOptions = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = getCloneArguments(await this.addAuthenticationToURL(gitUri), options);
+    return await this.run(args, options);
   }
 
   /**
@@ -1268,8 +1276,8 @@ export class ExecutableGit implements Git {
    * @param remoteUrl The URL of the remote repository.
    * @param options Options that can be used to modify the way that this operation is run.
    */
-  public addRemote(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return this.run(["remote", "add", remoteName, this.addAuthenticationToURL(remoteUrl)], options);
+  public async addRemote(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return await this.run(["remote", "add", remoteName, await this.addAuthenticationToURL(remoteUrl)], options);
   }
 
   /**
@@ -1288,8 +1296,8 @@ export class ExecutableGit implements Git {
    * @param remoteName The name of the remote repository.
    * @param remoteUrl The URL associated with the provided remote repository.
    */
-  public setRemoteUrl(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return this.run(["remote", "set-url", remoteName, this.addAuthenticationToURL(remoteUrl)], options);
+  public async setRemoteUrl(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    return await this.run(["remote", "set-url", remoteName, await this.addAuthenticationToURL(remoteUrl)], options);
   }
 
   /**
