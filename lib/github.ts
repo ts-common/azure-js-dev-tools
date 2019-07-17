@@ -8,6 +8,7 @@ import Octokit from "@octokit/rest";
 import * as fs from "fs";
 import { contains, first, map, removeFirst, where } from "./arrays";
 import { URLBuilder } from "./url";
+import { StringMap } from "./common";
 
 /**
  * The name and optional organization that the repository belongs to.
@@ -1229,10 +1230,10 @@ export function getSprintLabels(labels: GitHubLabel[]): GitHubSprintLabel[] {
  * A class that wraps @octokit/rest to interact with github.com.
  */
 export class RealGitHub implements GitHub {
-  private constructor(private readonly github: Octokit) {
+  private constructor(private readonly githubClients: Octokit | StringMap<Octokit>) {
   }
 
-  public static fromOctokit(github: Octokit): RealGitHub {
+  public static fromOctokit(github: Octokit | StringMap<Octokit>): RealGitHub {
     return new RealGitHub(github);
   }
 
@@ -1254,19 +1255,50 @@ export class RealGitHub implements GitHub {
     return RealGitHub.fromToken(githubAuthToken);
   }
 
+  private getClient(repository: string | GitHubRepository): Octokit {
+    let result: Octokit | undefined;
+    if (isOctokit(this.githubClients)) {
+      result = this.githubClients;
+    } else {
+      let matchingScope = "";
+      const fullRepositoryName: string = getRepositoryFullName(repository).toLowerCase();
+      for (let [scope, githubClient] of Object.entries(this.githubClients)) {
+        scope = scope.toLowerCase();
+        if (fullRepositoryName.startsWith(scope) && scope.length > matchingScope.length) {
+          matchingScope = scope;
+          result = githubClient;
+        }
+      }
+      if (!result) {
+        throw new Error(`No GitHub client registered to be used with repository "${fullRepositoryName}".`);
+      }
+    }
+    return result;
+  }
+
+  private getDefaultClient(): Octokit {
+    let result: Octokit;
+    if (isOctokit(this.githubClients)) {
+      result = this.githubClients;
+    } else {
+      result = Object.values(this.githubClients)[0];
+    }
+    return result;
+  }
+
   public async getCurrentUser(): Promise<GitHubUser> {
-    const response: Octokit.Response<any> = await this.github.users.getAuthenticated();
+    const response: Octokit.Response<any> = await this.getDefaultClient().users.getAuthenticated();
     const result: GitHubUser = response.data;
     return result;
   }
 
   public async getLabels(repository: string | GitHubRepository): Promise<GitHubLabel[]> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    const response: Octokit.RequestOptions = await this.github.issues.listLabelsForRepo.endpoint.merge({
+    const response: Octokit.RequestOptions = await this.getClient(repository).issues.listLabelsForRepo.endpoint.merge({
       owner: githubRepository.organization,
       repo: githubRepository.name
     });
-    return await this.getAllPageData(response);
+    return await this.getAllPageData(repository, response);
   }
 
   public async getSprintLabels(repository: string | GitHubRepository): Promise<GitHubSprintLabel[]> {
@@ -1276,7 +1308,7 @@ export class RealGitHub implements GitHub {
 
   public async createLabel(repository: string | GitHubRepository, labelName: string, color: string): Promise<GitHubLabel> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    const response: Octokit.Response<Octokit.IssuesCreateLabelResponse> = await this.github.issues.createLabel({
+    const response: Octokit.Response<Octokit.IssuesCreateLabelResponse> = await this.getClient(repository).issues.createLabel({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       name: labelName,
@@ -1294,12 +1326,12 @@ export class RealGitHub implements GitHub {
       repo: githubRepository.name,
       name: labelName
     };
-    return this.github.issues.deleteLabel(githubArguments);
+    return this.getClient(repository).issues.deleteLabel(githubArguments);
   }
 
   public updateLabelColor(repository: string | GitHubRepository, labelName: string, newColor: string): Promise<unknown> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    return this.github.issues.updateLabel({
+    return this.getClient(repository).issues.updateLabel({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       current_name: labelName,
@@ -1311,7 +1343,7 @@ export class RealGitHub implements GitHub {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
     let result: GitHubMilestone;
     if (typeof milestone === "number") {
-      const response: Octokit.Response<Octokit.IssuesGetMilestoneResponse> = await this.github.issues.getMilestone({
+      const response: Octokit.Response<Octokit.IssuesGetMilestoneResponse> = await this.getClient(repository).issues.getMilestone({
         owner: githubRepository.organization,
         repo: githubRepository.name,
         number: milestone
@@ -1344,12 +1376,12 @@ export class RealGitHub implements GitHub {
     }
 
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    const requestOptions: Octokit.RequestOptions = await this.github.issues.listMilestonesForRepo.endpoint.merge({
+    const requestOptions: Octokit.RequestOptions = await this.getClient(repository).issues.listMilestonesForRepo.endpoint.merge({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       state: milestoneState
     });
-    const result: GitHubMilestone[] = await this.getAllPageData(requestOptions);
+    const result: GitHubMilestone[] = await this.getAllPageData(repository, requestOptions);
     return result;
   }
 
@@ -1370,7 +1402,7 @@ export class RealGitHub implements GitHub {
       createMilestoneArguments.due_on = addOffset(options.endDate);
     }
 
-    const response: Octokit.Response<Octokit.IssuesCreateMilestoneResponse> = await this.github.issues.createMilestone(createMilestoneArguments);
+    const response: Octokit.Response<Octokit.IssuesCreateMilestoneResponse> = await this.getClient(repository).issues.createMilestone(createMilestoneArguments);
     const result: GitHubMilestone = response.data as any;
     return result;
   }
@@ -1386,7 +1418,7 @@ export class RealGitHub implements GitHub {
   public async updateMilestoneEndDate(repository: string | GitHubRepository, milestoneNumber: number, newSprintEndDate: string): Promise<GitHubMilestone> {
     newSprintEndDate = addOffset(newSprintEndDate);
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    const response = await this.github.issues.updateMilestone({
+    const response = await this.getClient(repository).issues.updateMilestone({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       number: milestoneNumber,
@@ -1405,7 +1437,7 @@ export class RealGitHub implements GitHub {
 
   public closeMilestone(repository: string | GitHubRepository, milestoneNumber: number): Promise<unknown> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    return this.github.issues.updateMilestone({
+    return this.getClient(repository).issues.updateMilestone({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       number: milestoneNumber,
@@ -1427,7 +1459,7 @@ export class RealGitHub implements GitHub {
       title: title,
       body: options && options.description
     };
-    const response = await this.github.pulls.create(githubArguments);
+    const response = await this.getClient(repository).pulls.create(githubArguments);
     const result: GitHubPullRequest = response.data as GitHubPullRequest;
     result.body = result.body || "";
     return result;
@@ -1435,7 +1467,7 @@ export class RealGitHub implements GitHub {
 
   public async closePullRequest(repository: string | GitHubRepository, pullRequest: number | GitHubPullRequest): Promise<unknown> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    const response = await this.github.pulls.update({
+    const response = await this.getClient(repository).pulls.update({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       pull_number: getPullRequestNumber(pullRequest),
@@ -1452,7 +1484,7 @@ export class RealGitHub implements GitHub {
       pull_number: getPullRequestNumber(pullRequest),
       merge_method: mergeMethod,
     };
-    const response: Octokit.Response<any> = await this.github.pulls.merge(githubArguments);
+    const response: Octokit.Response<any> = await this.getClient(repository).pulls.merge(githubArguments);
     const result: GitHubPullRequest = response.data;
     return result;
   }
@@ -1464,7 +1496,7 @@ export class RealGitHub implements GitHub {
       repo: githubRepository.name,
       pull_number: pullRequestNumber
     };
-    const response = await this.github.pulls.get(githubArguments);
+    const response = await this.getClient(repository).pulls.get(githubArguments);
     const result: GitHubPullRequest = response.data as GitHubPullRequest;
     result.body = result.body || "";
     return result;
@@ -1486,8 +1518,8 @@ export class RealGitHub implements GitHub {
       repo: githubRepository.name,
       state: pullRequestState
     };
-    const requestOptions: Octokit.RequestOptions = await this.github.pulls.list.endpoint.merge(githubArguments);
-    const result: GitHubPullRequest[] = await this.getAllPageData(requestOptions);
+    const requestOptions: Octokit.RequestOptions = await this.getClient(repository).pulls.list.endpoint.merge(githubArguments);
+    const result: GitHubPullRequest[] = await this.getAllPageData(repository, requestOptions);
     return result;
   }
 
@@ -1512,7 +1544,7 @@ export class RealGitHub implements GitHub {
     } else {
       const updatedAssigneeLogins: string[] = [...currentAssigneeLogins, ...assigneeLoginsToAdd];
       const githubRepository: GitHubRepository = getGitHubRepository(repository);
-      result = this.github.issues.update({
+      result = this.getClient(repository).issues.update({
         owner: githubRepository.organization,
         repo: githubRepository.name,
         number: getPullRequestNumber(githubPullRequest),
@@ -1531,7 +1563,7 @@ export class RealGitHub implements GitHub {
     if (labelNamesToAdd.length > 0) {
       const updatedLabelNamesArray: string[] = [...currentLabelNames, ...labelNamesToAdd];
       const githubRepository: GitHubRepository = getGitHubRepository(repository);
-      await this.github.issues.update({
+      await this.getClient(repository).issues.update({
         owner: githubRepository.organization,
         repo: githubRepository.name,
         issue_number: getPullRequestNumber(githubPullRequest),
@@ -1550,7 +1582,7 @@ export class RealGitHub implements GitHub {
     if (removedLabelNames.length > 0) {
       const updatedLabelNamesArray: string[] = where(currentLabelNames, (currentLabelName: string) => !contains(labelNamesArray, currentLabelName));
       const githubRepository: GitHubRepository = getGitHubRepository(repository);
-      await this.github.issues.update({
+      await this.getClient(repository).issues.update({
         owner: githubRepository.organization,
         repo: githubRepository.name,
         issue_number: pullRequestNumber,
@@ -1572,7 +1604,7 @@ export class RealGitHub implements GitHub {
     }
 
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    return this.github.issues.update({
+    return this.getClient(repository).issues.update({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       number: getPullRequestNumber(githubPullRequest),
@@ -1584,8 +1616,8 @@ export class RealGitHub implements GitHub {
    * Get all of the pages associated with the provided pageResponse.
    * @param pageResponse One of the page responses in an overall response.
    */
-  private getAllPageData<T>(requestOptions: Octokit.RequestOptions): Promise<T[]> {
-    return this.github.paginate(requestOptions);
+  private getAllPageData<T>(repository: string | GitHubRepository, requestOptions: Octokit.RequestOptions): Promise<T[]> {
+    return this.getClient(repository).paginate(requestOptions);
   }
 
   public async getPullRequestComments(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number): Promise<GitHubComment[]> {
@@ -1595,8 +1627,8 @@ export class RealGitHub implements GitHub {
       repo: githubRepository.name,
       issue_number: getPullRequestNumber(githubPullRequest)
     };
-    const requestOptions: Octokit.RequestOptions = await this.github.issues.listComments.endpoint.merge(githubArguments);
-    return await this.getAllPageData(requestOptions);
+    const requestOptions: Octokit.RequestOptions = await this.getClient(repository).issues.listComments.endpoint.merge(githubArguments);
+    return await this.getAllPageData(repository, requestOptions);
   }
 
   public async createPullRequestComment(repository: string | GitHubRepository, githubPullRequest: GitHubPullRequest | number, commentBody: string): Promise<GitHubComment> {
@@ -1607,7 +1639,7 @@ export class RealGitHub implements GitHub {
       issue_number: getPullRequestNumber(githubPullRequest),
       body: commentBody
     };
-    const response = await this.github.issues.createComment(githubArguments);
+    const response = await this.getClient(repository).issues.createComment(githubArguments);
     const result: GitHubComment = response.data;
     return result;
   }
@@ -1620,7 +1652,7 @@ export class RealGitHub implements GitHub {
       comment_id: getCommentId(comment).toString(),
       body: commentBody
     } as any;
-    const response = await this.github.issues.updateComment(githubArguments);
+    const response = await this.getClient(repository).issues.updateComment(githubArguments);
     const result: GitHubComment = response.data;
     return result;
   }
@@ -1632,7 +1664,7 @@ export class RealGitHub implements GitHub {
       repo: githubRepository.name,
       comment_id: getCommentId(comment).toString()
     } as any;
-    return this.github.issues.deleteComment(githubArguments);
+    return this.getClient(repository).issues.deleteComment(githubArguments);
   }
 
   public async getCommit(repository: string | GitHubRepository, commit: string): Promise<GitHubCommit | undefined> {
@@ -1644,7 +1676,7 @@ export class RealGitHub implements GitHub {
     };
     let result: GitHubCommit | undefined;
     try {
-      const response = await this.github.repos.getCommit(githubArguments);
+      const response = await this.getClient(repository).repos.getCommit(githubArguments);
       if (response.data) {
         result = response.data;
       }
@@ -1658,21 +1690,21 @@ export class RealGitHub implements GitHub {
 
   public async getAllReferences(repository: string | GitHubRepository): Promise<GitHubReference[]> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    const requestOptions: Octokit.RequestOptions = await this.github.git.listRefs.endpoint.merge({
+    const requestOptions: Octokit.RequestOptions = await this.getClient(repository).git.listRefs.endpoint.merge({
       owner: githubRepository.organization,
       repo: githubRepository.name,
     });
-    return await this.getAllPageData(requestOptions);
+    return await this.getAllPageData(repository, requestOptions);
   }
 
   public async getAllBranches(repository: string | GitHubRepository): Promise<GitHubBranch[]> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    const requestOptions: Octokit.RequestOptions = await this.github.git.listRefs.endpoint.merge({
+    const requestOptions: Octokit.RequestOptions = await this.getClient(repository).git.listRefs.endpoint.merge({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       namespace: "heads/",
     });
-    const references: GitHubReference[] = await this.getAllPageData(requestOptions);
+    const references: GitHubReference[] = await this.getAllPageData(repository, requestOptions);
     return referencesToBranches(references);
   }
 
@@ -1681,7 +1713,7 @@ export class RealGitHub implements GitHub {
     if (!branchName) {
       throw new Error(`Cannot get branch details about an empty or undefined branch.`);
     }
-    const response = await this.github.git.getRef({
+    const response = await this.getClient(repository).git.getRef({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       ref: `heads/${branchName}`,
@@ -1695,7 +1727,7 @@ export class RealGitHub implements GitHub {
 
   public deleteBranch(repository: string | GitHubRepository, branchName: string): Promise<unknown> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    return this.github.git.deleteRef({
+    return this.getClient(repository).git.deleteRef({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       ref: `heads/${branchName}`,
@@ -1704,7 +1736,7 @@ export class RealGitHub implements GitHub {
 
   public async createBranch(repository: string | GitHubRepository, branchName: string, branchSha: string): Promise<GitHubBranch> {
     const githubRepository: GitHubRepository = getGitHubRepository(repository);
-    const response = await this.github.git.createRef({
+    const response = await this.getClient(repository).git.createRef({
       owner: githubRepository.organization,
       repo: githubRepository.name,
       ref: `refs/heads/${branchName}`,
@@ -1829,4 +1861,14 @@ export function getGitHubRepositoryFromUrl(repositoryUrl: string): GitHubReposit
     }
   }
   return result;
+}
+
+function isOctokit(value: Octokit | StringMap<Octokit>): value is Octokit {
+  return value &&
+    !!value.activity &&
+    !!value.apps &&
+    !!value.authenticate &&
+    !!value.checks &&
+    !!value.codesOfConduct &&
+    !!value.emojis;
 }
