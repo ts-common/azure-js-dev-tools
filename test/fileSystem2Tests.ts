@@ -1,7 +1,7 @@
 import { assert } from "chai";
 import { map, findPackageJsonFileSync } from "../lib";
 import { assertEx } from "../lib/assertEx";
-import { copyEntry, copyFile, copyFolder, createFolder, deleteEntry, deleteFolder, entryExists, fileExists, findFileInPath, folderExists, getChildEntryPaths, readFileContents, symbolicLinkExists, writeFileContents, findFolderInPath } from "../lib/fileSystem2";
+import { copyEntry, copyFile, copyFolder, createFolder, deleteEntry, deleteFolder, entryExists, fileExists, findFileInPath, folderExists, getChildEntryPaths, readFileContents, symbolicLinkExists, writeFileContents, findFolderInPath, createTemporaryFolder } from "../lib/fileSystem2";
 import { joinPath, pathRelativeTo, resolvePath, getParentFolderPath, normalizePath, getPathName } from "../lib/path";
 
 describe("fileSystem2.ts", function () {
@@ -114,6 +114,108 @@ describe("fileSystem2.ts", function () {
         assert.strictEqual(await folderExists(folderPath), true);
       } finally {
         assert.strictEqual(await deleteFolder(folderPath), true, "Should be able to delete folder after checks.");
+      }
+    });
+  });
+
+  describe("createTemporaryFolder()", function () {
+    it("with no parentFolderPath", async function () {
+      const tempFolderPath: string = await createTemporaryFolder();
+      try {
+        assert.strictEqual(tempFolderPath, joinPath(process.cwd(), "1"));
+        assert.strictEqual(await folderExists(tempFolderPath), true);
+      } finally {
+        await deleteFolder(tempFolderPath);
+      }
+    });
+
+    it("with undefined parentFolderPath", async function () {
+      const tempFolderPath: string = await createTemporaryFolder(undefined);
+      try {
+        assert.strictEqual(tempFolderPath, joinPath(process.cwd(), "1"));
+        assert.strictEqual(await folderExists(tempFolderPath), true);
+      } finally {
+        await deleteFolder(tempFolderPath);
+      }
+    });
+
+    it("with null parentFolderPath", async function () {
+      // tslint:disable-next-line: no-null-keyword
+      const tempFolderPath: string = await createTemporaryFolder(null as any);
+      try {
+        assert.strictEqual(tempFolderPath, joinPath(process.cwd(), "1"));
+        assert.strictEqual(await folderExists(tempFolderPath), true);
+      } finally {
+        await deleteFolder(tempFolderPath);
+      }
+    });
+
+    it("with rooted parentFolderPath that doesn't exist", async function () {
+      const parentFolderPath: string = joinPath(process.cwd(), "idontexist");
+      assert.strictEqual(await folderExists(parentFolderPath), false);
+      const tempFolderPath: string = await createTemporaryFolder(parentFolderPath);
+      try {
+        assert.strictEqual(tempFolderPath, joinPath(parentFolderPath, "1"));
+        assert.strictEqual(await folderExists(parentFolderPath), true);
+        assert.strictEqual(await folderExists(tempFolderPath), true);
+      } finally {
+        await deleteFolder(parentFolderPath);
+      }
+    });
+
+    it("with rooted parentFolderPath that does exist", async function () {
+      const parentFolderPath: string = joinPath(process.cwd(), "iexist");
+      await createFolder(parentFolderPath);
+      assert.strictEqual(await folderExists(parentFolderPath), true);
+      const tempFolderPath: string = await createTemporaryFolder(parentFolderPath);
+      try {
+        assert.strictEqual(tempFolderPath, joinPath(parentFolderPath, "1"));
+        assert.strictEqual(await folderExists(parentFolderPath), true);
+        assert.strictEqual(await folderExists(tempFolderPath), true);
+      } finally {
+        await deleteFolder(parentFolderPath);
+      }
+    });
+
+    it("with relative parentFolderPath that doesn't exist", async function () {
+      const parentFolderPath = "idontexist";
+      assert.strictEqual(await folderExists(parentFolderPath), false);
+      const tempFolderPath: string = await createTemporaryFolder(parentFolderPath);
+      try {
+        assert.strictEqual(tempFolderPath, joinPath(process.cwd(), parentFolderPath, "1"));
+        assert.strictEqual(await folderExists(parentFolderPath), true);
+        assert.strictEqual(await folderExists(tempFolderPath), true);
+      } finally {
+        await deleteFolder(parentFolderPath);
+      }
+    });
+
+    it("with relative parentFolderPath that does exist", async function () {
+      const parentFolderPath = "iexist";
+      await createFolder(parentFolderPath);
+      assert.strictEqual(await folderExists(parentFolderPath), true);
+      const tempFolderPath: string = await createTemporaryFolder(parentFolderPath);
+      try {
+        assert.strictEqual(tempFolderPath, joinPath(process.cwd(), parentFolderPath, "1"));
+        assert.strictEqual(await folderExists(parentFolderPath), true);
+        assert.strictEqual(await folderExists(tempFolderPath), true);
+      } finally {
+        await deleteFolder(parentFolderPath);
+      }
+    });
+
+    it("when temporary folder already exists", async function () {
+      const tempFolderPath1: string = await createTemporaryFolder();
+      try {
+        const tempFolderPath2: string = await createTemporaryFolder();
+        try {
+          assert.strictEqual(tempFolderPath2, joinPath(process.cwd(), "2"));
+          assert.strictEqual(await folderExists(tempFolderPath2), true);
+        } finally {
+          await deleteFolder(tempFolderPath2);
+        }
+      } finally {
+        await deleteFolder(tempFolderPath1);
       }
     });
   });
