@@ -1,49 +1,49 @@
 import { assert } from "chai";
+import { ExecutableGit } from "../lib";
+import { contains } from "../lib/arrays";
 import { assertEx } from "../lib/assertEx";
-import { writeFileContents } from "../lib/fileSystem2";
-import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub, getGitHubRepositoryFromUrl, GitHubReference, GitHubBranch } from "../lib/github";
+import { createFolder, deleteFolder, writeFileContents } from "../lib/fileSystem2";
+import { FakeGitHub, FakeRepository, getGitHubRepositoryFromUrl, getRepository, getRepositoryBranch, getRepositoryFullName, GitHub, GitHubBranch, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubReference, GitHubSprintLabel, GitHubUser, RealGitHub, Repository } from "../lib/github";
 import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
-import { contains } from "../lib/arrays";
-import { ExecutableGit } from "../lib";
 
 describe("github.ts", function () {
-  describe("getGitHubRepository(string)", function () {
+  describe("getRepository(string)", function () {
     it(`with null`, function () {
       // tslint:disable-next-line:no-null-keyword
-      const repository: GitHubRepository = getGitHubRepository(null as any);
+      const repository: Repository = getRepository(null as any);
       // tslint:disable-next-line:no-null-keyword
-      assert.deepEqual(repository, { name: null as any, organization: "" });
+      assert.deepEqual(repository, { name: null as any, owner: "" });
     });
 
     it(`with undefined`, function () {
-      const repository: GitHubRepository = getGitHubRepository(undefined as any);
-      assert.deepEqual(repository, { name: undefined as any, organization: "" });
+      const repository: Repository = getRepository(undefined as any);
+      assert.deepEqual(repository, { name: undefined as any, owner: "" });
     });
 
     it(`with ""`, function () {
-      const repository: GitHubRepository = getGitHubRepository("");
-      assert.deepEqual(repository, { name: "", organization: "" });
+      const repository: Repository = getRepository("");
+      assert.deepEqual(repository, { name: "", owner: "" });
     });
 
     it(`with "abc"`, function () {
-      const repository: GitHubRepository = getGitHubRepository("abc");
-      assert.deepEqual(repository, { name: "abc", organization: "" });
+      const repository: Repository = getRepository("abc");
+      assert.deepEqual(repository, { name: "abc", owner: "" });
     });
 
     it(`with "abc/d"`, function () {
-      const repository: GitHubRepository = getGitHubRepository("abc/d");
-      assert.deepEqual(repository, { name: "d", organization: "abc" });
+      const repository: Repository = getRepository("abc/d");
+      assert.deepEqual(repository, { name: "d", owner: "abc" });
     });
 
     it(`with "abc\\d"`, function () {
-      const repository: GitHubRepository = getGitHubRepository("abc\\d");
-      assert.deepEqual(repository, { name: "d", organization: "abc" });
+      const repository: Repository = getRepository("abc\\d");
+      assert.deepEqual(repository, { name: "d", owner: "abc" });
     });
 
     it(`with GitHubRepository`, function () {
-      const expected: GitHubRepository = { name: "a", organization: "b" };
-      const repository: GitHubRepository = getGitHubRepository(expected);
+      const expected: Repository = { name: "a", owner: "b" };
+      const repository: Repository = getRepository(expected);
       assert.strictEqual(repository, expected);
     });
   });
@@ -74,12 +74,12 @@ describe("github.ts", function () {
       assert.strictEqual(getRepositoryFullName("abc\\d"), "abc\\d");
     });
 
-    it(`with { name: "a", organization: "" }`, function () {
-      assert.strictEqual(getRepositoryFullName({ name: "a", organization: "" }), "a");
+    it(`with { name: "a", owner: "" }`, function () {
+      assert.strictEqual(getRepositoryFullName({ name: "a", owner: "" }), "a");
     });
 
-    it(`with { name: "a", organization: "b" }`, function () {
-      assert.strictEqual(getRepositoryFullName({ name: "a", organization: "b" }), "b/a");
+    it(`with { name: "a", owner: "b" }`, function () {
+      assert.strictEqual(getRepositoryFullName({ name: "a", owner: "b" }), "b/a");
     });
   });
 
@@ -211,9 +211,20 @@ describe("github.ts", function () {
     });
   });
 
-  describe("FakeGitHubRepository", function () {
+  describe("getRepositoryBranch()", function () {
+    it("with undefined", function () {
+      getRepositoryBranch(undefined as any);
+    });
+
+    it("with null", function () {
+      // tslint:disable-next-line: no-null-keyword
+      getRepositoryBranch(null as any);
+    });
+  });
+
+  describe("FakeRepository", function () {
     it("with undefined name", function () {
-      const repository = new FakeGitHubRepository(undefined as any);
+      const repository = new FakeRepository(undefined as any);
       assert.strictEqual(repository.name, undefined);
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -222,7 +233,7 @@ describe("github.ts", function () {
 
     it("with null name", function () {
       // tslint:disable-next-line:no-null-keyword
-      const repository = new FakeGitHubRepository(null as any);
+      const repository = new FakeRepository(null as any);
       // tslint:disable-next-line:no-null-keyword
       assert.strictEqual(repository.name, null);
       assert.deepEqual(repository.labels, []);
@@ -231,7 +242,7 @@ describe("github.ts", function () {
     });
 
     it(`with "" name`, function () {
-      const repository = new FakeGitHubRepository("");
+      const repository = new FakeRepository("");
       assert.strictEqual(repository.name, "");
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -239,7 +250,7 @@ describe("github.ts", function () {
     });
 
     it(`with "abc" name`, function () {
-      const repository = new FakeGitHubRepository("abc");
+      const repository = new FakeRepository("abc");
       assert.strictEqual(repository.name, "abc");
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -247,7 +258,7 @@ describe("github.ts", function () {
     });
 
     it(`with "ab/cd" name`, function () {
-      const repository = new FakeGitHubRepository("ab/cd");
+      const repository = new FakeRepository("ab/cd");
       assert.strictEqual(repository.name, "ab/cd");
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -255,7 +266,7 @@ describe("github.ts", function () {
     });
 
     it(`with "ab\\cd" name`, function () {
-      const repository = new FakeGitHubRepository("ab\\cd");
+      const repository = new FakeRepository("ab\\cd");
       assert.strictEqual(repository.name, "ab\\cd");
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -295,49 +306,49 @@ describe("github.ts", function () {
 
     it(`with "https://github.com/hello"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/hello"), {
-        organization: "",
+        owner: "",
         name: "hello",
       });
     });
 
     it(`with "https://github.com/hello.git"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/hello.git"), {
-        organization: "",
+        owner: "",
         name: "hello",
       });
     });
 
     it(`with "https://github.com/hello/"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/hello/"), {
-        organization: "",
+        owner: "",
         name: "hello",
       });
     });
 
     it(`with "https://github.com/Azure/azure-rest-api-specs"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/Azure/azure-rest-api-specs"), {
-        organization: "Azure",
+        owner: "Azure",
         name: "azure-rest-api-specs",
       });
     });
 
     it(`with "https://github.com/Azure/azure-rest-api-specs.git"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/Azure/azure-rest-api-specs.git"), {
-        organization: "Azure",
+        owner: "Azure",
         name: "azure-rest-api-specs",
       });
     });
 
     it(`with "https://github.com/ts-common/azure-js-dev-tools/blob/master/.gitignore"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/ts-common/azure-js-dev-tools/blob/master/.gitignore"), {
-        organization: "ts-common",
+        owner: "ts-common",
         name: "azure-js-dev-tools",
       });
     });
 
     it(`with "https://github.com/ts-common/blob/master/.gitignore"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/ts-common/blob/master/.gitignore"), {
-        organization: "",
+        owner: "",
         name: "ts-common",
       });
     });
@@ -371,8 +382,8 @@ describe("github.ts", function () {
           await assertEx.throwsAsync(github.getLabels(""));
         });
 
-        it(`with "ts-common/azure-js-dev-tools"`, async function () {
-          const labels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
+        it(`with "test-repo-billy/azure-js-dev-tools"`, async function () {
+          const labels: GitHubLabel[] = await github.getLabels("test-repo-billy/azure-js-dev-tools");
           assertEx.defined(labels, "labels");
           assertEx.greaterThan(labels.length, 0, "labels.length");
         });
@@ -470,7 +481,7 @@ describe("github.ts", function () {
             const error: Error = await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", labelName, labelColor));
             assert.strictEqual(error.message, "Validation Failed");
           } finally {
-            await github.deleteLabel("ts-common/azure-js-dev-tools", labelName).catch(() => {});
+            await github.deleteLabel("ts-common/azure-js-dev-tools", labelName).catch(() => { });
           }
         });
 
@@ -497,7 +508,7 @@ describe("github.ts", function () {
             const error: Error = await assertEx.throwsAsync(github.createLabel("test-repo-billy/azure-sdk-for-js", labelName, labelColor));
             assert.strictEqual(error.message, "Validation Failed");
           } finally {
-            await github.deleteLabel("test-repo-billy/azure-sdk-for-js", labelName).catch(() => {});
+            await github.deleteLabel("test-repo-billy/azure-sdk-for-js", labelName).catch(() => { });
           }
         });
       });
@@ -572,23 +583,29 @@ describe("github.ts", function () {
           await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "master", "fake-title"));
         });
 
-        it.skip("with valid branches and changes", async function () {
+        it("with valid local branches and changes", async function () {
           this.timeout(30000);
 
-          const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
-          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
-
-          const currentBranch: string = await git.currentBranch();
-          const headBranchName = "fake-head-branch";
-          await git.createLocalBranch(headBranchName);
-          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
-          await writeFileContents(fakeFilePath, "fake file contents");
-          await git.add(fakeFilePath);
-          await git.commit(`Add ${fakeFilePath}`, { noVerify: true });
+          const repository = "test-repo-billy/azure-js-dev-tools";
+          const repositoryFolderPath: string = joinPath(getParentFolderPath(findPackageJsonFileSync(__filename)!), "..", repository);
+          await createFolder(repositoryFolderPath);
           try {
+            const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+            const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${repository}.git`, {
+              directory: repositoryFolderPath
+            });
+            assert.strictEqual(cloneResult.exitCode, 0);
+
+            const headBranchName = "fake-head-branch";
+            await git.createLocalBranch(headBranchName);
+            const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+            await writeFileContents(fakeFilePath, "fake file contents");
+            await git.add(fakeFilePath);
+            await git.commit(`Add ${fakeFilePath}`, { noVerify: true });
+
             await git.push({ setUpstream: true, branchName: headBranchName });
             try {
-              const pullRequest: GitHubPullRequest = await github.createPullRequest("ts-common/azure-js-dev-tools", "master", headBranchName, "fake-title");
+              const pullRequest: GitHubPullRequest = await github.createPullRequest(repository, "master", headBranchName, "fake-title");
               try {
                 assertEx.defined(pullRequest, "pullRequest");
                 assert.strictEqual(pullRequest.base.ref, "master");
@@ -597,14 +614,13 @@ describe("github.ts", function () {
                 assert.strictEqual(pullRequest.title, "fake-title");
                 assert.strictEqual(pullRequest.body, "");
               } finally {
-                await github.closePullRequest("ts-common/azure-js-dev-tools", pullRequest);
+                await github.closePullRequest(repository, pullRequest);
               }
             } finally {
               await git.deleteRemoteBranch(headBranchName);
             }
           } finally {
-            await git.checkout(currentBranch);
-            await git.deleteLocalBranch(headBranchName);
+            await deleteFolder(repositoryFolderPath);
           }
         });
 
