@@ -1,49 +1,49 @@
 import { assert } from "chai";
+import { ExecutableGit } from "../lib";
+import { contains } from "../lib/arrays";
 import { assertEx } from "../lib/assertEx";
-import { writeFileContents } from "../lib/fileSystem2";
-import { FakeGitHub, FakeGitHubRepository, getGitHubRepository, getRepositoryFullName, GitHub, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubRepository, GitHubSprintLabel, GitHubUser, RealGitHub, getGitHubRepositoryFromUrl, GitHubReference, GitHubBranch } from "../lib/github";
+import { createTemporaryFolder, deleteFolder, writeFileContents } from "../lib/fileSystem2";
+import { FakeGitHub, FakeRepository, getGitHubRepositoryFromUrl, getRepository, getRepositoryBranch, getRepositoryFullName, GitHub, GitHubBranch, GitHubComment, GitHubCommit, GitHubLabel, GitHubMilestone, GitHubPullRequest, GitHubPullRequestCommit, gitHubPullRequestGetAssignee, gitHubPullRequestGetLabel, gitHubPullRequestGetLabels, GitHubReference, GitHubSprintLabel, GitHubUser, RealGitHub, Repository } from "../lib/github";
 import { findPackageJsonFileSync } from "../lib/packageJson";
 import { getParentFolderPath, joinPath } from "../lib/path";
-import { contains } from "../lib/arrays";
-import { ExecutableGit } from "../lib";
 
 describe("github.ts", function () {
-  describe("getGitHubRepository(string)", function () {
+  describe("getRepository(string)", function () {
     it(`with null`, function () {
       // tslint:disable-next-line:no-null-keyword
-      const repository: GitHubRepository = getGitHubRepository(null as any);
+      const repository: Repository = getRepository(null as any);
       // tslint:disable-next-line:no-null-keyword
-      assert.deepEqual(repository, { name: null as any, organization: "" });
+      assert.deepEqual(repository, { name: null as any, owner: "" });
     });
 
     it(`with undefined`, function () {
-      const repository: GitHubRepository = getGitHubRepository(undefined as any);
-      assert.deepEqual(repository, { name: undefined as any, organization: "" });
+      const repository: Repository = getRepository(undefined as any);
+      assert.deepEqual(repository, { name: undefined as any, owner: "" });
     });
 
     it(`with ""`, function () {
-      const repository: GitHubRepository = getGitHubRepository("");
-      assert.deepEqual(repository, { name: "", organization: "" });
+      const repository: Repository = getRepository("");
+      assert.deepEqual(repository, { name: "", owner: "" });
     });
 
     it(`with "abc"`, function () {
-      const repository: GitHubRepository = getGitHubRepository("abc");
-      assert.deepEqual(repository, { name: "abc", organization: "" });
+      const repository: Repository = getRepository("abc");
+      assert.deepEqual(repository, { name: "abc", owner: "" });
     });
 
     it(`with "abc/d"`, function () {
-      const repository: GitHubRepository = getGitHubRepository("abc/d");
-      assert.deepEqual(repository, { name: "d", organization: "abc" });
+      const repository: Repository = getRepository("abc/d");
+      assert.deepEqual(repository, { name: "d", owner: "abc" });
     });
 
     it(`with "abc\\d"`, function () {
-      const repository: GitHubRepository = getGitHubRepository("abc\\d");
-      assert.deepEqual(repository, { name: "d", organization: "abc" });
+      const repository: Repository = getRepository("abc\\d");
+      assert.deepEqual(repository, { name: "d", owner: "abc" });
     });
 
     it(`with GitHubRepository`, function () {
-      const expected: GitHubRepository = { name: "a", organization: "b" };
-      const repository: GitHubRepository = getGitHubRepository(expected);
+      const expected: Repository = { name: "a", owner: "b" };
+      const repository: Repository = getRepository(expected);
       assert.strictEqual(repository, expected);
     });
   });
@@ -74,12 +74,12 @@ describe("github.ts", function () {
       assert.strictEqual(getRepositoryFullName("abc\\d"), "abc\\d");
     });
 
-    it(`with { name: "a", organization: "" }`, function () {
-      assert.strictEqual(getRepositoryFullName({ name: "a", organization: "" }), "a");
+    it(`with { name: "a", owner: "" }`, function () {
+      assert.strictEqual(getRepositoryFullName({ name: "a", owner: "" }), "a");
     });
 
-    it(`with { name: "a", organization: "b" }`, function () {
-      assert.strictEqual(getRepositoryFullName({ name: "a", organization: "b" }), "b/a");
+    it(`with { name: "a", owner: "b" }`, function () {
+      assert.strictEqual(getRepositoryFullName({ name: "a", owner: "b" }), "b/a");
     });
   });
 
@@ -211,9 +211,20 @@ describe("github.ts", function () {
     });
   });
 
-  describe("FakeGitHubRepository", function () {
+  describe("getRepositoryBranch()", function () {
+    it("with undefined", function () {
+      getRepositoryBranch(undefined as any);
+    });
+
+    it("with null", function () {
+      // tslint:disable-next-line: no-null-keyword
+      getRepositoryBranch(null as any);
+    });
+  });
+
+  describe("FakeRepository", function () {
     it("with undefined name", function () {
-      const repository = new FakeGitHubRepository(undefined as any);
+      const repository = new FakeRepository(undefined as any);
       assert.strictEqual(repository.name, undefined);
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -222,7 +233,7 @@ describe("github.ts", function () {
 
     it("with null name", function () {
       // tslint:disable-next-line:no-null-keyword
-      const repository = new FakeGitHubRepository(null as any);
+      const repository = new FakeRepository(null as any);
       // tslint:disable-next-line:no-null-keyword
       assert.strictEqual(repository.name, null);
       assert.deepEqual(repository.labels, []);
@@ -231,7 +242,7 @@ describe("github.ts", function () {
     });
 
     it(`with "" name`, function () {
-      const repository = new FakeGitHubRepository("");
+      const repository = new FakeRepository("");
       assert.strictEqual(repository.name, "");
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -239,7 +250,7 @@ describe("github.ts", function () {
     });
 
     it(`with "abc" name`, function () {
-      const repository = new FakeGitHubRepository("abc");
+      const repository = new FakeRepository("abc");
       assert.strictEqual(repository.name, "abc");
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -247,7 +258,7 @@ describe("github.ts", function () {
     });
 
     it(`with "ab/cd" name`, function () {
-      const repository = new FakeGitHubRepository("ab/cd");
+      const repository = new FakeRepository("ab/cd");
       assert.strictEqual(repository.name, "ab/cd");
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -255,7 +266,7 @@ describe("github.ts", function () {
     });
 
     it(`with "ab\\cd" name`, function () {
-      const repository = new FakeGitHubRepository("ab\\cd");
+      const repository = new FakeRepository("ab\\cd");
       assert.strictEqual(repository.name, "ab\\cd");
       assert.deepEqual(repository.labels, []);
       assert.deepEqual(repository.milestones, []);
@@ -295,961 +306,1740 @@ describe("github.ts", function () {
 
     it(`with "https://github.com/hello"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/hello"), {
-        organization: "",
+        owner: "",
         name: "hello",
       });
     });
 
     it(`with "https://github.com/hello.git"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/hello.git"), {
-        organization: "",
+        owner: "",
         name: "hello",
       });
     });
 
     it(`with "https://github.com/hello/"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/hello/"), {
-        organization: "",
+        owner: "",
         name: "hello",
       });
     });
 
     it(`with "https://github.com/Azure/azure-rest-api-specs"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/Azure/azure-rest-api-specs"), {
-        organization: "Azure",
+        owner: "Azure",
         name: "azure-rest-api-specs",
       });
     });
 
     it(`with "https://github.com/Azure/azure-rest-api-specs.git"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/Azure/azure-rest-api-specs.git"), {
-        organization: "Azure",
+        owner: "Azure",
         name: "azure-rest-api-specs",
       });
     });
 
     it(`with "https://github.com/ts-common/azure-js-dev-tools/blob/master/.gitignore"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/ts-common/azure-js-dev-tools/blob/master/.gitignore"), {
-        organization: "ts-common",
+        owner: "ts-common",
         name: "azure-js-dev-tools",
       });
     });
 
     it(`with "https://github.com/ts-common/blob/master/.gitignore"`, function () {
       assert.deepEqual(getGitHubRepositoryFromUrl("https://github.com/ts-common/blob/master/.gitignore"), {
-        organization: "",
+        owner: "",
         name: "ts-common",
       });
     });
   });
 
-  function githubTests(testSuiteName: string, rawGithub: GitHub | undefined): Mocha.Suite | void {
-    const github: GitHub = rawGithub!;
-    return (rawGithub ? describe : describe.skip)(testSuiteName, function () {
-      this.timeout(10000);
+  function githubTests(githubCreator: () => GitHub): Mocha.Suite | void {
+    it("getCurrentUser()", async function () {
+      const github: GitHub = githubCreator();
+      const currentUser: GitHubUser = await github.getCurrentUser();
+      assert(currentUser);
+      assertEx.definedAndNotEmpty(currentUser.login, "currentUser.login");
+      assertEx.defined(currentUser.id, "currentUser.id");
+      assertEx.definedAndNotEmpty(currentUser.name, "currentUser.name");
+      assertEx.startsWith(currentUser.url, "https://api.github.com/users/", "currentUser.url");
+    });
 
-      it("getCurrentUser()", async function () {
-        const currentUser: GitHubUser = await github.getCurrentUser();
-        assert(currentUser);
-        assertEx.definedAndNotEmpty(currentUser.login, "currentUser.login");
-        assertEx.defined(currentUser.id, "currentUser.id");
-        assertEx.definedAndNotEmpty(currentUser.name, "currentUser.name");
-        assertEx.startsWith(currentUser.url, "https://api.github.com/users/", "currentUser.url");
+    describe("getLabels()", function () {
+      it("with undefined", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getLabels(undefined as any));
       });
 
-      describe("getLabels()", function () {
-        it("with undefined", async function () {
-          await assertEx.throwsAsync(github.getLabels(undefined as any));
-        });
+      it("with null", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.getLabels(null as any));
+      });
 
-        it("with null", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.getLabels(null as any));
-        });
+      it(`with ""`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getLabels(""));
+      });
 
-        it(`with ""`, async function () {
-          await assertEx.throwsAsync(github.getLabels(""));
-        });
+      it(`with "test-repo-billy/azure-js-dev-tools"`, async function () {
+        const github: GitHub = githubCreator();
+        const labels: GitHubLabel[] = await github.getLabels("test-repo-billy/azure-js-dev-tools");
+        assertEx.defined(labels, "labels");
+        assertEx.greaterThan(labels.length, 0, "labels.length");
+      });
 
-        it(`with "ts-common/azure-js-dev-tools"`, async function () {
+      it(`with "test-repo-billy/azure-sdk-for-js"`, async function () {
+        const github: GitHub = githubCreator();
+        const labels: GitHubLabel[] = await github.getLabels("test-repo-billy/azure-sdk-for-js");
+        assertEx.defined(labels, "labels");
+        assertEx.greaterThan(labels.length, 0, "labels.length");
+      });
+    });
+
+    describe("getSprintLabels()", function () {
+      it("with undefined", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getSprintLabels(undefined as any));
+      });
+
+      it("with null", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.getSprintLabels(null as any));
+      });
+
+      it(`with ""`, async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.getSprintLabels(""));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools"`, async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        const sprintLabels: GitHubSprintLabel[] = await github.getSprintLabels("ts-common/azure-js-dev-tools");
+        assertEx.defined(sprintLabels, "sprintLabels");
+        assertEx.greaterThan(sprintLabels.length, 0, "sprintLabels.length");
+      });
+    });
+
+    describe("createLabel()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createLabel(undefined as any, "fake label name", "fake color"));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.createLabel(null as any, "fake label name", "fake color"));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createLabel(undefined as any, "fake label name", "fake color"));
+      });
+
+      it("with undefined label name", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", undefined as any, "fake color"));
+      });
+
+      it("with null label name", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", null as any, "fake color"));
+      });
+
+      it(`with "" label name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "", "fake color"));
+      });
+
+      it("with undefined color", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "fake label name", undefined as any));
+      });
+
+      it("with null color", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "fake label name", null as any));
+      });
+
+      it(`with "" color`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "fake label name", ""));
+      });
+
+      it(`with valid label name and color with no # prefix in ts-common/azure-js-dev-tools`, async function () {
+        const github: GitHub = githubCreator();
+        const labelName = "fakelabelthatjustgotcreated";
+        const labelColor = "123456";
+        const createdLabel: GitHubLabel = await github.createLabel("ts-common/azure-js-dev-tools", labelName, labelColor);
+        try {
+          assertEx.defined(createdLabel, "createdLabel");
+          assert.strictEqual(createdLabel.name, labelName);
+          assert.strictEqual(createdLabel.color, labelColor);
+
           const labels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
-          assertEx.defined(labels, "labels");
-          assertEx.greaterThan(labels.length, 0, "labels.length");
-        });
-
-        it(`with "test-repo-billy/azure-sdk-for-js"`, async function () {
-          const labels: GitHubLabel[] = await github.getLabels("test-repo-billy/azure-sdk-for-js");
-          assertEx.defined(labels, "labels");
-          assertEx.greaterThan(labels.length, 0, "labels.length");
-        });
-      });
-
-      describe("getSprintLabels()", function () {
-        it("with undefined", async function () {
-          await assertEx.throwsAsync(github.getSprintLabels(undefined as any));
-        });
-
-        it("with null", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.getSprintLabels(null as any));
-        });
-
-        it(`with ""`, async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.getSprintLabels(""));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools"`, async function () {
-          // tslint:disable-next-line:no-null-keyword
-          const sprintLabels: GitHubSprintLabel[] = await github.getSprintLabels("ts-common/azure-js-dev-tools");
-          assertEx.defined(sprintLabels, "sprintLabels");
-          assertEx.greaterThan(sprintLabels.length, 0, "sprintLabels.length");
-        });
-      });
-
-      describe("createLabel()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.createLabel(undefined as any, "fake label name", "fake color"));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.createLabel(null as any, "fake label name", "fake color"));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.createLabel(undefined as any, "fake label name", "fake color"));
-        });
-
-        it("with undefined label name", async function () {
-          await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", undefined as any, "fake color"));
-        });
-
-        it("with null label name", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", null as any, "fake color"));
-        });
-
-        it(`with "" label name`, async function () {
-          await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "", "fake color"));
-        });
-
-        it("with undefined color", async function () {
-          await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "fake label name", undefined as any));
-        });
-
-        it("with null color", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "fake label name", null as any));
-        });
-
-        it(`with "" color`, async function () {
-          await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", "fake label name", ""));
-        });
-
-        it(`with valid label name and color with no # prefix in ts-common/azure-js-dev-tools`, async function () {
-          const labelName = "fakelabelthatjustgotcreated";
-          const labelColor = "123456";
-          const createdLabel: GitHubLabel = await github.createLabel("ts-common/azure-js-dev-tools", labelName, labelColor);
-          try {
-            assertEx.defined(createdLabel, "createdLabel");
-            assert.strictEqual(createdLabel.name, labelName);
-            assert.strictEqual(createdLabel.color, labelColor);
-
-            const labels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
-            assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName && label.color === labelColor), true);
-          } finally {
-            await github.deleteLabel("ts-common/azure-js-dev-tools", labelName);
-          }
-        });
-
-        it(`with valid label name and color with # prefix in ts-common/azure-js-dev-tools`, async function () {
-          const labelName = "fakelabelthatjustgotcreated";
-          const labelColor = "#123456";
-          try {
-            const error: Error = await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", labelName, labelColor));
-            assert.strictEqual(error.message, "Validation Failed");
-          } finally {
-            await github.deleteLabel("ts-common/azure-js-dev-tools", labelName).catch(() => {});
-          }
-        });
-
-        it(`with valid label name and color with no # prefix in test-repo-billy/azure-sdk-for-js`, async function () {
-          const labelName = "fakelabelthatjustgotcreated";
-          const labelColor = "123456";
-          const createdLabel: GitHubLabel = await github.createLabel("test-repo-billy/azure-sdk-for-js", labelName, labelColor);
-          try {
-            assertEx.defined(createdLabel, "createdLabel");
-            assert.strictEqual(createdLabel.name, labelName);
-            assert.strictEqual(createdLabel.color, labelColor);
-
-            const labels: GitHubLabel[] = await github.getLabels("test-repo-billy/azure-sdk-for-js");
-            assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName && label.color === labelColor), true);
-          } finally {
-            await github.deleteLabel("test-repo-billy/azure-sdk-for-js", labelName);
-          }
-        });
-
-        it(`with valid label name and color with # prefix in test-repo-billy/azure-sdk-for-js`, async function () {
-          const labelName = "fakelabelthatjustgotcreated";
-          const labelColor = "#123456";
-          try {
-            const error: Error = await assertEx.throwsAsync(github.createLabel("test-repo-billy/azure-sdk-for-js", labelName, labelColor));
-            assert.strictEqual(error.message, "Validation Failed");
-          } finally {
-            await github.deleteLabel("test-repo-billy/azure-sdk-for-js", labelName).catch(() => {});
-          }
-        });
-      });
-
-      describe("deleteLabel()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.deleteLabel(undefined as any, "fake label name"));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.deleteLabel(null as any, "fake label name"));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.deleteLabel(undefined as any, "fake label name"));
-        });
-
-        it("with undefined label name", async function () {
-          await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", undefined as any));
-        });
-
-        it("with null label name", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", null as any));
-        });
-
-        it(`with "" label name`, async function () {
-          await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", ""));
-        });
-
-        it(`with label name that doesn't exist`, async function () {
-          await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", "labelthatdoesntexist"));
-        });
-
-        it(`with label that exists`, async function () {
-          const labelName = "fakelabelthatjustgotcreated";
-          await github.createLabel("ts-common/azure-js-dev-tools", labelName, "123456");
+          assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName && label.color === labelColor), true);
+        } finally {
           await github.deleteLabel("ts-common/azure-js-dev-tools", labelName);
-          const labels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
-          assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName), false);
-        });
+        }
       });
 
-      describe("createPullRequest()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.createPullRequest(undefined as any, "fake-base-branch", "fake-head-branch", "fake-title"));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.createPullRequest(null as any, "fake-base-branch", "fake-head-branch", "fake-title"));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.createPullRequest("", "fake-base-branch", "fake-head-branch", "fake-title"));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.createPullRequest("ImARepositoryThatDoesntExist", "fake-base-branch", "fake-head-branch", "fake-title"));
-        });
-
-        it("with base branch that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "not-found-fake-base-branch", "master", "fake-title"));
-        });
-
-        it("with head branch that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "not-found-fake-head-branch", "fake-title"));
-        });
-
-        it("with head branch with same label as base branch", async function () {
-          await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "master", "fake-title"));
-        });
-
-        it.skip("with valid branches and changes", async function () {
-          this.timeout(30000);
-
-          const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
-          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
-
-          const currentBranch: string = await git.currentBranch();
-          const headBranchName = "fake-head-branch";
-          await git.createLocalBranch(headBranchName);
-          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
-          await writeFileContents(fakeFilePath, "fake file contents");
-          await git.add(fakeFilePath);
-          await git.commit(`Add ${fakeFilePath}`, { noVerify: true });
-          try {
-            await git.push({ setUpstream: true, branchName: headBranchName });
-            try {
-              const pullRequest: GitHubPullRequest = await github.createPullRequest("ts-common/azure-js-dev-tools", "master", headBranchName, "fake-title");
-              try {
-                assertEx.defined(pullRequest, "pullRequest");
-                assert.strictEqual(pullRequest.base.ref, "master");
-                assert.strictEqual(pullRequest.head.ref, headBranchName);
-                assertEx.defined(pullRequest.number, "pullRequest.number");
-                assert.strictEqual(pullRequest.title, "fake-title");
-                assert.strictEqual(pullRequest.body, "");
-              } finally {
-                await github.closePullRequest("ts-common/azure-js-dev-tools", pullRequest);
-              }
-            } finally {
-              await git.deleteRemoteBranch(headBranchName);
-            }
-          } finally {
-            await git.checkout(currentBranch);
-            await git.deleteLocalBranch(headBranchName);
-          }
-        });
-
-        it.skip("with valid branches, changes, and description", async function () {
-          this.timeout(30000);
-
-          const repositoryFolderPath: string = getParentFolderPath(findPackageJsonFileSync(__filename)!);
-          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
-
-          const currentBranch: string = await git.currentBranch();
-          const headBranchName = "fake-head-branch";
-          await git.createLocalBranch(headBranchName);
-          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
-          await writeFileContents(fakeFilePath, "fake file contents");
-          await git.add(fakeFilePath);
-          await git.commit(`Add ${fakeFilePath}`, { noVerify: true });
-          try {
-            await git.push({ setUpstream: true, branchName: headBranchName });
-            try {
-              const pullRequest: GitHubPullRequest = await github.createPullRequest("ts-common/azure-js-dev-tools", "master", headBranchName, "fake-title", {
-                description: "My pull request's body/description"
-              });
-              try {
-                assertEx.defined(pullRequest, "pullRequest");
-                assert.strictEqual(pullRequest.base.ref, "master");
-                assert.strictEqual(pullRequest.head.ref, headBranchName);
-                assertEx.defined(pullRequest.number, "pullRequest.number");
-                assert.strictEqual(pullRequest.title, "fake-title");
-                assert.strictEqual(pullRequest.body, "My pull request's body/description");
-              } finally {
-                await github.closePullRequest("ts-common/azure-js-dev-tools", pullRequest);
-              }
-            } finally {
-              await git.deleteRemoteBranch(headBranchName);
-            }
-          } finally {
-            await git.checkout(currentBranch);
-            await git.deleteLocalBranch(headBranchName);
-          }
-        });
-
-        it("with non-existing head branch in non-existing fork", async function () {
-          await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "idontexist:fake-branch", "fake-title"));
-        });
-
-        it("with non-existing head branch in existing fork", async function () {
-          if (!(github instanceof FakeGitHub)) {
-            this.skip();
-          } else {
-            await github.forkRepository("ts-common/azure-js-dev-tools", "fake-user");
-            try {
-              await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "fake-user:fake-branch", "fake-title"));
-            } finally {
-              await github.deleteRepository("fake-user/azure-js-dev-tools");
-            }
-          }
-        });
-
-        it("with existing head branch in existing fork", async function () {
-          if (!(github instanceof FakeGitHub)) {
-            this.skip();
-          } else {
-            await github.forkRepository("ts-common/azure-js-dev-tools", "fake-user");
-            try {
-              await github.createCommit("fake-user/azure-js-dev-tools", "fake-branch-sha", "fake-branch-sha-message");
-              await github.createBranch("fake-user/azure-js-dev-tools", "fake-branch", "fake-branch-sha");
-              const pullRequest: GitHubPullRequest = await github.createPullRequest("ts-common/azure-js-dev-tools", "master", "fake-user:fake-branch", "fake-title");
-              assertEx.defined(pullRequest, "pullRequest");
-              assert.deepEqual(pullRequest.base, {
-                ref: "master",
-                label: "master",
-                sha: "fake-base-sha",
-              });
-              assert.deepEqual(pullRequest.head, {
-                ref: "fake-branch",
-                label: "fake-user:fake-branch",
-                sha: "fake-head-sha",
-              });
-              assert.strictEqual(await github.getPullRequest("ts-common/azure-js-dev-tools", pullRequest.number), pullRequest);
-              await assertEx.throwsAsync(github.getPullRequest("fake-user/azure-js-dev-tools", pullRequest.number));
-            } finally {
-              await github.deleteRepository("fake-user/azure-js-dev-tools");
-            }
-          }
-        });
+      it(`with valid label name and color with # prefix in ts-common/azure-js-dev-tools`, async function () {
+        const github: GitHub = githubCreator();
+        const labelName = "fakelabelthatjustgotcreated";
+        const labelColor = "#123456";
+        try {
+          const error: Error = await assertEx.throwsAsync(github.createLabel("ts-common/azure-js-dev-tools", labelName, labelColor));
+          assert.strictEqual(error.message, "Validation Failed");
+        } finally {
+          await github.deleteLabel("ts-common/azure-js-dev-tools", labelName).catch(() => { });
+        }
       });
 
-      describe("closePullRequest()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.closePullRequest(undefined as any, 50));
-        });
+      it(`with valid label name and color with no # prefix in test-repo-billy/azure-sdk-for-js`, async function () {
+        const github: GitHub = githubCreator();
+        const labelName = "fakelabelthatjustgotcreated";
+        const labelColor = "123456";
+        const createdLabel: GitHubLabel = await github.createLabel("test-repo-billy/azure-sdk-for-js", labelName, labelColor);
+        try {
+          assertEx.defined(createdLabel, "createdLabel");
+          assert.strictEqual(createdLabel.name, labelName);
+          assert.strictEqual(createdLabel.color, labelColor);
 
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.closePullRequest(null as any, 50));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.closePullRequest("", 50));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.closePullRequest("ImARepositoryThatDoesntExist", 50));
-        });
-
-        it("with pull request number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.closePullRequest("ts-common/azure-js-dev-tools", 1325097123));
-        });
-
-        it("with pull request number that is already closed", async function () {
-          await github.closePullRequest("ts-common/azure-js-dev-tools", 113);
-        });
+          const labels: GitHubLabel[] = await github.getLabels("test-repo-billy/azure-sdk-for-js");
+          assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName && label.color === labelColor), true);
+        } finally {
+          await github.deleteLabel("test-repo-billy/azure-sdk-for-js", labelName);
+        }
       });
 
-      describe("mergePullRequest()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.mergePullRequest(undefined as any, 50));
-        });
+      it(`with valid label name and color with # prefix in test-repo-billy/azure-sdk-for-js`, async function () {
+        const github: GitHub = githubCreator();
+        const labelName = "fakelabelthatjustgotcreated";
+        const labelColor = "#123456";
+        try {
+          const error: Error = await assertEx.throwsAsync(github.createLabel("test-repo-billy/azure-sdk-for-js", labelName, labelColor));
+          assert.strictEqual(error.message, "Validation Failed");
+        } finally {
+          await github.deleteLabel("test-repo-billy/azure-sdk-for-js", labelName).catch(() => { });
+        }
+      });
+    });
 
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.mergePullRequest(null as any, 50));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.mergePullRequest("", 50));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.mergePullRequest("ImARepositoryThatDoesntExist", 50));
-        });
-
-        it("with pull request number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.mergePullRequest("ts-common/azure-js-dev-tools", 1325097123));
-        });
-
-        it("with pull request number that is already closed", async function () {
-          await assertEx.throwsAsync(github.mergePullRequest("ts-common/azure-js-dev-tools", 113));
-        });
+    describe("deleteLabel()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteLabel(undefined as any, "fake label name"));
       });
 
-      describe("getPullRequest()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.getPullRequest(undefined as any, 50));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.getPullRequest(null as any, 50));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.getPullRequest("", 50));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.getPullRequest("ImARepositoryThatDoesntExist", 50));
-        });
-
-        it("with pull request number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.getPullRequest("ts-common/azure-js-dev-tools", 1325097123));
-        });
-
-        it("with pull request number that exists", async function () {
-          const pullRequest: GitHubPullRequest = await github.getPullRequest("ts-common/azure-js-dev-tools", 113);
-          assert(pullRequest);
-          assert(pullRequest.base);
-          assert.strictEqual(pullRequest.base.label, "ts-common:master");
-          assert.strictEqual(pullRequest.base.ref, "master");
-          assert.strictEqual(pullRequest.base.sha, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
-          assert.strictEqual(pullRequest.diff_url, "https://github.com/ts-common/azure-js-dev-tools/pull/113.diff");
-          assert(pullRequest.head);
-          assert.strictEqual(pullRequest.head.label, "ts-common:daschult/capturedLines");
-          assert.strictEqual(pullRequest.head.ref, "daschult/capturedLines");
-          assert.strictEqual(pullRequest.head.sha, "bc0488dbe9ba7b2dd32c094c826cf799c55ca67d");
-          assert.strictEqual(pullRequest.html_url, "https://github.com/ts-common/azure-js-dev-tools/pull/113");
-          assert.strictEqual(pullRequest.id, 253577251);
-          assert.strictEqual(pullRequest.merge_commit_sha, "17581a5c96422bf4feb5e67edf9920cd62671ccc");
-          assert.strictEqual(pullRequest.number, 113);
-          assert.strictEqual(pullRequest.state, "closed");
-          assert.strictEqual(pullRequest.title, "Buffer external process output and error until newline character");
-          assert.strictEqual(pullRequest.url, "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/113");
-          assert.strictEqual(pullRequest.body, "");
-        });
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.deleteLabel(null as any, "fake label name"));
       });
 
-      describe("addPullRequestLabels()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.addPullRequestLabels(undefined as any, 50, ["nope"]));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.addPullRequestLabels(null as any, 50, ["nope"]));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.addPullRequestLabels("", 50, ["nope"]));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.addPullRequestLabels("ImARepositoryThatDoesntExist", 50, ["nope"]));
-        });
-
-        it("with pull request number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.addPullRequestLabels("ts-common/azure-js-dev-tools", 1325097123, ["nope"]));
-        });
-
-        it("with label that doesn't exist in the repository", async function () {
-          assert.deepEqual(await github.addPullRequestLabels("ts-common/azure-js-dev-tools", 113, "nope"), [
-            "nope"
-          ]);
-          const repositoryLabels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
-          assert.strictEqual(contains(repositoryLabels, (label: GitHubLabel) => label.name === "nope"), true);
-          assert.deepEqual(await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, "nope"), [
-            "nope"
-          ]);
-          await github.deleteLabel("ts-common/azure-js-dev-tools", "nope");
-        });
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteLabel(undefined as any, "fake label name"));
       });
 
-      describe("removePullRequestLabels()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.removePullRequestLabels(undefined as any, 50, ["nope"]));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.removePullRequestLabels(null as any, 50, ["nope"]));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.removePullRequestLabels("", 50, ["nope"]));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.removePullRequestLabels("ImARepositoryThatDoesntExist", 50, ["nope"]));
-        });
-
-        it("with pull request number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.removePullRequestLabels("ts-common/azure-js-dev-tools", 1325097123, ["nope"]));
-        });
-
-        it("with label that doesn't exist in the repository", async function () {
-          const removedLabelNames: string[] = await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, ["nope"]);
-          assert.deepEqual(removedLabelNames, []);
-        });
-
-        it("with label that hasn't been added to the pull request", async function () {
-          const removedLabelNames: string[] = await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, ["in progress"]);
-          assert.deepEqual(removedLabelNames, []);
-        });
-
-        it("with label that has been added to the pull request", async function () {
-          await github.addPullRequestLabels("ts-common/azure-js-dev-tools", 113, "in progress");
-          const removedLabelNames: string[] = await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, ["in progress"]);
-          assert.deepEqual(removedLabelNames, ["in progress"]);
-        });
+      it("with undefined label name", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", undefined as any));
       });
 
-      describe("getPullRequestComments()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.getPullRequestComments(undefined as any, 50));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.getPullRequestComments(null as any, 50));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.getPullRequestComments("", 50));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.getPullRequestComments("ImARepositoryThatDoesntExist", 50));
-        });
-
-        it("with pull request number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.getPullRequestComments("ts-common/azure-js-dev-tools", 1325097123));
-        });
-
-        it("with pull request number that exists", async function () {
-          const comments: GitHubComment[] = await github.getPullRequestComments("ts-common/azure-js-dev-tools", 113);
-          assertEx.defined(comments, "comments");
-          assert.deepEqual(comments, []);
-        });
+      it("with null label name", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", null as any));
       });
 
-      describe("createPullRequestComment()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.createPullRequestComment(undefined as any, 50, "Fake Comment Body"));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.createPullRequestComment(null as any, 50, "Fake Comment Body"));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.createPullRequestComment("", 50, "Fake Comment Body"));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.createPullRequestComment("ImARepositoryThatDoesntExist", 50, "Fake Comment Body"));
-        });
-
-        it("with pull request number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.createPullRequestComment("ts-common/azure-js-dev-tools", 1325097123, "Fake Comment Body"));
-        });
-
-        it("with pull request number that exists", async function () {
-          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 113, "Fake Comment Body");
-          try {
-            assertEx.defined(createdComment, "createdComment");
-            assertEx.defined(createdComment.id, "createdComment.id");
-            assert.strictEqual(createdComment.body, "Fake Comment Body");
-          } finally {
-            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
-          }
-        });
+      it(`with "" label name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", ""));
       });
 
-      describe("updatePullRequestComment()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.updatePullRequestComment(undefined as any, 50, 12, "Fake Comment Body"));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.updatePullRequestComment(null as any, 50, 12, "Fake Comment Body"));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.updatePullRequestComment("", 50, 12, "Fake Comment Body"));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.updatePullRequestComment("ImARepositoryThatDoesntExist", 50, 12, "Fake Comment Body"));
-        });
-
-        it("with pull request number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.updatePullRequestComment("ts-common/azure-js-dev-tools", 1325097123, 198761876234, "Fake Comment Body"));
-        });
-
-        it("with comment number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.updatePullRequestComment("ts-common/azure-js-dev-tools", 113, 13925876, "New Fake Comment Body"));
-        });
-
-        it("with comment that exists", async function () {
-          const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 113, "Fake Comment Body");
-          try {
-            const updatedComment: GitHubComment = await github.updatePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment, "New Fake Comment Body");
-            assertEx.defined(updatedComment, "createdComment");
-            assert.strictEqual(updatedComment.id, createdComment.id);
-            assert.strictEqual(updatedComment.body, "New Fake Comment Body");
-          } finally {
-            await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
-          }
-        });
+      it(`with label name that doesn't exist`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteLabel("ts-common/azure-js-dev-tools", "labelthatdoesntexist"));
       });
 
-      describe("deletePullRequestComment()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.deletePullRequestComment(undefined as any, 50, 12));
-        });
+      it(`with label that exists`, async function () {
+        const github: GitHub = githubCreator();
+        const labelName = "fakelabelthatjustgotcreated";
+        await github.createLabel("ts-common/azure-js-dev-tools", labelName, "123456");
+        await github.deleteLabel("ts-common/azure-js-dev-tools", labelName);
+        const labels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
+        assert.strictEqual(contains(labels, (label: GitHubLabel) => label.name === labelName), false);
+      });
+    });
 
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.deletePullRequestComment(null as any, 50, 12));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.deletePullRequestComment("", 50, 12));
-        });
-
-        it("with repository that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.deletePullRequestComment("ImARepositoryThatDoesntExist", 50, 12));
-        });
-
-        it("with pull request number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.deletePullRequestComment("ts-common/azure-js-dev-tools", 1325097123, 198761876234));
-        });
-
-        it("with comment number that doesn't exist", async function () {
-          await assertEx.throwsAsync(github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, 1392581235476));
-        });
+    describe("createPullRequest()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequest(undefined as any, "fake-base-branch", "fake-head-branch", "fake-title"));
       });
 
-      describe("getCommit()", function () {
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.getCommit(undefined as any, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.getCommit(null as any, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.getCommit("", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
-        });
-
-        it(`with repository that doesn't exist`, async function () {
-          await assertEx.throwsAsync(github.getCommit("ImARepositoryThatDoesntExist", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
-        });
-
-        it(`with commit that doesn't exist`, async function () {
-          const commit: GitHubCommit | undefined = await github.getCommit("ts-common/azure-js-dev-tools", "applesandbananas");
-          assert.strictEqual(commit, undefined);
-        });
-
-        it(`with commit that does exist`, async function () {
-          const commit: GitHubCommit = (await github.getCommit("ts-common/azure-js-dev-tools", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"))!;
-          assertEx.defined(commit, "commit");
-          assert.strictEqual(commit.sha, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
-          assertEx.defined(commit.commit, "commit.commit");
-          assert.strictEqual(commit.commit.message, `Merge pull request #112 from ts-common/daschult/encoding\n\n Add encoding to stdout and stderr capture functions`);
-        });
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.createPullRequest(null as any, "fake-base-branch", "fake-head-branch", "fake-title"));
       });
 
-      describe("getAllReferences()", function () {
-        this.timeout(5000);
-
-        it("with undefined", async function () {
-          await assertEx.throwsAsync(github.getAllReferences(undefined as any));
-        });
-
-        it("with null", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.getAllReferences(null as any));
-        });
-
-        it(`with ""`, async function () {
-          await assertEx.throwsAsync(github.getAllReferences(""));
-        });
-
-        it(`with repository that doesn't exist`, async function () {
-          await assertEx.throwsAsync(github.getAllReferences("imarepositorythatdoesntexist"));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools"`, async function () {
-          const references: GitHubReference[] = await github.getAllReferences("ts-common/azure-js-dev-tools");
-          assertEx.defined(references, "references");
-          assertEx.greaterThan(references.length, 0, "labels.length");
-          assert(contains(references, (reference: GitHubReference) => reference.ref === "refs/heads/master"));
-        });
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequest("", "fake-base-branch", "fake-head-branch", "fake-title"));
       });
 
-      describe("getAllBranches()", function () {
-        this.timeout(5000);
-
-        it("with undefined", async function () {
-          await assertEx.throwsAsync(github.getAllBranches(undefined as any));
-        });
-
-        it("with null", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.getAllBranches(null as any));
-        });
-
-        it(`with ""`, async function () {
-          await assertEx.throwsAsync(github.getAllBranches(""));
-        });
-
-        it(`with repository that doesn't exist`, async function () {
-          await assertEx.throwsAsync(github.getAllBranches("imarepositorythatdoesntexist"));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools"`, async function () {
-          const branches: GitHubBranch[] = await github.getAllBranches("ts-common/azure-js-dev-tools");
-          assertEx.defined(branches, "references");
-          assertEx.greaterThan(branches.length, 0, "labels.length");
-          assert(contains(branches, (branch: GitHubBranch) => branch.ref === "refs/heads/master"));
-          assert(contains(branches, (branch: GitHubBranch) => branch.name === "master"));
-        });
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequest("ImARepositoryThatDoesntExist", "fake-base-branch", "fake-head-branch", "fake-title"));
       });
 
-      describe("getBranch()", function () {
-        this.timeout(5000);
-
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.getBranch(undefined as any, "fake-branch-name"));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.getBranch(null as any, "fake-branch-name"));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.getBranch("", "fake-branch-name"));
-        });
-
-        it(`with repository that doesn't exist`, async function () {
-          await assertEx.throwsAsync(github.getBranch("imarepositorythatdoesntexist", "fake-branch-name"));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools" and undefined branch name`, async function () {
-          await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", undefined as any));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools" and null branch name`, async function () {
-          // tslint:disable-next-line: no-null-keyword
-          await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", null as any));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools" and empty branch name`, async function () {
-          await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", ""));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools" and non-existing branch name`, async function () {
-          await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", "imabranchthatdoesntexist"));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools" and existing branch name`, async function () {
-          const branch: GitHubBranch = await github.getBranch("ts-common/azure-js-dev-tools", "master");
-          assertEx.defined(branch, "branch");
-          assert.strictEqual(branch.name, "master");
-          assert.strictEqual(branch.ref, "refs/heads/master");
-          assertEx.definedAndNotEmpty(branch.node_id, "branch.node_id");
-          assertEx.definedAndNotEmpty(branch.url, "branch.url");
-          assertEx.defined(branch.object, "branch.object");
-          assert.strictEqual(branch.object.type, "commit");
-          assertEx.definedAndNotEmpty(branch.object.sha);
-          assertEx.definedAndNotEmpty(branch.object.url);
-        });
+      it("with base branch that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "not-found-fake-base-branch", "master", "fake-title"));
       });
 
-      describe("deleteBranch()", function () {
-        this.timeout(5000);
-
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.deleteBranch(undefined as any, "fake-branch-name"));
-        });
-
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.deleteBranch(null as any, "fake-branch-name"));
-        });
-
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.deleteBranch("", "fake-branch-name"));
-        });
-
-        it(`with repository that doesn't exist`, async function () {
-          await assertEx.throwsAsync(github.deleteBranch("imarepositorythatdoesntexist", "fake-branch-name"));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools" and undefined branch name`, async function () {
-          await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", undefined as any));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools" and null branch name`, async function () {
-          // tslint:disable-next-line: no-null-keyword
-          await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", null as any));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools" and empty branch name`, async function () {
-          await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", ""));
-        });
-
-        it(`with "ts-common/azure-js-dev-tools" and non-existing branch name`, async function () {
-          await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", "imabranchthatdoesntexist"));
-        });
+      it("with head branch that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "not-found-fake-head-branch", "fake-title"));
       });
 
-      describe("createBranch()", function () {
-        this.timeout(5000);
+      it("with head branch with same label as base branch", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "master", "fake-title"));
+      });
+    });
 
-        it("with undefined repository", async function () {
-          await assertEx.throwsAsync(github.createBranch(undefined as any, "fake-branch-name", "fake-branch-sha"));
-        });
+    describe("closePullRequest()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.closePullRequest(undefined as any, 50));
+      });
 
-        it("with null repository", async function () {
-          // tslint:disable-next-line:no-null-keyword
-          await assertEx.throwsAsync(github.createBranch(null as any, "fake-branch-name", "fake-branch-sha"));
-        });
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.closePullRequest(null as any, 50));
+      });
 
-        it(`with "" repository`, async function () {
-          await assertEx.throwsAsync(github.createBranch("", "fake-branch-name", "fake-branch-sha"));
-        });
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.closePullRequest("", 50));
+      });
 
-        it(`with repository that doesn't exist`, async function () {
-          await assertEx.throwsAsync(github.createBranch("imarepositorythatdoesntexist", "fake-branch-name", "fake-branch-sha"));
-        });
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.closePullRequest("ImARepositoryThatDoesntExist", 50));
+      });
 
-        it(`with "ts-common/azure-js-dev-tools" and undefined branch name`, async function () {
-          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", undefined as any, "fake-branch-sha"));
-        });
+      it("with pull request number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.closePullRequest("ts-common/azure-js-dev-tools", 1325097123));
+      });
 
-        it(`with "ts-common/azure-js-dev-tools" and null branch name`, async function () {
-          // tslint:disable-next-line: no-null-keyword
-          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", null as any, "fake-branch-sha"));
-        });
+      it("with pull request number that is already closed", async function () {
+        const github: GitHub = githubCreator();
+        await github.closePullRequest("ts-common/azure-js-dev-tools", 113);
+      });
+    });
 
-        it(`with "ts-common/azure-js-dev-tools" and empty branch name`, async function () {
-          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "", "fake-branch-sha"));
-        });
+    describe("mergePullRequest()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.mergePullRequest(undefined as any, 50));
+      });
 
-        it(`with "ts-common/azure-js-dev-tools" and existing branch name`, async function () {
-          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "master", "fake-branch-sha"));
-        });
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.mergePullRequest(null as any, 50));
+      });
 
-        it(`with "ts-common/azure-js-dev-tools" and undefined branch sha`, async function () {
-          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", undefined as any));
-        });
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.mergePullRequest("", 50));
+      });
 
-        it(`with "ts-common/azure-js-dev-tools" and null branch sha`, async function () {
-          // tslint:disable-next-line: no-null-keyword
-          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", null as any));
-        });
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.mergePullRequest("ImARepositoryThatDoesntExist", 50));
+      });
 
-        it(`with "ts-common/azure-js-dev-tools" and empty branch sha`, async function () {
-          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", ""));
-        });
+      it("with pull request number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.mergePullRequest("ts-common/azure-js-dev-tools", 1325097123));
+      });
 
-        it(`with "ts-common/azure-js-dev-tools" and non-existing branch sha`, async function () {
-          await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", "fake-branch-sha"));
-        });
+      it("with pull request number that is already closed", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.mergePullRequest("ts-common/azure-js-dev-tools", 113));
+      });
+    });
 
-        it(`with "ts-common/azure-js-dev-tools", non-existing branch name, and existing sha`, async function () {
-          const master: GitHubBranch = await github.getBranch("ts-common/azure-js-dev-tools", "master");
-          assertEx.defined(master, "master");
+    describe("getPullRequest()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getPullRequest(undefined as any, 50));
+      });
 
-          const fakeBranch: GitHubBranch = await github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", master.object.sha);
-          try {
-            assertEx.defined(fakeBranch, "fakeBranch");
-            assert.strictEqual(fakeBranch.name, "fake/branch");
-            assert.strictEqual(fakeBranch.ref, "refs/heads/fake/branch");
-            assertEx.definedAndNotEmpty(fakeBranch.node_id, "fakeBranch.node_id");
-            assertEx.definedAndNotEmpty(fakeBranch.url, "fakeBranch.url");
-            assertEx.defined(fakeBranch.object, "fakeBranch.object");
-            assert.strictEqual(fakeBranch.object.type, "commit");
-            assertEx.definedAndNotEmpty(fakeBranch.object.sha, "fakeBranch.object.sha");
-            assertEx.definedAndNotEmpty(fakeBranch.object.url, "fakeBranch.object.url");
-          } finally {
-            await github.deleteBranch("ts-common/azure-js-dev-tools", "fake/branch");
-          }
-        });
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.getPullRequest(null as any, 50));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getPullRequest("", 50));
+      });
+
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getPullRequest("ImARepositoryThatDoesntExist", 50));
+      });
+
+      it("with pull request number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getPullRequest("ts-common/azure-js-dev-tools", 1325097123));
+      });
+
+      it("with pull request number that exists", async function () {
+        const github: GitHub = githubCreator();
+        const pullRequest: GitHubPullRequest = await github.getPullRequest("ts-common/azure-js-dev-tools", 113);
+        assert(pullRequest);
+        assert(pullRequest.base);
+        assert.strictEqual(pullRequest.base.label, "ts-common:master");
+        assert.strictEqual(pullRequest.base.ref, "master");
+        assert.strictEqual(pullRequest.base.sha, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
+        assert.strictEqual(pullRequest.diff_url, "https://github.com/ts-common/azure-js-dev-tools/pull/113.diff");
+        assert(pullRequest.head);
+        assert.strictEqual(pullRequest.head.label, "ts-common:daschult/capturedLines");
+        assert.strictEqual(pullRequest.head.ref, "daschult/capturedLines");
+        assert.strictEqual(pullRequest.head.sha, "bc0488dbe9ba7b2dd32c094c826cf799c55ca67d");
+        assert.strictEqual(pullRequest.html_url, "https://github.com/ts-common/azure-js-dev-tools/pull/113");
+        assert.strictEqual(pullRequest.id, 253577251);
+        assert.strictEqual(pullRequest.merge_commit_sha, "17581a5c96422bf4feb5e67edf9920cd62671ccc");
+        assert.strictEqual(pullRequest.number, 113);
+        assert.strictEqual(pullRequest.state, "closed");
+        assert.strictEqual(pullRequest.title, "Buffer external process output and error until newline character");
+        assert.strictEqual(pullRequest.url, "https://api.github.com/repos/ts-common/azure-js-dev-tools/pulls/113");
+        assert.strictEqual(pullRequest.body, "");
+      });
+    });
+
+    describe("addPullRequestLabels()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.addPullRequestLabels(undefined as any, 50, ["nope"]));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.addPullRequestLabels(null as any, 50, ["nope"]));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.addPullRequestLabels("", 50, ["nope"]));
+      });
+
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.addPullRequestLabels("ImARepositoryThatDoesntExist", 50, ["nope"]));
+      });
+
+      it("with pull request number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.addPullRequestLabels("ts-common/azure-js-dev-tools", 1325097123, ["nope"]));
+      });
+
+      it("with label that doesn't exist in the repository", async function () {
+        const github: GitHub = githubCreator();
+        assert.deepEqual(await github.addPullRequestLabels("ts-common/azure-js-dev-tools", 113, "nope"), [
+          "nope"
+        ]);
+        const repositoryLabels: GitHubLabel[] = await github.getLabels("ts-common/azure-js-dev-tools");
+        assert.strictEqual(contains(repositoryLabels, (label: GitHubLabel) => label.name === "nope"), true);
+        assert.deepEqual(await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, "nope"), [
+          "nope"
+        ]);
+        await github.deleteLabel("ts-common/azure-js-dev-tools", "nope");
+      });
+    });
+
+    describe("removePullRequestLabels()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.removePullRequestLabels(undefined as any, 50, ["nope"]));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.removePullRequestLabels(null as any, 50, ["nope"]));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.removePullRequestLabels("", 50, ["nope"]));
+      });
+
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.removePullRequestLabels("ImARepositoryThatDoesntExist", 50, ["nope"]));
+      });
+
+      it("with pull request number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.removePullRequestLabels("ts-common/azure-js-dev-tools", 1325097123, ["nope"]));
+      });
+
+      it("with label that doesn't exist in the repository", async function () {
+        const github: GitHub = githubCreator();
+        const removedLabelNames: string[] = await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, ["nope"]);
+        assert.deepEqual(removedLabelNames, []);
+      });
+
+      it("with label that hasn't been added to the pull request", async function () {
+        const github: GitHub = githubCreator();
+        const removedLabelNames: string[] = await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, ["in progress"]);
+        assert.deepEqual(removedLabelNames, []);
+      });
+
+      it("with label that has been added to the pull request", async function () {
+        const github: GitHub = githubCreator();
+        await github.addPullRequestLabels("ts-common/azure-js-dev-tools", 113, "in progress");
+        const removedLabelNames: string[] = await github.removePullRequestLabels("ts-common/azure-js-dev-tools", 113, ["in progress"]);
+        assert.deepEqual(removedLabelNames, ["in progress"]);
+      });
+    });
+
+    describe("getPullRequestComments()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getPullRequestComments(undefined as any, 50));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.getPullRequestComments(null as any, 50));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getPullRequestComments("", 50));
+      });
+
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getPullRequestComments("ImARepositoryThatDoesntExist", 50));
+      });
+
+      it("with pull request number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getPullRequestComments("ts-common/azure-js-dev-tools", 1325097123));
+      });
+
+      it("with pull request number that exists", async function () {
+        const github: GitHub = githubCreator();
+        const comments: GitHubComment[] = await github.getPullRequestComments("ts-common/azure-js-dev-tools", 113);
+        assertEx.defined(comments, "comments");
+        assert.deepEqual(comments, []);
+      });
+    });
+
+    describe("createPullRequestComment()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequestComment(undefined as any, 50, "Fake Comment Body"));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.createPullRequestComment(null as any, 50, "Fake Comment Body"));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequestComment("", 50, "Fake Comment Body"));
+      });
+
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequestComment("ImARepositoryThatDoesntExist", 50, "Fake Comment Body"));
+      });
+
+      it("with pull request number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createPullRequestComment("ts-common/azure-js-dev-tools", 1325097123, "Fake Comment Body"));
+      });
+
+      it("with pull request number that exists", async function () {
+        const github: GitHub = githubCreator();
+        const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 113, "Fake Comment Body");
+        try {
+          assertEx.defined(createdComment, "createdComment");
+          assertEx.defined(createdComment.id, "createdComment.id");
+          assert.strictEqual(createdComment.body, "Fake Comment Body");
+        } finally {
+          await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
+        }
+      });
+    });
+
+    describe("updatePullRequestComment()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.updatePullRequestComment(undefined as any, 50, 12, "Fake Comment Body"));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.updatePullRequestComment(null as any, 50, 12, "Fake Comment Body"));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.updatePullRequestComment("", 50, 12, "Fake Comment Body"));
+      });
+
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.updatePullRequestComment("ImARepositoryThatDoesntExist", 50, 12, "Fake Comment Body"));
+      });
+
+      it("with pull request number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.updatePullRequestComment("ts-common/azure-js-dev-tools", 1325097123, 198761876234, "Fake Comment Body"));
+      });
+
+      it("with comment number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.updatePullRequestComment("ts-common/azure-js-dev-tools", 113, 13925876, "New Fake Comment Body"));
+      });
+
+      it("with comment that exists", async function () {
+        const github: GitHub = githubCreator();
+        const createdComment: GitHubComment = await github.createPullRequestComment("ts-common/azure-js-dev-tools", 113, "Fake Comment Body");
+        try {
+          const updatedComment: GitHubComment = await github.updatePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment, "New Fake Comment Body");
+          assertEx.defined(updatedComment, "createdComment");
+          assert.strictEqual(updatedComment.id, createdComment.id);
+          assert.strictEqual(updatedComment.body, "New Fake Comment Body");
+        } finally {
+          await github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, createdComment);
+        }
+      });
+    });
+
+    describe("deletePullRequestComment()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deletePullRequestComment(undefined as any, 50, 12));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.deletePullRequestComment(null as any, 50, 12));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deletePullRequestComment("", 50, 12));
+      });
+
+      it("with repository that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deletePullRequestComment("ImARepositoryThatDoesntExist", 50, 12));
+      });
+
+      it("with pull request number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deletePullRequestComment("ts-common/azure-js-dev-tools", 1325097123, 198761876234));
+      });
+
+      it("with comment number that doesn't exist", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deletePullRequestComment("ts-common/azure-js-dev-tools", 113, 1392581235476));
+      });
+    });
+
+    describe("getCommit()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getCommit(undefined as any, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.getCommit(null as any, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getCommit("", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
+      });
+
+      it(`with repository that doesn't exist`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getCommit("ImARepositoryThatDoesntExist", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"));
+      });
+
+      it(`with commit that doesn't exist`, async function () {
+        const github: GitHub = githubCreator();
+        const commit: GitHubCommit | undefined = await github.getCommit("ts-common/azure-js-dev-tools", "applesandbananas");
+        assert.strictEqual(commit, undefined);
+      });
+
+      it(`with commit that does exist`, async function () {
+        const github: GitHub = githubCreator();
+        const commit: GitHubCommit = (await github.getCommit("ts-common/azure-js-dev-tools", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5"))!;
+        assertEx.defined(commit, "commit");
+        assert.strictEqual(commit.sha, "c6f8a6b543ece6447ce1f3f5c33d0672989965c5");
+        assertEx.defined(commit.commit, "commit.commit");
+        assert.strictEqual(commit.commit.message, `Merge pull request #112 from ts-common/daschult/encoding\n\n Add encoding to stdout and stderr capture functions`);
+      });
+    });
+
+    describe("getAllReferences()", function () {
+      it("with undefined", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getAllReferences(undefined as any));
+      });
+
+      it("with null", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.getAllReferences(null as any));
+      });
+
+      it(`with ""`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getAllReferences(""));
+      });
+
+      it(`with repository that doesn't exist`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getAllReferences("imarepositorythatdoesntexist"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools"`, async function () {
+        const github: GitHub = githubCreator();
+        const references: GitHubReference[] = await github.getAllReferences("ts-common/azure-js-dev-tools");
+        assertEx.defined(references, "references");
+        assertEx.greaterThan(references.length, 0, "labels.length");
+        assert(contains(references, (reference: GitHubReference) => reference.ref === "refs/heads/master"));
+      });
+    });
+
+    describe("getAllBranches()", function () {
+      it("with undefined", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getAllBranches(undefined as any));
+      });
+
+      it("with null", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.getAllBranches(null as any));
+      });
+
+      it(`with ""`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getAllBranches(""));
+      });
+
+      it(`with repository that doesn't exist`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getAllBranches("imarepositorythatdoesntexist"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools"`, async function () {
+        const github: GitHub = githubCreator();
+        const branches: GitHubBranch[] = await github.getAllBranches("ts-common/azure-js-dev-tools");
+        assertEx.defined(branches, "references");
+        assertEx.greaterThan(branches.length, 0, "labels.length");
+        assert(contains(branches, (branch: GitHubBranch) => branch.ref === "refs/heads/master"));
+        assert(contains(branches, (branch: GitHubBranch) => branch.name === "master"));
+      });
+    });
+
+    describe("getBranch()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getBranch(undefined as any, "fake-branch-name"));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.getBranch(null as any, "fake-branch-name"));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getBranch("", "fake-branch-name"));
+      });
+
+      it(`with repository that doesn't exist`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getBranch("imarepositorythatdoesntexist", "fake-branch-name"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and undefined branch name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", undefined as any));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and null branch name`, async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line: no-null-keyword
+        await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", null as any));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and empty branch name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", ""));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and non-existing branch name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.getBranch("ts-common/azure-js-dev-tools", "imabranchthatdoesntexist"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and existing branch name`, async function () {
+        const github: GitHub = githubCreator();
+        const branch: GitHubBranch = await github.getBranch("ts-common/azure-js-dev-tools", "master");
+        assertEx.defined(branch, "branch");
+        assert.strictEqual(branch.name, "master");
+        assert.strictEqual(branch.ref, "refs/heads/master");
+        assertEx.definedAndNotEmpty(branch.node_id, "branch.node_id");
+        assertEx.definedAndNotEmpty(branch.url, "branch.url");
+        assertEx.defined(branch.object, "branch.object");
+        assert.strictEqual(branch.object.type, "commit");
+        assertEx.definedAndNotEmpty(branch.object.sha);
+        assertEx.definedAndNotEmpty(branch.object.url);
+      });
+    });
+
+    describe("deleteBranch()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteBranch(undefined as any, "fake-branch-name"));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.deleteBranch(null as any, "fake-branch-name"));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteBranch("", "fake-branch-name"));
+      });
+
+      it(`with repository that doesn't exist`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteBranch("imarepositorythatdoesntexist", "fake-branch-name"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and undefined branch name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", undefined as any));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and null branch name`, async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line: no-null-keyword
+        await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", null as any));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and empty branch name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", ""));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and non-existing branch name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.deleteBranch("ts-common/azure-js-dev-tools", "imabranchthatdoesntexist"));
+      });
+    });
+
+    describe("createBranch()", function () {
+      it("with undefined repository", async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createBranch(undefined as any, "fake-branch-name", "fake-branch-sha"));
+      });
+
+      it("with null repository", async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line:no-null-keyword
+        await assertEx.throwsAsync(github.createBranch(null as any, "fake-branch-name", "fake-branch-sha"));
+      });
+
+      it(`with "" repository`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createBranch("", "fake-branch-name", "fake-branch-sha"));
+      });
+
+      it(`with repository that doesn't exist`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createBranch("imarepositorythatdoesntexist", "fake-branch-name", "fake-branch-sha"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and undefined branch name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", undefined as any, "fake-branch-sha"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and null branch name`, async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line: no-null-keyword
+        await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", null as any, "fake-branch-sha"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and empty branch name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "", "fake-branch-sha"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and existing branch name`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "master", "fake-branch-sha"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and undefined branch sha`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", undefined as any));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and null branch sha`, async function () {
+        const github: GitHub = githubCreator();
+        // tslint:disable-next-line: no-null-keyword
+        await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", null as any));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and empty branch sha`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", ""));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools" and non-existing branch sha`, async function () {
+        const github: GitHub = githubCreator();
+        await assertEx.throwsAsync(github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", "fake-branch-sha"));
+      });
+
+      it(`with "ts-common/azure-js-dev-tools", non-existing branch name, and existing sha`, async function () {
+        const github: GitHub = githubCreator();
+        const master: GitHubBranch = await github.getBranch("ts-common/azure-js-dev-tools", "master");
+        assertEx.defined(master, "master");
+
+        const fakeBranch: GitHubBranch = await github.createBranch("ts-common/azure-js-dev-tools", "fake/branch", master.object.sha);
+        try {
+          assertEx.defined(fakeBranch, "fakeBranch");
+          assert.strictEqual(fakeBranch.name, "fake/branch");
+          assert.strictEqual(fakeBranch.ref, "refs/heads/fake/branch");
+          assertEx.definedAndNotEmpty(fakeBranch.node_id, "fakeBranch.node_id");
+          assertEx.definedAndNotEmpty(fakeBranch.url, "fakeBranch.url");
+          assertEx.defined(fakeBranch.object, "fakeBranch.object");
+          assert.strictEqual(fakeBranch.object.type, "commit");
+          assertEx.definedAndNotEmpty(fakeBranch.object.sha, "fakeBranch.object.sha");
+          assertEx.definedAndNotEmpty(fakeBranch.object.url, "fakeBranch.object.url");
+        } finally {
+          await github.deleteBranch("ts-common/azure-js-dev-tools", "fake/branch");
+        }
       });
     });
   }
-  githubTests("FakeGitHub", createFakeGitHub());
-  githubTests("RealGitHub", createRealGitHub());
+
+  describe("FakeGitHub", function () {
+    githubTests(createFakeGitHub);
+
+    describe("createPullRequest()", function () {
+      it("with simple base and head branches in the same repository", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repository = `test-repo-billy/azure-js-dev-tools`;
+        const headBranchName = "fake-head-branch";
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
+
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", headBranchName, "fake-title");
+        assertEx.defined(pullRequest, "pullRequest");
+        assert.strictEqual(pullRequest.base.ref, "master");
+        assert.strictEqual(pullRequest.base.label, "test-repo-billy:master");
+        assert.strictEqual(pullRequest.head.ref, headBranchName);
+        assert.strictEqual(pullRequest.head.label, `test-repo-billy:${headBranchName}`);
+        assertEx.defined(pullRequest.number, "pullRequest.number");
+        assert.strictEqual(pullRequest.title, "fake-title");
+        assert.strictEqual(pullRequest.body, "");
+      });
+
+      it("with simple base and head branches in the same repository with description", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repository = `test-repo-billy/azure-js-dev-tools`;
+        const headBranchName = "fake-head-branch";
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
+
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", headBranchName, "fake-title", {
+          description: "Hello world!"
+        });
+        assertEx.defined(pullRequest, "pullRequest");
+        assert.strictEqual(pullRequest.base.ref, "master");
+        assert.strictEqual(pullRequest.base.label, "test-repo-billy:master");
+        assert.strictEqual(pullRequest.head.ref, headBranchName);
+        assert.strictEqual(pullRequest.head.label, `test-repo-billy:${headBranchName}`);
+        assertEx.defined(pullRequest.number, "pullRequest.number");
+        assert.strictEqual(pullRequest.title, "fake-title");
+        assert.strictEqual(pullRequest.body, "Hello world!");
+      });
+
+      it("with repository owner in head branch in the same repository", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const headBranchName = "fake-head-branch";
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
+
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", `${repositoryOwner}:${headBranchName}`, "fake-title");
+        assertEx.defined(pullRequest, "pullRequest");
+        assert.strictEqual(pullRequest.base.ref, "master");
+        assert.strictEqual(pullRequest.base.label, "test-repo-billy:master");
+        assert.strictEqual(pullRequest.head.ref, headBranchName);
+        assert.strictEqual(pullRequest.head.label, `test-repo-billy:${headBranchName}`);
+        assertEx.defined(pullRequest.number, "pullRequest.number");
+        assert.strictEqual(pullRequest.title, "fake-title");
+        assert.strictEqual(pullRequest.body, "");
+      });
+
+      it("with repository in head branch in the same repository", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const headBranchName = "fake-head-branch";
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, "master", `${repository}:${headBranchName}`, "fake-title"));
+        assertEx.defined(error);
+        assert.strictEqual(error.message, `No fork of the fake repository "test-repo-billy/azure-js-dev-tools" exists for the owner "test-repo-billy/azure-js-dev-tools".`);
+      });
+
+      it("with repository owner in base branch in the same repository", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const headBranchName = "fake-head-branch";
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repositoryOwner}:master`, headBranchName, "fake-title"));
+        assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy:master) cannot have an owner.`);
+      });
+
+      it("with repository in base branch in the same repository", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const headBranchName = "fake-head-branch";
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repository}:master`, headBranchName, "fake-title"));
+        assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy/azure-js-dev-tools:master) cannot have an owner.`);
+      });
+
+      it("with repository owner in base branch and head branch in the same repository", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const headBranchName = "fake-head-branch";
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${repositoryOwner}:${headBranchName}`, "fake-title"));
+        assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy:master) cannot have an owner.`);
+      });
+
+      it("with repository in base branch and head branch in the same repository", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const headBranchName = "fake-head-branch";
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repository}:master`, `${repository}:${headBranchName}`, "fake-title"));
+        assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy/azure-js-dev-tools:master) cannot have an owner.`);
+      });
+
+      it("with non-existing fork owner in head branch", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = `test-repo-billy`;
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `master`, `nonexistingrepo:master`, "fake-title"));
+        assert.strictEqual(error.message, `No fork of the fake repository "${repositoryOwner}/azure-js-dev-tools" exists for the owner "nonexistingrepo".`);
+      });
+
+      it("with non-existing fork head branch", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const forkOwner = "AzureSDKAutomation";
+        fakeGitHub.forkRepository(repository, forkOwner);
+
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `master`, `${forkOwner}:nonexistingbranch`, "fake-title"));
+        assert.strictEqual(error.message, `No branch exists in the forked fake repository "${forkOwner}/azure-js-dev-tools" with the name "nonexistingbranch".`);
+      });
+
+      it("with fork owner in head branch in different repositories", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repositoryName = "azure-js-dev-tools";
+        const repository = `${repositoryOwner}/${repositoryName}`;
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const forkOwner = "AzureSDKAutomation";
+        const forkedRepository = `${forkOwner}/${repositoryName}`;
+        const headBranchName = "fake-head-branch";
+
+        fakeGitHub.forkRepository(repository, forkOwner);
+        await fakeGitHub.createCommit(forkedRepository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(forkedRepository, headBranchName, "fake-commit-sha");
+
+        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", `${forkOwner}:${headBranchName}`, "fake-title");
+        assertEx.defined(pullRequest, "pullRequest");
+        assert.strictEqual(pullRequest.base.ref, "master");
+        assert.strictEqual(pullRequest.base.label, `${repositoryOwner}:master`);
+        assert.strictEqual(pullRequest.head.ref, headBranchName);
+        assert.strictEqual(pullRequest.head.label, `${forkOwner}:${headBranchName}`);
+        assertEx.defined(pullRequest.number, "pullRequest.number");
+        assert.strictEqual(pullRequest.title, "fake-title");
+        assert.strictEqual(pullRequest.body, "");
+      });
+
+      it("with forked repository in head branch in different repositories", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repositoryName = "azure-js-dev-tools";
+        const repository = `${repositoryOwner}/${repositoryName}`;
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const forkOwner = "AzureSDKAutomation";
+        const forkedRepository = `${forkOwner}/${repositoryName}`;
+        const headBranchName = "fake-head-branch";
+
+        fakeGitHub.forkRepository(repository, forkOwner);
+        await fakeGitHub.createCommit(forkedRepository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(forkedRepository, headBranchName, "fake-commit-sha");
+
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, "master", `${forkedRepository}:${headBranchName}`, "fake-title"));
+        assert.strictEqual(error.message, `No fork of the fake repository "test-repo-billy/azure-js-dev-tools" exists for the owner "AzureSDKAutomation/azure-js-dev-tools".`);
+      });
+
+      it("with repository owner in base branch and fork owner in head branch in different repositories", async function () {
+        const fakeGitHub: FakeGitHub = createFakeGitHub();
+
+        const repositoryOwner = "test-repo-billy";
+        const repositoryName = "azure-js-dev-tools";
+        const repository = `${repositoryOwner}/${repositoryName}`;
+
+        await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
+
+        const forkOwner = "AzureSDKAutomation";
+        const forkedRepository = `${forkOwner}/${repositoryName}`;
+        const headBranchName = "fake-head-branch";
+
+        fakeGitHub.forkRepository(repository, forkOwner);
+        await fakeGitHub.createCommit(forkedRepository, "fake-commit-sha", "hello");
+        await fakeGitHub.createBranch(forkedRepository, headBranchName, "fake-commit-sha");
+
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${forkOwner}:${headBranchName}`, "fake-title"));
+        assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy:master) cannot have an owner.`);
+      });
+    });
+  });
+
+  const realGitHub: RealGitHub = createRealGitHub()!;
+  (realGitHub ? describe : describe.skip)("RealGitHub", function () {
+    this.timeout(10000);
+
+    githubTests(() => realGitHub);
+
+    describe("createPullRequest()", function () {
+      this.timeout(60000);
+
+      it("with simple base and head branches in the same repository", async function () {
+        const repository = `test-repo-billy/azure-js-dev-tools`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${repository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", headBranchName, "fake-title");
+            try {
+              assertEx.defined(pullRequest, "pullRequest");
+              assert.strictEqual(pullRequest.base.ref, "master");
+              assert.strictEqual(pullRequest.base.label, "test-repo-billy:master");
+              assert.strictEqual(pullRequest.head.ref, headBranchName);
+              assert.strictEqual(pullRequest.head.label, `test-repo-billy:${headBranchName}`);
+              assertEx.defined(pullRequest.number, "pullRequest.number");
+              assert.strictEqual(pullRequest.title, "fake-title");
+              assert.strictEqual(pullRequest.body, "");
+            } finally {
+              await realGitHub.closePullRequest(repository, pullRequest);
+            }
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with simple base and head branches in the same repository with description", async function () {
+        const repository = `test-repo-billy/azure-js-dev-tools`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${repository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", headBranchName, "fake-title", {
+              description: "Hello world!"
+            });
+            try {
+              assertEx.defined(pullRequest, "pullRequest");
+              assert.strictEqual(pullRequest.base.ref, "master");
+              assert.strictEqual(pullRequest.base.label, "test-repo-billy:master");
+              assert.strictEqual(pullRequest.head.ref, headBranchName);
+              assert.strictEqual(pullRequest.head.label, `test-repo-billy:${headBranchName}`);
+              assertEx.defined(pullRequest.number, "pullRequest.number");
+              assert.strictEqual(pullRequest.title, "fake-title");
+              assert.strictEqual(pullRequest.body, "Hello world!");
+            } finally {
+              await realGitHub.closePullRequest(repository, pullRequest);
+            }
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository owner in head branch in the same repository", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${repository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", `${repositoryOwner}:${headBranchName}`, "fake-title");
+            try {
+              assertEx.defined(pullRequest, "pullRequest");
+              assert.strictEqual(pullRequest.base.ref, "master");
+              assert.strictEqual(pullRequest.base.label, "test-repo-billy:master");
+              assert.strictEqual(pullRequest.head.ref, headBranchName);
+              assert.strictEqual(pullRequest.head.label, `test-repo-billy:${headBranchName}`);
+              assertEx.defined(pullRequest.number, "pullRequest.number");
+              assert.strictEqual(pullRequest.title, "fake-title");
+              assert.strictEqual(pullRequest.body, "");
+            } finally {
+              await realGitHub.closePullRequest(repository, pullRequest);
+            }
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository in head branch in the same repository", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${repository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, "master", `${repository}:${headBranchName}`, "fake-title"));
+            assertEx.defined(error);
+            assert.strictEqual(error.message, "Validation Failed");
+            assert.deepEqual(error.errors, [
+              {
+                code: "invalid",
+                field: "head",
+                resource: "PullRequest"
+              }
+            ]);
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository owner in base branch in the same repository", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${repository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repositoryOwner}:master`, headBranchName, "fake-title"));
+            assertEx.defined(error);
+            assert.strictEqual(error.message, "Validation Failed");
+            assert.deepEqual(error.errors, [
+              {
+                code: "invalid",
+                field: "base",
+                resource: "PullRequest"
+              }
+            ]);
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository in base branch in the same repository", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${repository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repository}:master`, headBranchName, "fake-title"));
+            assertEx.defined(error);
+            assert.strictEqual(error.message, "Validation Failed");
+            assert.deepEqual(error.errors, [
+              {
+                code: "invalid",
+                field: "base",
+                resource: "PullRequest"
+              }
+            ]);
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository owner in base branch and head branch in the same repository", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${repository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${repositoryOwner}:${headBranchName}`, "fake-title"));
+            assertEx.defined(error);
+            assert.strictEqual(error.message, "Validation Failed");
+            assert.deepEqual(error.errors, [
+              {
+                code: "invalid",
+                field: "base",
+                resource: "PullRequest"
+              }
+            ]);
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository in base branch and head branch in the same repository", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${repository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repository}:master`, `${repository}:${headBranchName}`, "fake-title"));
+            assertEx.defined(error);
+            assert.strictEqual(error.message, "Validation Failed");
+            assert.deepEqual(error.errors, [
+              {
+                code: "invalid",
+                field: "base",
+                resource: "PullRequest"
+              }
+            ]);
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with non-existing fork owner in head branch", async function () {
+        const repositoryOwner = "AzureSDKAutomation";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `master`, `nonexistingrepo:master`, "fake-title"));
+        assertEx.defined(error);
+        assert.strictEqual(error.message, "Validation Failed");
+        assert.deepEqual(error.errors, [
+          {
+            code: "invalid",
+            field: "head",
+            resource: "PullRequest"
+          }
+        ]);
+      });
+
+      it("with non-existing fork head branch", async function () {
+        const repositoryOwner = "AzureSDKAutomation";
+        const repository = `${repositoryOwner}/azure-js-dev-tools`;
+        const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `master`, `test-repo-billy:nonexistingbranch`, "fake-title"));
+        assertEx.defined(error);
+        assert.strictEqual(error.message, "Validation Failed");
+        assert.deepEqual(error.errors, [
+          {
+            code: "invalid",
+            field: "head",
+            resource: "PullRequest"
+          }
+        ]);
+      });
+
+      it("with fork owner in head branch in different repositories", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repositoryName = "azure-js-dev-tools";
+        const repository = `${repositoryOwner}/${repositoryName}`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const forkOwner = "AzureSDKAutomation";
+          const forkedRepository = `${forkOwner}/${repositoryName}`;
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${forkedRepository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", `${forkOwner}:${headBranchName}`, "fake-title");
+            try {
+              assertEx.defined(pullRequest, "pullRequest");
+              assert.strictEqual(pullRequest.base.ref, "master");
+              assert.strictEqual(pullRequest.base.label, `${repositoryOwner}:master`);
+              assert.strictEqual(pullRequest.head.ref, headBranchName);
+              assert.strictEqual(pullRequest.head.label, `${forkOwner}:${headBranchName}`);
+              assertEx.defined(pullRequest.number, "pullRequest.number");
+              assert.strictEqual(pullRequest.title, "fake-title");
+              assert.strictEqual(pullRequest.body, "");
+            } finally {
+              await realGitHub.closePullRequest(repository, pullRequest);
+            }
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with forked repository in head branch in different repositories", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repositoryName = "azure-js-dev-tools";
+        const repository = `${repositoryOwner}/${repositoryName}`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const forkOwner = "AzureSDKAutomation";
+          const forkedRepository = `${forkOwner}/${repositoryName}`;
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${forkedRepository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, "master", `${forkedRepository}:${headBranchName}`, "fake-title"));
+            assertEx.defined(error);
+            assert.strictEqual(error.message, "Validation Failed");
+            assert.deepEqual(error.errors, [
+              {
+                code: "invalid",
+                field: "head",
+                resource: "PullRequest"
+              }
+            ]);
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository owner in base branch and fork owner in head branch in different repositories", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repositoryName = "azure-js-dev-tools";
+        const repository = `${repositoryOwner}/${repositoryName}`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const forkOwner = "AzureSDKAutomation";
+          const forkedRepository = `${forkOwner}/${repositoryName}`;
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${forkedRepository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${forkOwner}:${headBranchName}`, "fake-title"));
+            assertEx.defined(error);
+            assert.strictEqual(error.message, "Validation Failed");
+            assert.deepEqual(error.errors, [
+              {
+                code: "invalid",
+                field: "base",
+                resource: "PullRequest"
+              }
+            ]);
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+
+      it("with repository in base branch and fork owner in head branch in different repositories", async function () {
+        const repositoryOwner = "test-repo-billy";
+        const repositoryName = "azure-js-dev-tools";
+        const repository = `${repositoryOwner}/${repositoryName}`;
+        const repositoryFolderPath: string = await createRepositoryFolder();
+        try {
+          const git = new ExecutableGit({ executionFolderPath: repositoryFolderPath });
+          const forkOwner = "AzureSDKAutomation";
+          const forkedRepository = `${forkOwner}/${repositoryName}`;
+          const cloneResult: ExecutableGit.Result = await git.clone(`https://github.com/${forkedRepository}.git`, {
+            directory: repositoryFolderPath
+          });
+          assert.strictEqual(cloneResult.exitCode, 0);
+
+          const headBranchName = "fake-head-branch";
+          await git.createLocalBranch(headBranchName);
+          const fakeFilePath: string = joinPath(repositoryFolderPath, "fakeFile.txt");
+          await writeFileContents(fakeFilePath, "fake file contents");
+          await git.add(fakeFilePath);
+          await git.commit(`Add ${fakeFilePath}`);
+
+          await git.push({ setUpstream: true, branchName: headBranchName });
+          try {
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repository}:master`, `${forkOwner}:${headBranchName}`, "fake-title"));
+            assertEx.defined(error);
+            assert.strictEqual(error.message, "Validation Failed");
+            assert.deepEqual(error.errors, [
+              {
+                code: "invalid",
+                field: "base",
+                resource: "PullRequest"
+              }
+            ]);
+          } finally {
+            await git.deleteRemoteBranch(headBranchName);
+          }
+        } finally {
+          await deleteFolder(repositoryFolderPath);
+        }
+      });
+    });
+  });
 });
 
 function createFakeGitHub(): FakeGitHub {
@@ -1258,6 +2048,9 @@ function createFakeGitHub(): FakeGitHub {
   const fakeUserLogin = "fakeUser";
   fakeGitHub.createUser(fakeUserLogin);
   fakeGitHub.setCurrentUser(fakeUserLogin);
+
+  fakeGitHub.createRepository("test-repo-billy/azure-js-dev-tools");
+  fakeGitHub.createLabel("test-repo-billy/azure-js-dev-tools", "Fake-Label", "fake label color2");
 
   fakeGitHub.createRepository("ts-common/azure-js-dev-tools");
   fakeGitHub.createCommit("ts-common/azure-js-dev-tools", "c6f8a6b543ece6447ce1f3f5c33d0672989965c5", `Merge pull request #112 from ts-common/daschult/encoding\n\n Add encoding to stdout and stderr capture functions`);
@@ -1385,4 +2178,8 @@ function createFakeGitHubUser(options: GitHubUserOptions = {}): GitHubUser {
     url: options.url != undefined ? options.url : "Fake User URL",
     site_admin: options.site_admin != undefined ? options.site_admin : false,
   };
+}
+
+function createRepositoryFolder(): Promise<string> {
+  return createTemporaryFolder(joinPath(getParentFolderPath(findPackageJsonFileSync(__filename)!), ".."));
 }

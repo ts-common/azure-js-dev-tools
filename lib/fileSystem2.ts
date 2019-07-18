@@ -6,7 +6,7 @@
 
 import * as fs from "fs";
 import { any } from "./arrays";
-import { getParentFolderPath, getPathName, joinPath } from "./path";
+import { getParentFolderPath, getPathName, joinPath, isRooted } from "./path";
 
 async function _entryExists(entryPath: string, condition?: (stats: fs.Stats) => (boolean | Promise<boolean>)): Promise<boolean> {
   return new Promise((resolve, reject) => {
@@ -119,6 +119,35 @@ export async function createFolder(folderPath: string): Promise<boolean> {
       } catch (createParentFolderError) {
         result = Promise.reject(createFolderError);
       }
+    }
+  }
+  return result;
+}
+
+/**
+ * Create a temporary folder and return the absolute path to the folder. If a parentFolderPath is
+ * provided, then the temporary folder will be created as a child of the parentFolderPath. If
+ * parentFolderPath is not provided, then the current working folder will be used as the
+ * parentFolderPath.
+ * @param The folder that the temporary folder will be created as a child of. Defaults to the
+ * current working folder.
+ */
+export async function createTemporaryFolder(parentFolderPath?: string): Promise<string> {
+  if (!parentFolderPath) {
+    parentFolderPath = process.cwd();
+  } else if (!isRooted(parentFolderPath)) {
+    parentFolderPath = joinPath(process.cwd(), parentFolderPath);
+  }
+
+  let result = "";
+  let i = 1;
+  while (!result) {
+    const tempFolderPath: string = joinPath(parentFolderPath, i.toString());
+    if (await createFolder(tempFolderPath)) {
+      result = tempFolderPath;
+      break;
+    } else {
+      ++i;
     }
   }
   return result;

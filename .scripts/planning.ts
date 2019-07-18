@@ -1,6 +1,6 @@
 import * as arrays from "../lib/arrays";
 import { padLeft } from "../lib/common";
-import { getGitHubRepository, getRepositoryFullName, getSprintMilestoneName, GitHub, GitHubRepository, GitHubSprintMilestone, RealGitHub } from "../lib/github";
+import { getRepository, getRepositoryFullName, getSprintMilestoneName, GitHub, GitHubSprintMilestone, RealGitHub, Repository } from "../lib/github";
 import { joinPath } from "../lib/path";
 
 interface SprintLabel {
@@ -143,7 +143,7 @@ function addProblem(problems: string[], problem: string): void {
   }
 }
 
-function addRepositoryProblem(problems: string[], repository: GitHubRepository, problem: string): void {
+function addRepositoryProblem(problems: string[], repository: Repository, problem: string): void {
   addProblem(problems, `${getRepositoryFullName(repository)}: ${problem}`);
 }
 
@@ -160,7 +160,7 @@ function authenticateWithGitHub(problems: string[]): GitHub | undefined {
   return result;
 }
 
-async function createGitHubLabel(github: GitHub, repository: GitHubRepository, labelName: string, color: string, problems: string[]): Promise<void> {
+async function createGitHubLabel(github: GitHub, repository: Repository, labelName: string, color: string, problems: string[]): Promise<void> {
   console.log(`Creating label "${labelName}" in repository ${getRepositoryFullName(repository)} with color "${color}"...`);
   try {
     await github.createLabel(repository, labelName, color);
@@ -169,7 +169,7 @@ async function createGitHubLabel(github: GitHub, repository: GitHubRepository, l
   }
 }
 
-async function updateGitHubSprintLabelColor(github: GitHub, repository: GitHubRepository, labelName: string, newColor: string, problems: string[]): Promise<void> {
+async function updateGitHubSprintLabelColor(github: GitHub, repository: Repository, labelName: string, newColor: string, problems: string[]): Promise<void> {
   console.log(`Changing label "${labelName}" in repository ${getRepositoryFullName(repository)}" to color "${newColor}"...`);
   try {
     await github.updateLabelColor(repository, labelName, newColor);
@@ -178,7 +178,7 @@ async function updateGitHubSprintLabelColor(github: GitHub, repository: GitHubRe
   }
 }
 
-async function checkSprintLabelColor(github: GitHub, repository: GitHubRepository, sprintLabelName: string, expectedSprintLabelColor: string, actualSprintLabelColor: string | undefined, problems: string[], planningOptions: Options): Promise<void> {
+async function checkSprintLabelColor(github: GitHub, repository: Repository, sprintLabelName: string, expectedSprintLabelColor: string, actualSprintLabelColor: string | undefined, problems: string[], planningOptions: Options): Promise<void> {
   if (actualSprintLabelColor == undefined) {
     if (planningOptions.createMissingSprintLabels === true) {
       await github.createLabel(repository.name, sprintLabelName, expectedSprintLabelColor);
@@ -194,7 +194,7 @@ async function checkSprintLabelColor(github: GitHub, repository: GitHubRepositor
   }
 }
 
-async function checkSprintLabels(github: GitHub, repository: GitHubRepository, options: Options, problems: string[]): Promise<void> {
+async function checkSprintLabels(github: GitHub, repository: Repository, options: Options, problems: string[]): Promise<void> {
   const expectedSprintLabels: SprintLabel[] = options.expectedSprintLabels;
   const githubSprintLabels: SprintLabel[] = await github.getSprintLabels(repository);
 
@@ -230,7 +230,7 @@ function getNow(): string {
   return result;
 }
 
-async function checkSprintMilestones(github: GitHub, repository: GitHubRepository, options: Options, problems: string[]): Promise<void> {
+async function checkSprintMilestones(github: GitHub, repository: Repository, options: Options, problems: string[]): Promise<void> {
   const expectedSprintMilestones: SprintMilestone[] = options.expectedSprintMilestones;
   const githubSprintMilestones: GitHubSprintMilestone[] = await github.getSprintMilestones(repository);
 
@@ -298,7 +298,7 @@ async function main(): Promise<void> {
 
   if (github && options) {
     for (const repositoryOrName of options.repositories) {
-      const repository: GitHubRepository = getGitHubRepository(repositoryOrName);
+      const repository: Repository = getRepository(repositoryOrName);
       await checkSprintLabels(github, repository, options, problems);
       await checkSprintMilestones(github, repository, options, problems);
     }
