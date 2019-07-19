@@ -274,6 +274,11 @@ export interface GitHubCreatePullRequestOptions {
    * The description that will appear in the created pull request.
    */
   description?: string;
+  /**
+   * Whether or not the maintainer of the pull request can modify the head branch. Defaults to
+   * false.
+   */
+  maintainerCanModify?: boolean;
 }
 
 /**
@@ -1479,7 +1484,8 @@ export class RealGitHub implements GitHub {
       base: baseBranch,
       head: getRepositoryBranchFullName(headBranch),
       title: title,
-      body: options && options.description
+      body: options.description,
+      maintainer_can_modify: options.maintainerCanModify || false,
     };
     const response = await this.getClient(repository).pulls.create(githubArguments);
     const result: GitHubPullRequest = response.data as GitHubPullRequest;
