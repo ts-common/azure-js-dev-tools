@@ -269,6 +269,78 @@ describe("git.ts", function () {
       });
     });
 
+    describe("rebase()", function () {
+      it("with all options truthy", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({
+          executable: "git",
+          args: [
+            "rebase",
+            "--strategy=hello",
+            "--strategy-option=theirs",
+            "--quiet",
+            "--verbose",
+            "--onto", "fake-newbase",
+            "fake-upstream",
+            "branch-to-rebase"],
+          result: expectedResult
+        });
+        const git = new ExecutableGit();
+        assert.deepEqual(
+          await git.rebase({
+            branch: "branch-to-rebase",
+            runner,
+            quiet: true,
+            strategy: "hello",
+            strategyOption: "theirs",
+            newbase: "fake-newbase",
+            upstream: "fake-upstream",
+            verbose: true,
+          }),
+          expectedResult);
+      });
+
+      it("with all options falsy", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({
+          executable: "git",
+          args: ["rebase"],
+          result: expectedResult
+        });
+        const git = new ExecutableGit();
+        assert.deepEqual(
+          await git.rebase({
+            branch: "",
+            runner,
+            quiet: false,
+            strategy: "",
+            strategyOption: "",
+            newbase: "",
+            upstream: "",
+            verbose: false,
+          }),
+          expectedResult);
+      });
+
+      it("with no options", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: RunResult = { exitCode: 2, stdout: "c", stderr: "d" };
+        runner.set({
+          executable: "git",
+          args: ["rebase"],
+          result: expectedResult
+        });
+        const git = new ExecutableGit();
+        assert.deepEqual(
+          await git.rebase({
+            runner,
+          }),
+          expectedResult);
+      });
+    });
+
     describe("clone()", function () {
       it("with no options", async function () {
         const runner = new FakeRunner();
