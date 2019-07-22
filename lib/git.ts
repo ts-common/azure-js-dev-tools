@@ -102,6 +102,51 @@ export namespace Git {
   }
 
   /**
+   * Options that can be passed to "git rebase".
+   */
+  export interface RebaseOptions {
+    /**
+     * Working branch; defaults to HEAD.
+     */
+    branch?: string;
+    /**
+     * Upstream branch to compare against. May be any valid commit, not just an existing branch
+     * name. Defaults to the configured upstream for the current branch.
+     */
+    upstream?: string;
+    /**
+     * Starting point at which to create the new commits. If the --onto option is not specified, the
+     * starting point is <upstream>. May be any valid commit, and not just an existing branch name.
+     * As a special case, you may use "A...B" as a shortcut for the merge base of A and B if there
+     * is exactly one merge base. You can leave out at most one of A and B, in which case it
+     * defaults to HEAD.
+     */
+    newbase?: string;
+    /**
+     * Use the given merge strategy. If there is no -s option git merge-recursive is used instead.
+     * This implies --merge.
+     * Because git rebase replays each commit from the working branch on top of the <upstream>
+     * branch using the given strategy, using the ours strategy simply empties all patches from the
+     * <branch>, which makes little sense.
+     */
+    strategy?: string;
+    /**
+     * Pass the <strategy-option> through to the merge strategy. This implies --merge and, if no
+     * strategy has been specified, -s recursive. Note the reversal of ours and theirs as noted
+     * above for the -m option.
+     */
+    strategyOption?: string;
+    /**
+     * Be quiet. Implies --no-stat.
+     */
+    quiet?: boolean;
+    /**
+     * Be verbose. Implies --stat.
+     */
+    verbose?: boolean;
+  }
+
+  /**
    * Options that can be passed to "git clone".
    */
   export interface CloneOptions {
@@ -341,6 +386,12 @@ export interface Git {
   merge(options?: Git.MergeOptions): Promise<unknown>;
 
   /**
+   * Reapply commits on top of another base tip.
+   * @param options Options that can be passed to "git rebase".
+   */
+  rebase(options?: Git.RebaseOptions): Promise<unknown>;
+
+  /**
    * Clone the repository with the provided URI.
    * @param gitUri The repository URI to clone.
    * @param options The options that can be passed to "git clone".
@@ -547,6 +598,12 @@ export namespace ExecutableGit {
    * Options that can be passed to "git merge".
    */
   export interface MergeOptions extends Git.MergeOptions, Options {
+  }
+
+  /**
+   * Options that can be passed to "git rebase".
+   */
+  export interface RebaseOptions extends Git.RebaseOptions, Options {
   }
 
   /**
@@ -791,12 +848,6 @@ export class ExecutableGit implements Git {
     return this.run(args, options);
   }
 
-  /**
-   * Merge The provided references (branches or tags) into the current branch using the provided
-   * options.
-   * @param refsToMerge The references to merge into the current branch.
-   * @param options Options that can be passed to "git merge".
-   */
   public merge(options: ExecutableGit.MergeOptions = {}): Promise<ExecutableGit.Result> {
     const args: string[] = ["merge"];
     if (options.squash != undefined) {
@@ -834,6 +885,32 @@ export class ExecutableGit implements Git {
           args.push(refToMerge);
         }
       }
+    }
+    return this.run(args, options);
+  }
+
+  public rebase(options: ExecutableGit.RebaseOptions = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = ["rebase"];
+    if (options.strategy) {
+      args.push(`--strategy=${options.strategy}`);
+    }
+    if (options.strategyOption) {
+      args.push(`--strategy-option=${options.strategyOption}`);
+    }
+    if (options.quiet) {
+      args.push("--quiet");
+    }
+    if (options.verbose) {
+      args.push("--verbose");
+    }
+    if (options.newbase) {
+      args.push("--onto", options.newbase);
+    }
+    if (options.upstream) {
+      args.push(options.upstream);
+    }
+    if (options.branch) {
+      args.push(options.branch);
     }
     return this.run(args, options);
   }
