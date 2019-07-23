@@ -674,6 +674,10 @@ export namespace ExecutableGit {
    * Options that can be passed to `git diff`.
    */
   export interface DiffOptions extends Git.DiffOptions, Options {
+    /**
+     * Whether or not to use a pager in the output of the "git diff" operation.
+     */
+    usePager?: boolean;
   }
 
   /**
@@ -1065,6 +1069,10 @@ export class ExecutableGit implements Git {
 
   public async diff(options: ExecutableGit.DiffOptions = {}): Promise<ExecutableGit.DiffResult> {
     const args: string[] = ["diff"];
+
+    if (!options.usePager) {
+      args.unshift("--no-pager");
+    }
 
     if (options.commit1) {
       args.push(options.commit1);
