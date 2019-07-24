@@ -536,6 +536,10 @@ export namespace ExecutableGit {
    */
   export interface Options extends RunOptions {
     /**
+     * Whether or not to use a pager in the output of the "git diff" operation.
+     */
+    usePager?: boolean;
+    /**
      * The file path to the git executable to use to run commands. This can be either a rooted path
      * to the executable, or a relative path that will use the environment's PATH variable to
      * resolve the executable's location.
@@ -674,10 +678,6 @@ export namespace ExecutableGit {
    * Options that can be passed to `git diff`.
    */
   export interface DiffOptions extends Git.DiffOptions, Options {
-    /**
-     * Whether or not to use a pager in the output of the "git diff" operation.
-     */
-    usePager?: boolean;
   }
 
   /**
@@ -819,6 +819,12 @@ export class ExecutableGit implements Git {
    * @param args The arguments to provide to the Git executable.
    */
   public run(args: string[], options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    if (options.usePager === true) {
+      args.unshift("--paginate");
+    } else if (options.usePager === false) {
+      args.unshift("--no-pager");
+    }
+
     return run(options.gitFilePath || this.options.gitFilePath!, args, this.maskAuthenticationInLog({
       ...this.options,
       ...options
@@ -1069,10 +1075,6 @@ export class ExecutableGit implements Git {
 
   public async diff(options: ExecutableGit.DiffOptions = {}): Promise<ExecutableGit.DiffResult> {
     const args: string[] = ["diff"];
-
-    if (!options.usePager) {
-      args.unshift("--no-pager");
-    }
 
     if (options.commit1) {
       args.push(options.commit1);
