@@ -1128,7 +1128,7 @@ describe("git.ts", function () {
           stderr: "d",
           filesChanged: []
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner }), expectedResult);
       });
@@ -1141,7 +1141,7 @@ describe("git.ts", function () {
           stderr: "d",
           filesChanged: []
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff", "fake-commit1"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff", "fake-commit1"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, commit1: "fake-commit1" }), expectedResult);
       });
@@ -1154,7 +1154,7 @@ describe("git.ts", function () {
           stderr: "d",
           filesChanged: []
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff", "fake-commit2"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff", "fake-commit2"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, commit2: "fake-commit2" }), expectedResult);
       });
@@ -1167,7 +1167,7 @@ describe("git.ts", function () {
           stderr: "d",
           filesChanged: []
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff", "fake-commit1", "fake-commit2"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff", "fake-commit1", "fake-commit2"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, commit1: "fake-commit1", commit2: "fake-commit2" }), expectedResult);
       });
@@ -1182,7 +1182,7 @@ describe("git.ts", function () {
             joinPath(process.cwd(), "c")
           ]
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff", "--name-only"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff", "--name-only"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, nameOnly: true }), expectedResult);
       });
@@ -1195,7 +1195,7 @@ describe("git.ts", function () {
           stderr: "d",
           filesChanged: []
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff", "--staged"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff", "--staged"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, staged: true }), expectedResult);
       });
@@ -1208,7 +1208,7 @@ describe("git.ts", function () {
           stderr: "d",
           filesChanged: []
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff", "--ignore-all-space"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff", "--ignore-all-space"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, ignoreSpace: "all" }), expectedResult);
       });
@@ -1221,7 +1221,7 @@ describe("git.ts", function () {
           stderr: "d",
           filesChanged: []
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff", "--ignore-space-change"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff", "--ignore-space-change"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, ignoreSpace: "change" }), expectedResult);
       });
@@ -1236,7 +1236,7 @@ describe("git.ts", function () {
             joinPath(process.cwd(), "foo.txt")
           ]
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff", "--ignore-space-at-eol"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff", "--ignore-space-at-eol"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, ignoreSpace: "at-eol" }), expectedResult);
       });
@@ -1251,7 +1251,7 @@ describe("git.ts", function () {
             joinPath(process.cwd(), "foo.txt")
           ]
         };
-        runner.set({ executable: "git", args: ["--no-pager", "diff"], result: expectedResult });
+        runner.set({ executable: "git", args: ["diff"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, usePager: undefined }), expectedResult);
       });
@@ -1281,7 +1281,7 @@ describe("git.ts", function () {
             joinPath(process.cwd(), "foo.txt")
           ]
         };
-        runner.set({ executable: "git", args: ["diff"], result: expectedResult });
+        runner.set({ executable: "git", args: ["--paginate", "diff"], result: expectedResult });
         const git = new ExecutableGit();
         assert.deepEqual(await git.diff({ runner, usePager: true }), expectedResult);
       });
@@ -1324,7 +1324,7 @@ describe("git.ts", function () {
       });
     });
 
-    describe("gitRemoteBranches()", function () {
+    describe("remoteBranches()", function () {
       it("with fake command line arguments", async function () {
         const runner = new FakeRunner();
         const expectedResult: ExecutableGit.RemoteBranchesResult = {
@@ -1341,6 +1341,44 @@ describe("git.ts", function () {
         runner.set({ executable: "git", args: ["branch", "--remotes"], result: expectedResult });
         const git = new ExecutableGit();
         const branchResult: ExecutableGit.Result = await git.remoteBranches({ runner });
+        assert.deepEqual(branchResult, expectedResult);
+      });
+
+      it("with fake command line arguments with usePager: false", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: ExecutableGit.RemoteBranchesResult = {
+          exitCode: 1,
+          stdout: "a/x",
+          stderr: "y",
+          remoteBranches: [
+            {
+              repositoryTrackingName: "a",
+              branchName: "x"
+            }
+          ],
+        };
+        runner.set({ executable: "git", args: ["--no-pager", "branch", "--remotes"], result: expectedResult });
+        const git = new ExecutableGit();
+        const branchResult: ExecutableGit.Result = await git.remoteBranches({ runner, usePager: false });
+        assert.deepEqual(branchResult, expectedResult);
+      });
+
+      it("with fake command line arguments with usePager: true", async function () {
+        const runner = new FakeRunner();
+        const expectedResult: ExecutableGit.RemoteBranchesResult = {
+          exitCode: 1,
+          stdout: "a/x",
+          stderr: "y",
+          remoteBranches: [
+            {
+              repositoryTrackingName: "a",
+              branchName: "x"
+            }
+          ],
+        };
+        runner.set({ executable: "git", args: ["--paginate", "branch", "--remotes"], result: expectedResult });
+        const git = new ExecutableGit();
+        const branchResult: ExecutableGit.Result = await git.remoteBranches({ runner, usePager: true });
         assert.deepEqual(branchResult, expectedResult);
       });
 
@@ -1556,7 +1594,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       });
     });
 
-    describe("gitGetRepositoryUrl()", function () {
+    describe("getRepositoryUrl()", function () {
       it("command line arguments", async function () {
         const runner = new FakeRunner();
         const expectedResult: ExecutableGit.GetConfigurationValueResult = { exitCode: 2, stdout: "c", stderr: "d", configurationValue: "e" };
@@ -1645,7 +1683,7 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
       });
     });
 
-    describe("gitRemoteUrl()", function () {
+    describe("getRemoteUrl()", function () {
       it("with undefined", async function () {
         const git = new ExecutableGit();
         assert.strictEqual(await git.getRemoteUrl(undefined as any), undefined);
