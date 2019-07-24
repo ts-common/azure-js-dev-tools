@@ -1297,7 +1297,8 @@ export class RealGitHub implements GitHub {
         }
       }
       if (!result) {
-        throw new Error(`No GitHub client registered to be used with repository "${fullRepositoryName}".`);
+        result = this.getDefaultClient();
+        // throw new Error(`No GitHub client registered to be used with repository "${fullRepositoryName}".`);
       }
     }
     return result;
