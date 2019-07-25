@@ -28,6 +28,7 @@ export * from "./node";
 export * from "./npm";
 export * from "./packageJson";
 export * from "./path";
+export * from "./retry";
 export * from "./run";
 export * from "./textBuilder";
 export * from "./url";
