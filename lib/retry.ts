@@ -25,11 +25,15 @@ export interface RetryControl {
    * encountered..
    */
   shouldRetry?: boolean;
+  /**
+   * The errors that have occurred on previous attempts.
+   */
+  readonly errors: Error[];
 }
 
 export type RetryFunction<T> = (control: RetryControl) => (T | Promise<T>);
-export type ShouldRetryFunction = (error: Error, control: RetryControl) => (boolean | Promise<boolean>);
-export type BetweenAttemptsFunction = (error: Error, control: RetryControl) => (unknown | Promise<unknown>);
+export type ShouldRetryFunction<T> = (error: Error | undefined, result: T | undefined, control: RetryControl) => (boolean | Promise<boolean>);
+export type BetweenAttemptsFunction<T> = (error: Error | undefined, result: T | undefined, control: RetryControl) => (unknown | Promise<unknown>);
 
 /**
  * Options that can be passed to the retry() function.
@@ -46,11 +50,11 @@ export interface RetryOptions<T> {
   /**
    * Whether or not to retry when the provided error was thrown.
    */
-  shouldRetry?: ShouldRetryFunction;
+  shouldRetry?: ShouldRetryFunction<T>;
   /**
    * A function that should be run between attempts.
    */
-  betweenAttempts?: BetweenAttemptsFunction;
+  betweenAttempts?: BetweenAttemptsFunction<T>;
 }
 
 /**
@@ -61,8 +65,8 @@ export interface RetryOptions<T> {
  */
 export async function retry<T>(action: RetryFunction<T> | RetryOptions<T>): Promise<T> {
   let maxAttempts = 3;
-  let shouldRetry: ShouldRetryFunction = () => true;
-  let betweenAttempts: BetweenAttemptsFunction = () => {};
+  let shouldRetry: ShouldRetryFunction<T> = (error: Error | undefined) => !!error;
+  let betweenAttempts: BetweenAttemptsFunction<T> = () => { };
   if (action && typeof action !== "function") {
     if (action.maxAttempts != undefined) {
       maxAttempts = action.maxAttempts;
@@ -78,21 +82,33 @@ export async function retry<T>(action: RetryFunction<T> | RetryOptions<T>): Prom
 
   let result: T;
   let attempt = 0;
+  const errors: Error[] = [];
   while (true) {
     ++attempt;
-    const control: RetryControl = { attempt, maxAttempts };
+    const control: RetryControl = { attempt, maxAttempts, errors };
     try {
       result = await Promise.resolve(action(control));
-      break;
+      if (control.shouldRetry === false) {
+        break;
+      } else if (control.shouldRetry === true || await Promise.resolve(shouldRetry(undefined, result, control))) {
+        if (attempt >= maxAttempts) {
+          throw new Error(`Failing retriable action due to no more remaining attempts.`);
+        } else {
+          await Promise.resolve(betweenAttempts(undefined, result, control));
+        }
+      } else {
+        break;
+      }
     } catch (error) {
       if (error instanceof DontRetryError) {
         throw error.innerError;
       } else if (control.shouldRetry === false || attempt >= maxAttempts) {
         throw error;
-      } else if (shouldRetry && !await Promise.resolve(shouldRetry(error, control))) {
+      } else if (!await Promise.resolve(shouldRetry(error, undefined, control))) {
         throw error;
       } else {
-        await Promise.resolve(betweenAttempts(error, control));
+        await Promise.resolve(betweenAttempts(error, undefined, control));
+        errors.push(error);
       }
     }
   }

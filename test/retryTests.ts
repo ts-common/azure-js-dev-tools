@@ -22,7 +22,7 @@ describe("retry.ts", function () {
     });
 
     it("with function that doesn't throw and returns void", async function () {
-      const result: void = await retry(() => {});
+      const result: void = await retry(() => { });
       assert.strictEqual(result, undefined);
     });
 
@@ -32,6 +32,45 @@ describe("retry.ts", function () {
         return 5;
       });
       assert.strictEqual(result, 5);
+    });
+
+    it("with function that doesn't throw, returns a number, and retries when number is less than 8", async function () {
+      const result: number = await retry({
+        action: (control: RetryControl) => {
+          return 5 * control.attempt;
+        },
+        shouldRetry: (_error: Error | undefined, result: number | undefined) => result !== undefined && result < 8
+      });
+      assert.strictEqual(result, 10);
+    });
+
+    it("with function that doesn't throw, sets shouldRetry to false, returns a number, and retries when number is less than 8", async function () {
+      const result: number = await retry({
+        action: (control: RetryControl) => {
+          control.shouldRetry = false;
+          return 5 * control.attempt;
+        },
+        shouldRetry: (_error: Error | undefined, result: number | undefined) => result !== undefined && result < 8
+      });
+      assert.strictEqual(result, 5);
+    });
+
+    it("with function that doesn't throw, returns a number, and retries when number is less than 100", async function () {
+      const error: Error = await assertEx.throwsAsync(retry({
+        action: (control: RetryControl) => {
+          return 5 * control.attempt;
+        },
+        shouldRetry: (_error: Error | undefined, result: number | undefined) => result !== undefined && result < 100
+      }));
+      assert.strictEqual(error.message, "Failing retriable action due to no more remaining attempts.");
+    });
+
+    it("with function that doesn't throw, returns a number, and always sets shouldRetry to true", async function () {
+      const error: Error = await assertEx.throwsAsync(retry((control: RetryControl) => {
+        control.shouldRetry = true;
+        return 5 * control.attempt;
+      }));
+      assert.strictEqual(error.message, "Failing retriable action due to no more remaining attempts.");
     });
 
     it("with function that throws on the first call and then returns a number", async function () {
@@ -93,7 +132,7 @@ describe("retry.ts", function () {
           }
           return 7;
         },
-        shouldRetry: (error: Error) => !error.message.includes("attempt 2")
+        shouldRetry: (error: Error | undefined) => !error || !error.message.includes("attempt 2")
       }));
       assert.strictEqual(error.message, `Error on attempt 2`);
     });
@@ -109,7 +148,7 @@ describe("retry.ts", function () {
     });
 
     it("with async function that returns void", async function () {
-      const result: void = await retry(async () => {});
+      const result: void = await retry(async () => { });
       assert.strictEqual(result, undefined);
     });
 
