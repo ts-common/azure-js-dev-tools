@@ -1,6 +1,6 @@
 {
   "name": "@ts-common/azure-js-dev-tools",
-  "version": "22.4.0",
+  "version": "22.4.1",
   "description": "Developer dependencies for TypeScript related projects",
   "main": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
@@ -51,8 +51,10 @@
   },
   "homepage": "https://github.com/ts-common/azure-js-dev-tools#readme",
   "dependencies": {
+    "tslib": "^1.10.0",
+    "@azure/ms-rest-js": "^2.0.4",
     "@azure/logger-js": "^1.3.2",
-    "@azure/storage-blob": "^10.3.0",
+    "@azure/storage-blob": "^10.4.0",
     "@octokit/rest": "^16.28.2",
     "@types/archiver": "^2.1.2",
     "@types/commonmark": "^0.27.1",

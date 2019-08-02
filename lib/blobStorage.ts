@@ -5,7 +5,7 @@
  */
 
 import { Aborter, AnonymousCredential, AppendBlobURL, BlockBlobURL, ContainerGetAccessPolicyResponse, ContainerURL, Credential, generateBlobSASQueryParameters, IBlobSASSignatureValues, Models, Pipeline, SASQueryParameters, ServiceURL, SharedKeyCredential, StorageURL } from "@azure/storage-blob";
-import { AppendBlobAppendBlockResponse, BlockBlobUploadResponse } from "@azure/storage-blob/typings/lib/generated/lib/models";
+import { AppendBlobAppendBlockResponse, BlockBlobUploadResponse } from "@azure/storage-blob/typings/src/generated/src/models";
 import * as fs from "fs";
 import { map } from "./arrays";
 import { readEntireString, StringMap } from "./common";
