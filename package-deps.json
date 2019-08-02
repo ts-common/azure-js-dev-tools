@@ -1,0 +1,4 @@
+{
+  "files": {},
+  "arguments": "run-p build:sources build:scripts "
+}

@@ -258,7 +258,7 @@ export interface GitHubCreateMilestoneOptions {
  * Optional parameters that can be provided to the GitHub.getPullRequests() function to restrict the
  * returned pull requests.
  */
-export interface GitHubGetPullRequestsOptions {
+export interface GitHubGetPullRequestsOptions extends Partial<Octokit.PullsListParams> {
   /**
    * Filter the results to the pull requests that are either open (true) or closed (false). If this
    * value is undefined, then all pull requests will be returned.
@@ -1019,8 +1019,13 @@ export class FakeGitHub implements GitHub {
   public getPullRequests(repository: string | Repository, options?: GitHubGetPullRequestsOptions): Promise<FakeGitHubPullRequest[]> {
     const fakeRepository: FakeRepository = this.getRepository(repository);
     let result: FakeGitHubPullRequest[] = fakeRepository.pullRequests;
-    if (options && options.open !== undefined) {
-      result = where(result, (pullRequest: FakeGitHubPullRequest) => pullRequest.state === (options.open ? "open" : "closed"));
+    if (options) {
+      if (options.open) {
+        result = where(result, (pullRequest) => pullRequest.state === (options.open ? "open" : "closed"));
+      }
+      if (options.head) {
+        result = where(result, (pullRequest) => pullRequest.head.ref === options.head);
+      }
     }
     return Promise.resolve(result);
   }
@@ -1545,7 +1550,8 @@ export class RealGitHub implements GitHub {
     const githubArguments: Octokit.PullsListParams = {
       owner: githubRepository.owner,
       repo: githubRepository.name,
-      state: pullRequestState
+      state: pullRequestState,
+      ...options
     };
     const requestOptions: Octokit.RequestOptions = await this.getClient(repository).pulls.list.endpoint.merge(githubArguments);
     const result: GitHubPullRequest[] = await this.getAllPageData(repository, requestOptions);
