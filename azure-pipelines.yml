@@ -39,6 +39,12 @@ jobs:
     vmImage: 'Ubuntu 16.04'
   steps:
   - task: Npm@1
+    displayName: 'npm install'
+    inputs:
+      command: custom
+      verbose: false
+      customCommand: install
+  - task: Npm@1
     displayName: 'npm pack'
     inputs:
       command: custom
