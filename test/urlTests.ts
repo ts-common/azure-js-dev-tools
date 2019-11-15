@@ -976,24 +976,21 @@ describe("url.ts", function () {
       it(`with "https://www.example.com:"`, function () {
         nextTest("https://www.example.com:", [
           URLToken.scheme("https"),
-          URLToken.host("www.example.com"),
-          URLToken.port("")
+          URLToken.host("www.example.com:")
         ]);
       });
 
       it(`with "https://www.example.com:8080"`, function () {
         nextTest("https://www.example.com:8080", [
           URLToken.scheme("https"),
-          URLToken.host("www.example.com"),
-          URLToken.port("8080")
+          URLToken.host("www.example.com:8080"),
         ]);
       });
 
       it(`with "ftp://www.bing.com:123/"`, function () {
         nextTest("ftp://www.bing.com:123/", [
           URLToken.scheme("ftp"),
-          URLToken.host("www.bing.com"),
-          URLToken.port("123"),
+          URLToken.host("www.bing.com:123"),
           URLToken.path("/")
         ]);
       });
@@ -1001,8 +998,7 @@ describe("url.ts", function () {
       it(`with "ftp://www.bing.com:123/a/b/c.txt"`, function () {
         nextTest("ftp://www.bing.com:123/a/b/c.txt", [
           URLToken.scheme("ftp"),
-          URLToken.host("www.bing.com"),
-          URLToken.port("123"),
+          URLToken.host("www.bing.com:123"),
           URLToken.path("/a/b/c.txt")
         ]);
       });
@@ -1010,8 +1006,7 @@ describe("url.ts", function () {
       it(`with "ftp://www.bing.com:123?"`, function () {
         nextTest("ftp://www.bing.com:123?", [
           URLToken.scheme("ftp"),
-          URLToken.host("www.bing.com"),
-          URLToken.port("123"),
+          URLToken.host("www.bing.com:123"),
           URLToken.query("")
         ]);
       });
@@ -1019,8 +1014,7 @@ describe("url.ts", function () {
       it(`with "ftp://www.bing.com:123?a=b&c=d"`, function () {
         nextTest("ftp://www.bing.com:123?a=b&c=d", [
           URLToken.scheme("ftp"),
-          URLToken.host("www.bing.com"),
-          URLToken.port("123"),
+          URLToken.host("www.bing.com:123"),
           URLToken.query("a=b&c=d")
         ]);
       });

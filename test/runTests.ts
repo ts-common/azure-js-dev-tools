@@ -655,7 +655,7 @@ describe("run.ts", function () {
       assert.strictEqual(result.exitCode, 0);
       assertEx.contains(capturedOutput, "README.md");
       assertEx.contains(capturedOutput, "package.json");
-      assert.strictEqual(result.stdout, undefined);
+      assert.strictEqual(result.stdout, capturedOutput);
       assert.strictEqual(result.stderr, "");
     });
 
@@ -675,7 +675,7 @@ describe("run.ts", function () {
       assert.strictEqual(result.exitCode, 0);
       assertEx.contains(result.stdout, "README.md");
       assertEx.contains(result.stdout, "package.json");
-      assert.strictEqual(result.stderr, undefined);
+      assert.strictEqual(result.stderr, "");
       assert.strictEqual(capturedError, "");
     });
 

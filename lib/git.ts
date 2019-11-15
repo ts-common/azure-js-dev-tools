@@ -4,11 +4,12 @@
  * license information.
  */
 
-import { URLBuilder } from "@azure/ms-rest-js";
 import { toArray, where } from "./arrays";
 import { getLines, replaceAll, StringMap } from "./common";
 import { joinPath } from "./path";
 import { run, RunOptions, RunResult } from "./run";
+import { mkdirSync } from "fs";
+import { URLBuilder } from "./url";
 
 /**
  * A set of interfaces and types that relate to the Git interface.
@@ -188,6 +189,10 @@ export namespace Git {
      * The name to use for the local branch.
      */
     localBranchName?: string;
+    /**
+     * Checkout and detached
+     */
+    detach?: boolean;
   }
 
   /**
@@ -362,6 +367,12 @@ export namespace Git {
      */
     remotes: StringMap<string>;
   }
+
+  export interface StashOptions {
+    pop?: boolean;
+    keepIndex?: boolean;
+    all?: boolean;
+  }
 }
 
 /**
@@ -525,6 +536,8 @@ export interface Git {
    * Get the remote repositories that are referenced in this local repository.
    */
   listRemotes(): Promise<Git.ListRemotesResult>;
+
+  stash(options: ExecutableGit.StashOptions): Promise<ExecutableGit.Result>;
 }
 
 /**
@@ -559,7 +572,7 @@ export namespace ExecutableGit {
      * match the scope. The scope can be either the repository's owner or the full repository
      * name (<owner>/<repository-name>).
      */
-    authentication?: string | StringMap<string>;
+    authentication?: string | StringMap<string> | ((scope: string) => Promise<string | undefined>);
   }
 
   /**
@@ -596,6 +609,27 @@ export namespace ExecutableGit {
      * Whether or not to fetch branch updates about all known remote repositories.
      */
     all?: boolean;
+
+    /**
+     * Set depth to 1 to use shallow fetch
+     */
+    depth?: number;
+
+    /**
+     * Name of the remote repo to fetch
+     */
+    remoteName?: string;
+
+    /**
+     * refspec to be fetched
+     */
+    refSpec?: string;
+  }
+
+  export interface ResetOptions extends Options {
+    hard?: boolean;
+    soft?: boolean;
+    target?: string;
   }
 
   /**
@@ -725,12 +759,17 @@ export namespace ExecutableGit {
    */
   export interface ListRemotesResult extends Git.ListRemotesResult, Result {
   }
+
+  export interface StashOptions extends Git.StashOptions, Options {
+  }
 }
 
 /**
  * An implementation of Git that uses a Git executable to run commands.
  */
 export class ExecutableGit implements Git {
+  private authenticationStrings: Set<string> = new Set();
+
   /**
    * Create a new ExecutableGit object.
    * @param gitFilePath The file path to the git executable to use to run commands. This can be
@@ -745,13 +784,12 @@ export class ExecutableGit implements Git {
   }
 
   private maskAuthenticationInLog<T extends ExecutableGit.Options>(options: T): T {
-    const authentication: string | StringMap<string> | undefined = this.options.authentication;
+    const authentication = this.options.authentication;
     const log: undefined | ((text: string) => any) = options.log;
     if (authentication && log) {
-      const authenticationStrings: string[] = typeof authentication === "string" ? [authentication] : Object.values(authentication);
       options.log = (text: string) => {
-        for (const authenticationString of authenticationStrings) {
-          text = replaceAll(text, authenticationString, "xxxxx")!;
+        for (const authenticationString of this.authenticationStrings.values()) {
+          text = replaceAll(text, authenticationString, "<redacted>")!;
         }
         return log(text);
       };
@@ -767,6 +805,8 @@ export class ExecutableGit implements Git {
       let authenticationToAdd: string | undefined;
       if (typeof this.options.authentication === "string") {
         authenticationToAdd = this.options.authentication;
+      } else if (typeof this.options.authentication === "function") {
+        authenticationToAdd = await this.options.authentication(url);
       } else {
         let urlPath: string | undefined = builder.getPath();
         if (urlPath) {
@@ -794,9 +834,10 @@ export class ExecutableGit implements Git {
         }
       }
 
-      if (authenticationToAdd) {
-        builder.setHost(`${authenticationToAdd}@${builder.getHost()}`);
+      if (authenticationToAdd !== undefined) {
+        this.authenticationStrings.add(authenticationToAdd);
       }
+      builder.setAuth(authenticationToAdd);
       result = builder.toString();
     }
     return result;
@@ -854,6 +895,15 @@ export class ExecutableGit implements Git {
     }
     if (options.all) {
       args.push("--all");
+    }
+    if (options.depth) {
+      args.push("--depth", options.depth.toString());
+    }
+    if (options.remoteName) {
+      args.push(options.remoteName);
+    }
+    if (options.refSpec) {
+      args.push(options.refSpec);
     }
     return this.run(args, options);
   }
@@ -936,6 +986,23 @@ export class ExecutableGit implements Git {
   }
 
   /**
+   * Init git repo.
+   * @param options Options
+   */
+  public async init(options?: ExecutableGit.Options): Promise<ExecutableGit.Result> {
+    return this.run(["init"], options);
+  }
+
+  public async symbolicRef(name: string, ref?: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
+    const args: string[] = ["symbolic-ref"];
+    args.push(name);
+    if (ref) {
+      args.push(ref);
+    }
+    return this.run(args, options);
+  }
+
+  /**
    * Checkout the provided git reference (branch, tag, or commit ID) in the repository.
    * @param refId The git reference to checkout.
    */
@@ -948,6 +1015,9 @@ export class ExecutableGit implements Git {
     }
     if (options.localBranchName) {
       args.push("-b", options.localBranchName);
+    }
+    if (options.detach) {
+      args.push("--detach");
     }
     const runResult: ExecutableGit.Result = await this.run(args, options);
     let filesThatWouldBeOverwritten: string[] | undefined;
@@ -1184,6 +1254,71 @@ export class ExecutableGit implements Git {
     };
   }
 
+  public async stash(options: ExecutableGit.StashOptions = {}): Promise<ExecutableGit.Result> {
+    const args = ["stash"];
+    if (options.pop) {
+      args.push("pop");
+    }
+    if (options.keepIndex) {
+      args.push("--keep-index");
+    }
+    if (options.all) {
+      args.push("--all");
+    }
+
+    return this.run(args, options);
+  }
+
+  /**
+   * Reset a local git repo, possible with existing git data.
+   * Delete all the branches and all the remotes.
+   * Use this function to reuse existing git repo data to accelerate fetching.
+   */
+  public async resetRepoFolder(): Promise<void> {
+    const log = this.options.log || console.error;
+
+    if (this.options.executionFolderPath) {
+      mkdirSync(this.options.executionFolderPath, { recursive: true });
+    }
+    const initResult = await this.init();
+    if (initResult.exitCode !== 0) {
+      log(`Failed to init repo at ${this.options.executionFolderPath}`);
+      if (initResult.error) {
+        log(JSON.stringify(initResult.error));
+        throw initResult;
+      }
+    }
+
+    try {
+      await this.addAll();
+    } catch (e) {}
+    await this.resetAll({ hard: true });
+    await this.run(["clean", "-xdf"]);
+
+    // Remove all the local branches
+    const localBranchesResult = await this.localBranches();
+    if (localBranchesResult.currentBranch) {
+      try {
+        await this.checkout(localBranchesResult.currentBranch, { detach: true });
+        await this.deleteLocalBranch(localBranchesResult.currentBranch);
+      } catch (e) {
+      }
+    }
+    for (const branchName of localBranchesResult.localBranches) {
+      if (branchName && branchName !== localBranchesResult.currentBranch) {
+        await this.deleteLocalBranch(branchName);
+      }
+    }
+
+    // Remove all the remotes
+    const listRemotesResult = await this.listRemotes();
+    for (const remoteName of Object.keys(listRemotesResult.remotes)) {
+      if (remoteName) {
+        await this.removeRemote(remoteName);
+      }
+    }
+  }
+
   /**
    * Run "git status".
    */
@@ -1349,11 +1484,24 @@ export class ExecutableGit implements Git {
   }
 
   /**
-   * Unstage all staged files.
+   * Reset all the file.
    * @param options The options that can configure how the command will run.
    */
-  public resetAll(options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
-    return this.run(["reset", "*"], options);
+  public resetAll(options: ExecutableGit.ResetOptions = {}): Promise<ExecutableGit.Result> {
+    const args = ["reset"];
+    if (options.hard) {
+      args.push("--hard");
+    }
+    if (options.soft) {
+      args.push("--soft");
+    }
+
+    if (options.target) {
+      args.push(options.target);
+    } else if (!options.hard && !options.soft) {
+      args.push("*");
+    }
+    return this.run(args, options);
   }
 
   /**
@@ -1365,6 +1513,15 @@ export class ExecutableGit implements Git {
    */
   public async addRemote(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
     return await this.run(["remote", "add", remoteName, await this.addAuthenticationToURL(remoteUrl)], options);
+  }
+
+  /**
+   * Remove git remote repository
+   * @param remoteName The name of the remote repository to be removed
+   * @param options Options
+   */
+  public async removeRemote(remoteName: string, options?: ExecutableGit.Options) {
+    return this.run(["remote", "remove", remoteName], options);
   }
 
   /**
@@ -1385,6 +1542,24 @@ export class ExecutableGit implements Git {
    */
   public async setRemoteUrl(remoteName: string, remoteUrl: string, options: ExecutableGit.Options = {}): Promise<ExecutableGit.Result> {
     return await this.run(["remote", "set-url", remoteName, await this.addAuthenticationToURL(remoteUrl)], options);
+  }
+
+  public async refreshRemoteAuthentication(): Promise<ExecutableGit.ListRemotesResult> {
+    const log = this.options.log || console.error;
+    const remotesResult = await this.listRemotes();
+    if (remotesResult.error) {
+      log(remotesResult.error.toString());
+      return remotesResult;
+    }
+
+    for (const remoteName of Object.keys(remotesResult.remotes)) {
+      const remoteUrl = remotesResult.remotes[remoteName];
+      if (remoteUrl) {
+        await this.setRemoteUrl(remoteName, remoteUrl);
+      }
+    }
+
+    return this.listRemotes();
   }
 
   /**
