@@ -9,6 +9,7 @@ import * as os from "os";
 import { any, last } from "./arrays";
 import { replaceAll, StringMap } from "./common";
 import { normalizePath } from "./path";
+import { Readable } from "stream";
 
 export interface Command {
   /**
@@ -211,6 +212,57 @@ export function chunkToString(chunk: any): string {
   return chunk;
 }
 
+const captureProcessOutput = async (
+  source: Readable | null,
+  captureFn?: ((text: string) => void) | boolean,
+  capturePrefix?: string
+): Promise<string | undefined> => {
+  let capturedOutput = "";
+  if (captureFn === false || source === null) {
+    return undefined;
+  }
+
+  const captureOutputFn = (text: string) => {
+    capturedOutput += text;
+    if (typeof captureFn === "function") {
+      if (capturePrefix) {
+        text = `[${capturePrefix}] ${text}`;
+      }
+      captureFn(text);
+    }
+  };
+
+  return new Promise((resolve, reject) => {
+    let currentOutputLine = "";
+    source.addListener("data", (chunk: any) => {
+      currentOutputLine += chunkToString(chunk);
+      while (true) {
+        const newLineIndex: number = currentOutputLine.indexOf("\n");
+        if (newLineIndex === -1) {
+          break;
+        }
+        const startOfNextLine: number = newLineIndex + 1;
+        captureOutputFn(currentOutputLine.substring(0, startOfNextLine));
+        currentOutputLine = currentOutputLine.substring(startOfNextLine);
+      }
+    });
+    source.addListener("error", (error: Error) => {
+      if (currentOutputLine) {
+        captureOutputFn(currentOutputLine);
+        currentOutputLine = "";
+      }
+      reject(error);
+    });
+    source.addListener("end", () => {
+      if (currentOutputLine) {
+        captureOutputFn(currentOutputLine);
+        currentOutputLine = "";
+      }
+      resolve(capturedOutput);
+    });
+  });
+};
+
 /**
  * A command runner that runs commands using a spawned process.
  */
@@ -224,85 +276,8 @@ export class RealRunner implements Runner {
       env: options.environmentVariables
     });
 
-    let childProcessOutput: string | undefined;
-    let stdoutCaptured: Promise<void> = Promise.resolve();
-    if (options.captureOutput !== false) {
-      let captureOutputFunction: ((text: string) => void);
-      if (options.captureOutput === undefined || options.captureOutput === true) {
-        childProcessOutput = "";
-        captureOutputFunction = (text: string) => childProcessOutput += text;
-      } else {
-        captureOutputFunction = options.captureOutput;
-      }
-      stdoutCaptured = new Promise((resolve, reject) => {
-        let currentOutputLine = "";
-        if (childProcess.stdout) {
-          childProcess.stdout.addListener("data", (chunk: any) => {
-            currentOutputLine += chunkToString(chunk);
-            const newLineIndex: number = currentOutputLine.indexOf("\n");
-            if (newLineIndex !== -1) {
-              const startOfNextLine: number = newLineIndex + 1;
-              captureOutputFunction(currentOutputLine.substring(0, startOfNextLine));
-              currentOutputLine = currentOutputLine.substring(startOfNextLine);
-            }
-          });
-          childProcess.stdout.addListener("error", (error: Error) => {
-            if (currentOutputLine) {
-              captureOutputFunction(currentOutputLine);
-              currentOutputLine = "";
-            }
-            reject(error);
-          });
-          childProcess.stdout.addListener("end", () => {
-            if (currentOutputLine) {
-              captureOutputFunction(currentOutputLine);
-              currentOutputLine = "";
-            }
-            resolve();
-          });
-        }
-      });
-    }
-
-    let childProcessError: string | undefined;
-    let stderrCaptured: Promise<void> = Promise.resolve();
-    let captureErrorFunction: ((text: string) => void);
-    if (options.captureError !== false) {
-      if (options.captureError === undefined || options.captureError === true) {
-        childProcessError = "";
-        captureErrorFunction = (text: string) => childProcessError += text;
-      } else {
-        captureErrorFunction = options.captureError;
-      }
-      stderrCaptured = new Promise((resolve, reject) => {
-        let currentErrorLine = "";
-        if (childProcess.stderr) {
-          childProcess.stderr.addListener("data", (chunk: any) => {
-            currentErrorLine += chunkToString(chunk);
-            const newLineIndex: number = currentErrorLine.indexOf("\n");
-            if (newLineIndex !== -1) {
-              const startOfNextLine: number = newLineIndex + 1;
-              captureErrorFunction(currentErrorLine.substring(0, startOfNextLine));
-              currentErrorLine = currentErrorLine.substring(startOfNextLine);
-            }
-          });
-          childProcess.stderr.addListener("error", (error: Error) => {
-            if (currentErrorLine) {
-              captureErrorFunction(currentErrorLine);
-              currentErrorLine = "";
-            }
-            reject(error);
-          });
-          childProcess.stderr.addListener("end", () => {
-            if (currentErrorLine) {
-              captureErrorFunction(currentErrorLine);
-              currentErrorLine = "";
-            }
-            resolve();
-          });
-        }
-      });
-    }
+    const stdoutCaptured = captureProcessOutput(childProcess.stdout, options.captureOutput, options.capturePrefix);
+    const stderrCaptured = captureProcessOutput(childProcess.stderr, options.captureError, options.capturePrefix);
 
     let processExitCode: number | undefined;
     const processDone: Promise<RunResult> = new Promise((resolve, reject) => {
@@ -314,17 +289,16 @@ export class RealRunner implements Runner {
     });
 
     return Promise.all([processDone, stdoutCaptured, stderrCaptured])
-      .then(() => {
+      .then(([_, stdout, stderr]) => {
         return {
           exitCode: processExitCode,
-          stdout: childProcessOutput,
-          stderr: childProcessError,
+          stdout, stderr,
           processId: childProcess.pid,
         };
       })
       .catch((error: Error) => {
-        if (captureErrorFunction) {
-          captureErrorFunction(error.toString());
+        if (typeof options.captureError === "function") {
+          options.captureError(error.toString());
         }
         return {
           error
@@ -471,6 +445,10 @@ export interface RunOptions {
    */
   showResult?: boolean | ((result: RunResult) => boolean);
   /**
+   * Prefix added to log
+   */
+  capturePrefix?: string;
+  /**
    * Whether or not to capture the command's output stream. If true or undefined, then the output
    * stream will be captured and returned in the RunResult's stdout property. If a function, then
    * the function will be called on each line of output text written by the process. If false, then
@@ -492,6 +470,10 @@ export interface RunOptions {
    * The environment variables that will be added when the command is run.
    */
   environmentVariables?: StringMap<string>;
+  /**
+   * Throw on non-zero exit code
+   */
+  throwOnError?: boolean;
 }
 
 /**
@@ -597,6 +579,10 @@ export async function run(command: string | Command, args?: string[], options: R
   await logEnvironmentVariables(options);
   const result: RunResult = await runner.run(command, options);
   await logResult(result, options);
+
+  if (options.throwOnError && result.exitCode) {
+    throw new Error(`${command.executable} ${command.args.join(" ")} ${result.stderr || ""}`);
+  }
 
   return result;
 }

@@ -1504,7 +1504,8 @@ export class AzureBlobStorage extends BlobStorage {
       };
     } catch (error) {
       if (error.message.includes("BlobAlreadyExists")) {
-        result = { created: false };
+        await appendBlobURL.delete(Aborter.none);
+        return this.createAppendBlob(appendBlobPath, options);
       } else {
         throw error;
       }

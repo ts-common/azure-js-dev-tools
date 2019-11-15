@@ -134,6 +134,7 @@ export class URLQuery {
  * A class that handles creating, modifying, and parsing URLs.
  */
 export class URLBuilder {
+  private _auth: string | undefined;
   private _scheme: string | undefined;
   private _host: string | undefined;
   private _port: string | undefined;
@@ -178,6 +179,45 @@ export class URLBuilder {
    */
   public getHost(): string | undefined {
     return this._host;
+  }
+
+  /**
+   * Set the auth string
+   */
+  public setAuth(auth: string | undefined): URLBuilder {
+    this._auth = auth;
+    return this;
+  }
+
+  /**
+   * Get the auth string
+   */
+  public getAuth(): string | undefined {
+    return this._auth;
+  }
+
+  /**
+   * If host contains auth, separate them and set auth string
+   */
+  private separateAuthAndPortFromHost() {
+    let host = this._host;
+    if (!host) {
+      return;
+    }
+
+    let result = host.split("@");
+    if (result.length === 2) {
+      this._auth = result[0];
+      host = result[1];
+    }
+
+    result = host.split(":");
+    if (result.length === 2) {
+      host = result[0];
+      this._port = result[1];
+    }
+
+    this._host = host;
   }
 
   /**
@@ -319,6 +359,7 @@ export class URLBuilder {
 
           case "HOST":
             this._host = token.text || undefined;
+            this.separateAuthAndPortFromHost();
             break;
 
           case "PORT":
@@ -349,6 +390,10 @@ export class URLBuilder {
 
     if (this._scheme) {
       result += `${this._scheme}://`;
+    }
+
+    if (this._auth) {
+      result += `${this._auth}@`;
     }
 
     if (this._host) {
@@ -625,7 +670,7 @@ function nextHost(tokenizer: URLTokenizer): void {
     nextCharacter(tokenizer, 3);
   }
 
-  const host: string = readUntilCharacter(tokenizer, ":", "/", "?");
+  const host: string = readUntilCharacter(tokenizer, "/", "?");
   tokenizer._currentToken = URLToken.host(host);
 
   if (!hasCurrentCharacter(tokenizer)) {

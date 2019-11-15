@@ -432,7 +432,7 @@ describe("git.ts", function () {
           assert.strictEqual(cloneResult.stdout, "");
           assert.strictEqual(cloneResult.error, undefined);
           assert.deepEqual(logger.allLogs, [
-            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `git clone https://<redacted>@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
             `Exit Code: 0`,
             `Error:`,
             `Cloning into '${repositoryFolderPath}'...\n`
@@ -472,7 +472,7 @@ describe("git.ts", function () {
           assert.strictEqual(cloneResult.stdout, "");
           assert.strictEqual(cloneResult.error, undefined);
           assert.deepEqual(logger.allLogs, [
-            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `git clone https://<redacted>@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
             `Exit Code: 0`,
             `Error:`,
             `Cloning into '${repositoryFolderPath}'...\n`
@@ -512,7 +512,7 @@ describe("git.ts", function () {
           assert.strictEqual(cloneResult.stdout, "");
           assert.strictEqual(cloneResult.error, undefined);
           assert.deepEqual(logger.allLogs, [
-            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `git clone https://<redacted>@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
             `Exit Code: 0`,
             `Error:`,
             `Cloning into '${repositoryFolderPath}'...\n`
@@ -553,7 +553,7 @@ describe("git.ts", function () {
           assert.strictEqual(cloneResult.stdout, "");
           assert.strictEqual(cloneResult.error, undefined);
           assert.deepEqual(logger.allLogs, [
-            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `git clone https://<redacted>@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
             `Exit Code: 0`,
             `Error:`,
             `Cloning into '${repositoryFolderPath}'...\n`
@@ -956,7 +956,7 @@ describe("git.ts", function () {
           `git push`,
           `Exit Code: 128`,
           `Error:`,
-          `fatal: could not read Password for 'https://xxxxx@github.com': No such device or address`,
+          `fatal: could not read Password for 'https://berry@github.com': No such device or address`,
         ]);
       });
     });
@@ -1666,16 +1666,16 @@ no changes added to commit (use "git add" and/or "git commit -a")`,
           assert.strictEqual(addRemoteResult.stdout, "");
           assert.strictEqual(addRemoteResult.error, undefined);
           assert.deepEqual(logger.allLogs, [
-            `git clone https://xxxxx@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
+            `git clone https://<redacted>@github.com/ts-common/azure-js-dev-tools.git ${repositoryFolderPath}`,
             `Exit Code: 0`,
             `Error:`,
             `Cloning into '${repositoryFolderPath}'...\n`,
-            `${repositoryFolderPath}: git remote add fakeremote https://xxxxx@fake.git/remote/repository`,
+            `${repositoryFolderPath}: git remote add fakeremote https://<redacted>@fake.git/remote/repository`,
             `Exit Code: 0`,
             `${repositoryFolderPath}: git remote get-url fakeremote`,
             `Exit Code: 0`,
             `Output:`,
-            `https://xxxxx@fake.git/remote/repository\n`,
+            `https://<redacted>@fake.git/remote/repository\n`,
           ]);
         } finally {
           await deleteFolder(repositoryFolderPath);

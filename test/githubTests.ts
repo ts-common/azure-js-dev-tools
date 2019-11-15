@@ -583,38 +583,38 @@ describe("github.ts", function () {
     describe("createPullRequest()", function () {
       it("with undefined repository", async function () {
         const github: GitHub = githubCreator();
-        await assertEx.throwsAsync(github.createPullRequest(undefined as any, "fake-base-branch", "fake-head-branch", "fake-title"));
+        await assertEx.throwsAsync(github.createPullRequest(undefined as any, "fake-base-branch", "fake-head-branch", {title: "fake-title"}));
       });
 
       it("with null repository", async function () {
         const github: GitHub = githubCreator();
         // tslint:disable-next-line:no-null-keyword
-        await assertEx.throwsAsync(github.createPullRequest(null as any, "fake-base-branch", "fake-head-branch", "fake-title"));
+        await assertEx.throwsAsync(github.createPullRequest(null as any, "fake-base-branch", "fake-head-branch", {title: "fake-title"}));
       });
 
       it(`with "" repository`, async function () {
         const github: GitHub = githubCreator();
-        await assertEx.throwsAsync(github.createPullRequest("", "fake-base-branch", "fake-head-branch", "fake-title"));
+        await assertEx.throwsAsync(github.createPullRequest("", "fake-base-branch", "fake-head-branch", {title: "fake-title"}));
       });
 
       it("with repository that doesn't exist", async function () {
         const github: GitHub = githubCreator();
-        await assertEx.throwsAsync(github.createPullRequest("ImARepositoryThatDoesntExist", "fake-base-branch", "fake-head-branch", "fake-title"));
+        await assertEx.throwsAsync(github.createPullRequest("ImARepositoryThatDoesntExist", "fake-base-branch", "fake-head-branch", {title: "fake-title"}));
       });
 
       it("with base branch that doesn't exist", async function () {
         const github: GitHub = githubCreator();
-        await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "not-found-fake-base-branch", "master", "fake-title"));
+        await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "not-found-fake-base-branch", "master", {title: "fake-title"}));
       });
 
       it("with head branch that doesn't exist", async function () {
         const github: GitHub = githubCreator();
-        await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "not-found-fake-head-branch", "fake-title"));
+        await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "not-found-fake-head-branch", { title: "fake-title"}));
       });
 
       it("with head branch with same label as base branch", async function () {
         const github: GitHub = githubCreator();
-        await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "master", "fake-title"));
+        await assertEx.throwsAsync(github.createPullRequest("ts-common/azure-js-dev-tools", "master", "master", { title: "fake-title"}));
       });
     });
 
@@ -1282,7 +1282,7 @@ describe("github.ts", function () {
 
         await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
 
-        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", headBranchName, "fake-title");
+        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", headBranchName, {title: "fake-title"});
         assertEx.defined(pullRequest, "pullRequest");
         assert.strictEqual(pullRequest.base.ref, "master");
         assert.strictEqual(pullRequest.base.label, "test-repo-billy:master");
@@ -1304,8 +1304,9 @@ describe("github.ts", function () {
 
         await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
 
-        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", headBranchName, "fake-title", {
-          description: "Hello world!"
+        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", headBranchName, {
+          title: "fake-title",
+          body: "Hello world!"
         });
         assertEx.defined(pullRequest, "pullRequest");
         assert.strictEqual(pullRequest.base.ref, "master");
@@ -1329,7 +1330,7 @@ describe("github.ts", function () {
 
         await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
 
-        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", `${repositoryOwner}:${headBranchName}`, "fake-title");
+        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", `${repositoryOwner}:${headBranchName}`, { title: "fake-title"});
         assertEx.defined(pullRequest, "pullRequest");
         assert.strictEqual(pullRequest.base.ref, "master");
         assert.strictEqual(pullRequest.base.label, "test-repo-billy:master");
@@ -1351,7 +1352,7 @@ describe("github.ts", function () {
         await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
         await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
 
-        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, "master", `${repository}:${headBranchName}`, "fake-title"));
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, "master", `${repository}:${headBranchName}`, { title: "fake-title" }));
         assertEx.defined(error);
         assert.strictEqual(error.message, `No fork of the fake repository "test-repo-billy/azure-js-dev-tools" exists for the owner "test-repo-billy/azure-js-dev-tools".`);
       });
@@ -1367,7 +1368,7 @@ describe("github.ts", function () {
         await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
         await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
 
-        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repositoryOwner}:master`, headBranchName, "fake-title"));
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repositoryOwner}:master`, headBranchName, { title: "fake-title" }));
         assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy:master) cannot have an owner.`);
       });
 
@@ -1382,7 +1383,7 @@ describe("github.ts", function () {
         await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
         await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
 
-        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repository}:master`, headBranchName, "fake-title"));
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repository}:master`, headBranchName, { title: "fake-title" }));
         assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy/azure-js-dev-tools:master) cannot have an owner.`);
       });
 
@@ -1397,7 +1398,7 @@ describe("github.ts", function () {
         await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
         await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
 
-        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${repositoryOwner}:${headBranchName}`, "fake-title"));
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${repositoryOwner}:${headBranchName}`, { title: "fake-title" }));
         assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy:master) cannot have an owner.`);
       });
 
@@ -1412,7 +1413,7 @@ describe("github.ts", function () {
         await fakeGitHub.createBranch(repository, headBranchName, "fake-commit-sha");
         await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
 
-        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repository}:master`, `${repository}:${headBranchName}`, "fake-title"));
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repository}:master`, `${repository}:${headBranchName}`, { title: "fake-title"}));
         assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy/azure-js-dev-tools:master) cannot have an owner.`);
       });
 
@@ -1425,7 +1426,7 @@ describe("github.ts", function () {
         await fakeGitHub.createCommit(repository, "fake-commit-sha", "hello");
         await fakeGitHub.createBranch(repository, "master", "fake-commit-sha");
 
-        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `master`, `nonexistingrepo:master`, "fake-title"));
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `master`, `nonexistingrepo:master`, { title: "fake-title" }));
         assert.strictEqual(error.message, `No fork of the fake repository "${repositoryOwner}/azure-js-dev-tools" exists for the owner "nonexistingrepo".`);
       });
 
@@ -1441,7 +1442,7 @@ describe("github.ts", function () {
         const forkOwner = "AzureSDKAutomation";
         fakeGitHub.forkRepository(repository, forkOwner);
 
-        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `master`, `${forkOwner}:nonexistingbranch`, "fake-title"));
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `master`, `${forkOwner}:nonexistingbranch`, { title: "fake-title"}));
         assert.strictEqual(error.message, `No branch exists in the forked fake repository "${forkOwner}/azure-js-dev-tools" with the name "nonexistingbranch".`);
       });
 
@@ -1463,7 +1464,7 @@ describe("github.ts", function () {
         await fakeGitHub.createCommit(forkedRepository, "fake-commit-sha", "hello");
         await fakeGitHub.createBranch(forkedRepository, headBranchName, "fake-commit-sha");
 
-        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", `${forkOwner}:${headBranchName}`, "fake-title");
+        const pullRequest: GitHubPullRequest = await fakeGitHub.createPullRequest(repository, "master", `${forkOwner}:${headBranchName}`, { title: "fake-title"});
         assertEx.defined(pullRequest, "pullRequest");
         assert.strictEqual(pullRequest.base.ref, "master");
         assert.strictEqual(pullRequest.base.label, `${repositoryOwner}:master`);
@@ -1492,7 +1493,7 @@ describe("github.ts", function () {
         await fakeGitHub.createCommit(forkedRepository, "fake-commit-sha", "hello");
         await fakeGitHub.createBranch(forkedRepository, headBranchName, "fake-commit-sha");
 
-        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, "master", `${forkedRepository}:${headBranchName}`, "fake-title"));
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, "master", `${forkedRepository}:${headBranchName}`, {title: "fake-title"}));
         assert.strictEqual(error.message, `No fork of the fake repository "test-repo-billy/azure-js-dev-tools" exists for the owner "AzureSDKAutomation/azure-js-dev-tools".`);
       });
 
@@ -1514,7 +1515,7 @@ describe("github.ts", function () {
         await fakeGitHub.createCommit(forkedRepository, "fake-commit-sha", "hello");
         await fakeGitHub.createBranch(forkedRepository, headBranchName, "fake-commit-sha");
 
-        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${forkOwner}:${headBranchName}`, "fake-title"));
+        const error: Error = await assertEx.throwsAsync(fakeGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${forkOwner}:${headBranchName}`, {title: "fake-title"}));
         assert.strictEqual(error.message, `When creating a pull request, the provided baseBranch (test-repo-billy:master) cannot have an owner.`);
       });
     });
@@ -1548,7 +1549,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", headBranchName, "fake-title");
+            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", headBranchName, {title: "fake-title"});
             try {
               assertEx.defined(pullRequest, "pullRequest");
               assert.strictEqual(pullRequest.base.ref, "master");
@@ -1588,8 +1589,9 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", headBranchName, "fake-title", {
-              description: "Hello world!"
+            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", headBranchName, {
+              title: "fake-title",
+              body: "Hello world!"
             });
             try {
               assertEx.defined(pullRequest, "pullRequest");
@@ -1631,7 +1633,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", `${repositoryOwner}:${headBranchName}`, "fake-title");
+            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", `${repositoryOwner}:${headBranchName}`, { title: "fake-title"});
             try {
               assertEx.defined(pullRequest, "pullRequest");
               assert.strictEqual(pullRequest.base.ref, "master");
@@ -1672,7 +1674,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, "master", `${repository}:${headBranchName}`, "fake-title"));
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, "master", `${repository}:${headBranchName}`, { title: "fake-title" }));
             assertEx.defined(error);
             assert.strictEqual(error.message, "Validation Failed");
             assert.deepEqual(error.errors, [
@@ -1710,7 +1712,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repositoryOwner}:master`, headBranchName, "fake-title"));
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repositoryOwner}:master`, headBranchName, { title: "fake-title" }));
             assertEx.defined(error);
             assert.strictEqual(error.message, "Validation Failed");
             assert.deepEqual(error.errors, [
@@ -1748,7 +1750,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repository}:master`, headBranchName, "fake-title"));
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repository}:master`, headBranchName, { title: "fake-title" }));
             assertEx.defined(error);
             assert.strictEqual(error.message, "Validation Failed");
             assert.deepEqual(error.errors, [
@@ -1786,7 +1788,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${repositoryOwner}:${headBranchName}`, "fake-title"));
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${repositoryOwner}:${headBranchName}`, { title: "fake-title" }));
             assertEx.defined(error);
             assert.strictEqual(error.message, "Validation Failed");
             assert.deepEqual(error.errors, [
@@ -1824,7 +1826,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repository}:master`, `${repository}:${headBranchName}`, "fake-title"));
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repository}:master`, `${repository}:${headBranchName}`, { title: "fake-title" }));
             assertEx.defined(error);
             assert.strictEqual(error.message, "Validation Failed");
             assert.deepEqual(error.errors, [
@@ -1845,7 +1847,7 @@ describe("github.ts", function () {
       it("with non-existing fork owner in head branch", async function () {
         const repositoryOwner = "AzureSDKAutomation";
         const repository = `${repositoryOwner}/azure-js-dev-tools`;
-        const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `master`, `nonexistingrepo:master`, "fake-title"));
+        const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `master`, `nonexistingrepo:master`, { title: "fake-title" }));
         assertEx.defined(error);
         assert.strictEqual(error.message, "Validation Failed");
         assert.deepEqual(error.errors, [
@@ -1860,7 +1862,7 @@ describe("github.ts", function () {
       it("with non-existing fork head branch", async function () {
         const repositoryOwner = "AzureSDKAutomation";
         const repository = `${repositoryOwner}/azure-js-dev-tools`;
-        const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `master`, `test-repo-billy:nonexistingbranch`, "fake-title"));
+        const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `master`, `test-repo-billy:nonexistingbranch`, { title: "fake-title" }));
         assertEx.defined(error);
         assert.strictEqual(error.message, "Validation Failed");
         assert.deepEqual(error.errors, [
@@ -1895,7 +1897,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", `${forkOwner}:${headBranchName}`, "fake-title");
+            const pullRequest: GitHubPullRequest = await realGitHub.createPullRequest(repository, "master", `${forkOwner}:${headBranchName}`, { title: "fake-title" });
             try {
               assertEx.defined(pullRequest, "pullRequest");
               assert.strictEqual(pullRequest.base.ref, "master");
@@ -1939,7 +1941,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, "master", `${forkedRepository}:${headBranchName}`, "fake-title"));
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, "master", `${forkedRepository}:${headBranchName}`, { title: "fake-title" }));
             assertEx.defined(error);
             assert.strictEqual(error.message, "Validation Failed");
             assert.deepEqual(error.errors, [
@@ -1980,7 +1982,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${forkOwner}:${headBranchName}`, "fake-title"));
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repositoryOwner}:master`, `${forkOwner}:${headBranchName}`, { title: "fake-title" }));
             assertEx.defined(error);
             assert.strictEqual(error.message, "Validation Failed");
             assert.deepEqual(error.errors, [
@@ -2021,7 +2023,7 @@ describe("github.ts", function () {
 
           await git.push({ setUpstream: true, branchName: headBranchName });
           try {
-            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repository}:master`, `${forkOwner}:${headBranchName}`, "fake-title"));
+            const error: any = await assertEx.throwsAsync(realGitHub.createPullRequest(repository, `${repository}:master`, `${forkOwner}:${headBranchName}`, { title: "fake-title" }));
             assertEx.defined(error);
             assert.strictEqual(error.message, "Validation Failed");
             assert.deepEqual(error.errors, [
