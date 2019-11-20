@@ -1306,7 +1306,10 @@ export class ExecutableGit implements Git {
     }
     for (const branchName of localBranchesResult.localBranches) {
       if (branchName && branchName !== localBranchesResult.currentBranch) {
-        await this.deleteLocalBranch(branchName);
+        try {
+          await this.deleteLocalBranch(branchName);
+        } catch (e) {
+        }
       }
     }
 
