@@ -273,7 +273,7 @@ export class RealRunner implements Runner {
     const childProcess: ChildProcess = spawn(executablePath, command.args || [], {
       cwd: options.executionFolderPath,
       stdio: getChildProcessStdio(options),
-      env: options.environmentVariables
+      env: options.environmentVariables || process.env
     });
 
     const stdoutCaptured = captureProcessOutput(childProcess.stdout, options.captureOutput, options.capturePrefix);
