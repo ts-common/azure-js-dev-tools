@@ -4,7 +4,7 @@
  * license information.
  */
 
-import Octokit from "@octokit/rest";
+import { Octokit } from "@octokit/rest";
 import * as fs from "fs";
 import { contains, first, map, removeFirst, where } from "./arrays";
 import { URLBuilder } from "./url";

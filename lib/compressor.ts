@@ -104,7 +104,7 @@ export class ArchiverCompressor implements Compressor {
   public zipFiles(filePaths: string | string[], outputFilePath: string): Promise<CompressionResult> {
     return this.zip(outputFilePath, (arc: archiver.Archiver) => {
       for (const filePath of toArray(filePaths)) {
-        arc.file(filePath, {});
+        arc.file(filePath, { name: filePath });
       }
     });
   }
