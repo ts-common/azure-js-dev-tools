@@ -237,7 +237,7 @@ function matches(regularExpression: RegExp, possibleMatch: string): boolean {
   return !!(matchResult && matchResult[0].length === possibleMatch.length);
 }
 
-async function findEntryInPath(entryName: string | RegExp, startFolderPath: string | undefined, condition: (entryPath: string) => (boolean | Promise<boolean>)): Promise<string | undefined> {
+export async function findEntryInPath(entryName: string | RegExp, startFolderPath: string | undefined, condition: (entryPath: string) => (boolean | Promise<boolean>)): Promise<string | undefined> {
   let result: string | undefined;
   let folderPath: string = startFolderPath || process.cwd();
 
