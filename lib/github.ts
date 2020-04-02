@@ -616,9 +616,12 @@ export interface GitHub {
    */
   getCommit(repository: string | Repository, commit: string): Promise<GitHubCommit | undefined>;
 
+  /**
+   * Get one file contents from Git. If the content is encoded by base64, it will be decoded.
+   * @param repository The repository that the file exists in.
+   * @param filepath A unique name for the file.
+   */
   getContents(repository: string | Repository, filepath: string): Promise<GitHubContent | undefined | Array<GitHubContentItem>>;
-  getContributorsStats(repository: string | Repository): Promise<number | undefined>;
-  getCommonMsg(repository: string | Repository): Promise<boolean>;
 
   /**
    * Get all of the references (branches, tags, notes, stashes, etc.) in the provided repository.
@@ -1202,13 +1205,6 @@ export class FakeGitHub implements GitHub {
     });
   }
 
-  public getContributorsStats(repository: string | Repository): Promise<number | undefined> {
-    return toPromise(() => {
-      const fakeRepository: FakeRepository = this.getRepository(repository);
-      return fakeRepository.commits.length;
-    });
-  }
-
   public getContents(repository: string | Repository, filepath: string): Promise<GitHubContent | undefined | Array<GitHubContentItem>> {
     if (filepath !== undefined) {
       return toPromise(() => {
@@ -1219,13 +1215,6 @@ export class FakeGitHub implements GitHub {
     return toPromise(() => {
       const fakeRepository: FakeRepository = this.getRepository(repository);
       return first(fakeRepository.content);
-    });
-  }
-
-  public getCommonMsg(repository: string | Repository): Promise<boolean> {
-    return toPromise(() => {
-      const fakeRepository: FakeRepository = this.getRepository(repository);
-      return fakeRepository !== undefined;
     });
   }
 
@@ -1356,7 +1345,7 @@ export class RealGitHub implements GitHub {
     if (isOctokit(this.githubClients)) {
       return this.githubClients;
     } else if (typeof this.githubClients === "function") {
-      return (await this.githubClients(repo.owner));
+      return this.githubClients(repo.owner);
     } else {
       let matchingScope = "";
       const fullRepositoryName: string = getRepositoryFullName(repository).toLowerCase();
@@ -1409,25 +1398,6 @@ export class RealGitHub implements GitHub {
       }
     }
     return result;
-  }
-
-  public async getCommonMsg(repository: string | Repository): Promise<boolean> {
-    const githubRepository: Repository = getRepository(repository);
-    const githubArguments: Octokit.ReposGetParams = {
-      owner: githubRepository.owner,
-      repo: githubRepository.name
-    };
-    let status: boolean;
-    try {
-      const response = await (await this.getClient(repository)).repos.get(githubArguments);
-      status = response.status === 200;
-    } catch (error) {
-      status = false;
-      if (!error.message.toLowerCase().includes("no commit found")) {
-        throw error;
-      }
-    }
-    return status;
   }
 
   public async getLabels(repository: string | Repository): Promise<GitHubLabel[]> {
@@ -1837,24 +1807,6 @@ export class RealGitHub implements GitHub {
       if (!error.message.toLowerCase().includes("no commit found")) {
         throw error;
       }
-    }
-    return result;
-  }
-
-  public async getContributorsStats(repository: string | Repository): Promise<number | undefined> {
-    const githubRepository: Repository = getRepository(repository);
-    const githubArguments: Octokit.ReposGetContributorsStatsParams = {
-      owner: githubRepository.owner,
-      repo: githubRepository.name
-    };
-    let result: number | undefined;
-    try {
-      const response = await (await this.getClient(repository)).repos.getContributorsStats(githubArguments);
-      if (response.data) {
-        result = response.data.length;
-      }
-    } catch (error) {
-        throw error;
     }
     return result;
   }
