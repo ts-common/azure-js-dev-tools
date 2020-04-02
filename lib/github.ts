@@ -617,7 +617,8 @@ export interface GitHub {
   getCommit(repository: string | Repository, commit: string): Promise<GitHubCommit | undefined>;
 
   getContents(repository: string | Repository, filepath: string): Promise<GitHubContent | undefined | Array<GitHubContentItem>>;
-  get(repository: string | Repository): Promise<boolean>;
+  getContributorsStats(repository: string | Repository): Promise<number | undefined>;
+  gets(repository: string | Repository): Promise<boolean>;
 
   /**
    * Get all of the references (branches, tags, notes, stashes, etc.) in the provided repository.
@@ -1201,6 +1202,13 @@ export class FakeGitHub implements GitHub {
     });
   }
 
+  public getContributorsStats(repository: string | Repository): Promise<number | undefined> {
+    return toPromise(() => {
+      const fakeRepository: FakeRepository = this.getRepository(repository);
+      return fakeRepository.commits.length;
+    });
+  }
+
   public getContents(repository: string | Repository, filepath: string): Promise<GitHubContent | undefined | Array<GitHubContentItem>> {
     if (filepath !== undefined) {
       return toPromise(() => {
@@ -1214,7 +1222,7 @@ export class FakeGitHub implements GitHub {
     });
   }
 
-  public get(repository: string | Repository): Promise<boolean> {
+  public gets(repository: string | Repository): Promise<boolean> {
     return toPromise(() => {
       const fakeRepository: FakeRepository = this.getRepository(repository);
       return fakeRepository !== undefined;
@@ -1403,19 +1411,15 @@ export class RealGitHub implements GitHub {
     return result;
   }
 
-  public async get(repository: string | Repository): Promise<boolean> {
+  public async gets(repository: string | Repository): Promise<boolean> {
     const githubRepository: Repository = getRepository(repository);
     const githubArguments: Octokit.ReposGetParams = {
       owner: githubRepository.owner,
       repo: githubRepository.name
     };
-    // let result: GitHubCommonMsg;
     let status: boolean;
     try {
       const response = await (await this.getClient(repository)).repos.get(githubArguments);
-      // if (response.data && response.status === 200) {
-      //   result = response.data;
-      // }
       status = response.status === 200;
     } catch (error) {
       status = false;
@@ -1833,6 +1837,24 @@ export class RealGitHub implements GitHub {
       if (!error.message.toLowerCase().includes("no commit found")) {
         throw error;
       }
+    }
+    return result;
+  }
+
+  public async getContributorsStats(repository: string | Repository): Promise<number | undefined> {
+    const githubRepository: Repository = getRepository(repository);
+    const githubArguments: Octokit.ReposGetContributorsStatsParams = {
+      owner: githubRepository.owner,
+      repo: githubRepository.name
+    };
+    let result: number | undefined;
+    try {
+      const response = await (await this.getClient(repository)).repos.getContributorsStats(githubArguments);
+      if (response.data) {
+        result = response.data.length;
+      }
+    } catch (error) {
+        throw error;
     }
     return result;
   }
