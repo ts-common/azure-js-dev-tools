@@ -311,6 +311,19 @@ export interface GitHubCommitData {
   message: string;
 }
 
+export interface GitHubContent {
+  download_url: string | null;
+  encoding?: string | undefined;
+  content?: string | undefined;
+  html_url: string;
+  sha: string;
+  url: string;
+}
+
+export interface GitHubContentItem {
+  download_url: string | null;
+}
+
 /**
  * A reference to a branch in a repository.
  */
@@ -600,6 +613,13 @@ export interface GitHub {
   getCommit(repository: string | Repository, commit: string): Promise<GitHubCommit | undefined>;
 
   /**
+   * Get one file contents from Git. If the content is encoded by base64, it will be decoded.
+   * @param repository The repository that the file exists in.
+   * @param filepath A unique name for the file.
+   */
+  getContents(repository: string | Repository, filepath: string): Promise<GitHubContent | undefined | Array<GitHubContentItem>>;
+
+  /**
    * Get all of the references (branches, tags, notes, stashes, etc.) in the provided repository.
    * @param repository The repository to get all of the references for.
    * @returns All of the references (branches, tags, notes, stashes, etc.) in the provided
@@ -641,6 +661,7 @@ export interface FakeGitHubPullRequest extends GitHubPullRequest {
   comments: GitHubComment[];
 }
 
+type FakeContent = |GitHubContent|GitHubContentItem[]|undefined;
 export class FakeRepository {
   public readonly labels: GitHubLabel[] = [];
   public readonly milestones: GitHubMilestone[] = [];
@@ -648,6 +669,7 @@ export class FakeRepository {
   public readonly commits: GitHubCommit[] = [];
   public readonly branches: GitHubBranch[] = [];
   public readonly forks: FakeRepository[] = [];
+  public readonly content: FakeContent[] = [];
 
   constructor(public readonly name: string, public readonly forkOf?: FakeRepository) {
   }
@@ -1179,6 +1201,19 @@ export class FakeGitHub implements GitHub {
     });
   }
 
+  public getContents(repository: string | Repository, filepath: string): Promise<GitHubContent | undefined | Array<GitHubContentItem>> {
+    if (filepath !== undefined) {
+      return toPromise(() => {
+        const fakeRepository: FakeRepository = this.getRepository(repository);
+        return first(fakeRepository.content);
+      });
+    }
+    return toPromise(() => {
+      const fakeRepository: FakeRepository = this.getRepository(repository);
+      return first(fakeRepository.content);
+    });
+  }
+
   public createCommit(repository: string | Repository, commitId: string, message: string): Promise<unknown> {
     const fakeRepository: FakeRepository = this.getRepository(repository);
     fakeRepository.commits.push({
@@ -1337,6 +1372,27 @@ export class RealGitHub implements GitHub {
   public async getCurrentUser(): Promise<GitHubUser> {
     const response: Octokit.Response<any> = await (await this.getDefaultClient()).users.getAuthenticated();
     const result: GitHubUser = response.data;
+    return result;
+  }
+
+  public async getContents(repository: string | Repository, filepath: string): Promise<GitHubContent | undefined | Array<GitHubContentItem>> {
+    const githubRepository: Repository = getRepository(repository);
+    const githubArguments: Octokit.ReposGetContentsParams = {
+      owner: githubRepository.owner,
+      repo: githubRepository.name,
+      path: filepath
+    };
+    let result: GitHubContent | undefined | Array<GitHubContentItem>;
+    try {
+      const response = await (await this.getClient(repository)).repos.getContents(githubArguments);
+      if (response.data && response.status === 200) {
+        result = response.data;
+      }
+    } catch (error) {
+      if (!error.message.toLowerCase().includes("no commit found")) {
+        throw error;
+      }
+    }
     return result;
   }
 
