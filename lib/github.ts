@@ -320,10 +320,6 @@ export interface GitHubContent {
   url: string;
 }
 
-export interface GitHubCommonMsg {
-  created_at: string;
-}
-
 export interface GitHubContentItem {
   download_url: string | null;
 }
