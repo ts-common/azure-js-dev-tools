@@ -320,6 +320,10 @@ export interface GitHubContent {
   url: string;
 }
 
+export interface GitHubCommonMsg {
+  created_at: string;
+}
+
 export interface GitHubContentItem {
   download_url: string | null;
 }
@@ -613,6 +617,7 @@ export interface GitHub {
   getCommit(repository: string | Repository, commit: string): Promise<GitHubCommit | undefined>;
 
   getContents(repository: string | Repository, filepath: string): Promise<GitHubContent | undefined | Array<GitHubContentItem>>;
+  get(repository: string | Repository): Promise<boolean>;
 
   /**
    * Get all of the references (branches, tags, notes, stashes, etc.) in the provided repository.
@@ -1209,6 +1214,13 @@ export class FakeGitHub implements GitHub {
     });
   }
 
+  public get(repository: string | Repository): Promise<boolean> {
+    return toPromise(() => {
+      const fakeRepository: FakeRepository = this.getRepository(repository);
+      return fakeRepository !== undefined;
+    });
+  }
+
   public createCommit(repository: string | Repository, commitId: string, message: string): Promise<unknown> {
     const fakeRepository: FakeRepository = this.getRepository(repository);
     fakeRepository.commits.push({
@@ -1389,6 +1401,29 @@ export class RealGitHub implements GitHub {
       }
     }
     return result;
+  }
+
+  public async get(repository: string | Repository): Promise<boolean> {
+    const githubRepository: Repository = getRepository(repository);
+    const githubArguments: Octokit.ReposGetParams = {
+      owner: githubRepository.owner,
+      repo: githubRepository.name
+    };
+    // let result: GitHubCommonMsg;
+    let status: boolean;
+    try {
+      const response = await (await this.getClient(repository)).repos.get(githubArguments);
+      // if (response.data && response.status === 200) {
+      //   result = response.data;
+      // }
+      status = response.status === 200;
+    } catch (error) {
+      status = false;
+      if (!error.message.toLowerCase().includes("no commit found")) {
+        throw error;
+      }
+    }
+    return status;
   }
 
   public async getLabels(repository: string | Repository): Promise<GitHubLabel[]> {
