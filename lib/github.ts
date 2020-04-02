@@ -618,7 +618,7 @@ export interface GitHub {
 
   getContents(repository: string | Repository, filepath: string): Promise<GitHubContent | undefined | Array<GitHubContentItem>>;
   getContributorsStats(repository: string | Repository): Promise<number | undefined>;
-  gets(repository: string | Repository): Promise<boolean>;
+  getCommonMsg(repository: string | Repository): Promise<boolean>;
 
   /**
    * Get all of the references (branches, tags, notes, stashes, etc.) in the provided repository.
@@ -1222,7 +1222,7 @@ export class FakeGitHub implements GitHub {
     });
   }
 
-  public gets(repository: string | Repository): Promise<boolean> {
+  public getCommonMsg(repository: string | Repository): Promise<boolean> {
     return toPromise(() => {
       const fakeRepository: FakeRepository = this.getRepository(repository);
       return fakeRepository !== undefined;
@@ -1411,7 +1411,7 @@ export class RealGitHub implements GitHub {
     return result;
   }
 
-  public async gets(repository: string | Repository): Promise<boolean> {
+  public async getCommonMsg(repository: string | Repository): Promise<boolean> {
     const githubRepository: Repository = getRepository(repository);
     const githubArguments: Octokit.ReposGetParams = {
       owner: githubRepository.owner,
