@@ -614,6 +614,7 @@ export interface GitHub {
 
   /**
    * Get one file contents from Git. If the content is encoded by base64, it will be decoded.
+   * Support private repo.
    * @param repository The repository that the file exists in.
    * @param filepath A unique name for the file.
    */
