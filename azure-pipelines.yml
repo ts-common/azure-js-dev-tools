@@ -4,13 +4,13 @@ trigger:
 jobs:
 - job: Test
   pool:
-    vmImage: 'Ubuntu 16.04'
+    vmImage: 'Ubuntu 18.04'
   strategy:
     matrix:
-      Node10:
-        node.version: 10.x
-      Node11:
-        node.version: 11.x
+      Node12:
+        node.version: 12.x
+      Node13:
+        node.version: 13.x
   steps:
   - task: NodeTool@0
     displayName: 'Install Node'
@@ -36,7 +36,7 @@ jobs:
       customCommand: test
 - job: Pack
   pool:
-    vmImage: 'Ubuntu 16.04'
+    vmImage: 'Ubuntu 18.04'
   steps:
   - task: Npm@1
     displayName: 'npm install'
