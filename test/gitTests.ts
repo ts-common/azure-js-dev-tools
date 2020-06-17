@@ -108,7 +108,7 @@ describe("git.ts", function () {
         assert.strictEqual(result.stdout, "");
         assertEx.containsAll(result.stderr, [
           "git: 'foo' is not a git command. See 'git --help'.",
-          "The most similar command is",
+          "The most similar command",
         ]);
       });
     });

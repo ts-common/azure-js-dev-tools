@@ -277,7 +277,7 @@ describe("http.ts", function () {
     it("with http host that doesn't exist", async function () {
       const httpClient = new NodeHttpClient();
       const error: Error = await assertEx.throwsAsync(httpClient.sendRequest({ method: "GET", url: "http://idont.exist.com/" }));
-      assert.strictEqual(error.message, "getaddrinfo ENOTFOUND idont.exist.com idont.exist.com:80");
+      assert.strictEqual(error.message, "getaddrinfo ENOTFOUND idont.exist.com");
     });
 
     it("with http path that doesn't exist", async function () {
@@ -331,7 +331,7 @@ describe("http.ts", function () {
     it("with https host that doesn't exist", async function () {
       const httpClient = new NodeHttpClient();
       const error: Error = await assertEx.throwsAsync(httpClient.sendRequest({ method: "GET", url: "https://idont.exist.com/" }));
-      assert.strictEqual(error.message, "getaddrinfo ENOTFOUND idont.exist.com idont.exist.com:443");
+      assert.strictEqual(error.message, "getaddrinfo ENOTFOUND idont.exist.com");
     });
 
     it("with https path that doesn't exist", async function () {
