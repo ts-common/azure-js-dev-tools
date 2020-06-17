@@ -1337,7 +1337,7 @@ export class RealGitHub implements GitHub {
     return RealGitHub.fromToken(githubAuthToken);
   }
 
-  private async getClient(repository: string | Repository): Promise<Octokit> {
+  public async getClient(repository: string | Repository): Promise<Octokit> {
     const repo = getRepository(repository);
     if (isOctokit(this.githubClients)) {
       return this.githubClients;
