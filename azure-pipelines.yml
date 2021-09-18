@@ -4,7 +4,7 @@ trigger:
 jobs:
 - job: Test
   pool:
-    vmImage: 'Ubuntu 18.04'
+    vmImage: 'Ubuntu 20.04'
   strategy:
     matrix:
       Node12:
@@ -36,7 +36,7 @@ jobs:
       customCommand: test
 - job: Pack
   pool:
-    vmImage: 'Ubuntu 18.04'
+    vmImage: 'Ubuntu 20.04'
   steps:
   - task: Npm@1
     displayName: 'npm install'
