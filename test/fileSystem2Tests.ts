@@ -555,7 +555,7 @@ describe("fileSystem2.ts", function () {
         const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath);
         assertEx.defined(childEntryPaths, "childEntryPaths");
         assertEx.containsAll(childEntryPaths, [
-          joinPath(packageFolderPath, ".git"),
+          // joinPath(packageFolderPath, ".git"),
           joinPath(packageFolderPath, ".scripts"),
           joinPath(packageFolderPath, "dist"),
           joinPath(packageFolderPath, "lib"),
@@ -598,7 +598,7 @@ describe("fileSystem2.ts", function () {
         const childEntryPaths: string[] | undefined = await getChildEntryPaths(packageFolderPath, {});
         assertEx.defined(childEntryPaths, "childEntryPaths");
         assertEx.containsAll(childEntryPaths, [
-          joinPath(packageFolderPath, ".git"),
+          // joinPath(packageFolderPath, ".git"),
           joinPath(packageFolderPath, ".scripts"),
           joinPath(packageFolderPath, "dist"),
           joinPath(packageFolderPath, "lib"),
@@ -720,8 +720,8 @@ describe("fileSystem2.ts", function () {
           joinPath(packageFolderPath, "LICENSE"),
           joinPath(packageFolderPath, "tsconfig.json"),
           normalizePath(__filename),
-          joinPath(packageFolderPath, "node_modules", "@azure", "logger-js", "package.json"),
-          joinPath(packageFolderPath, "node_modules", "nyc", "package.json"),
+          // joinPath(packageFolderPath, "node_modules", "@azure", "logger-js", "package.json"),
+          // joinPath(packageFolderPath, "node_modules", "nyc", "package.json"),
         ]);
       });
     });

@@ -4,10 +4,9 @@
  * license information.
  */
 
-import { Aborter, AnonymousCredential, AppendBlobURL, BlockBlobURL, ContainerGetAccessPolicyResponse, ContainerURL, Credential, generateBlobSASQueryParameters, IBlobSASSignatureValues, Models, Pipeline, SASQueryParameters, ServiceURL, SharedKeyCredential, StorageURL } from "@azure/storage-blob";
-import { AppendBlobAppendBlockResponse, BlockBlobUploadResponse } from "@azure/storage-blob/typings/src/generated/src/models";
+import { AnonymousCredential, ContainerGetAccessPolicyResponse, Credential, generateBlobSASQueryParameters, Pipeline, SASQueryParameters, StorageSharedKeyCredential, BlobSASPermissions, newPipeline, BlobServiceClient, ContainerClient, BlockBlobClient, AppendBlobClient } from "@azure/storage-blob";
+import { AbortSignal } from "@azure/abort-controller";
 import * as fs from "fs";
-import { map } from "./arrays";
 import { readEntireString, StringMap } from "./common";
 import { URLBuilder } from "./url";
 
@@ -787,7 +786,7 @@ function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions, c
   if (options.sasToken !== true) {
     urlBuilder.removeQuery();
     if (options.sasToken && typeof options.sasToken !== "boolean") {
-      if (!(credentials instanceof SharedKeyCredential)) {
+      if (!(credentials instanceof StorageSharedKeyCredential)) {
         throw new Error(`Cannot create a new SAS token if the BlobStorage credentials are not a SharedKeyCredential.`);
       } else {
         const urlPath: string | undefined = urlBuilder.getPath();
@@ -795,14 +794,14 @@ function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions, c
           throw new Error(`Cannot create a new SAS token when the provided URL does not contain a path.`);
         } else {
           const blobPath: BlobPath = BlobPath.parse(urlPath);
-          const sasSignatureValues: IBlobSASSignatureValues = {
+          const sasSignatureValues = {
             blobName: blobPath.blobName,
             containerName: blobPath.containerName,
-            expiryTime: options.sasToken.endTime,
-            startTime: options.sasToken.startTime,
-            permissions: "r",
+            expiresOn: options.sasToken.endTime,
+            startsOn: options.sasToken.startTime,
+            permissions: BlobSASPermissions.parse("r"),
           };
-          const sasQueryParameters: SASQueryParameters = generateBlobSASQueryParameters(sasSignatureValues, credentials as SharedKeyCredential);
+          const sasQueryParameters: SASQueryParameters = generateBlobSASQueryParameters(sasSignatureValues, credentials);
           if (sasQueryParameters.cacheControl) {
             urlBuilder.setQueryParameter("rscc", sasQueryParameters.cacheControl);
           }
@@ -818,8 +817,8 @@ function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions, c
           if (sasQueryParameters.contentType) {
             urlBuilder.setQueryParameter("rsct", sasQueryParameters.contentType);
           }
-          if (sasQueryParameters.expiryTime) {
-            urlBuilder.setQueryParameter("se", sasQueryParameters.expiryTime.toISOString());
+          if (sasQueryParameters.expiresOn) {
+            urlBuilder.setQueryParameter("se", sasQueryParameters.expiresOn.toISOString());
           }
           if (sasQueryParameters.identifier) {
             urlBuilder.setQueryParameter("si", sasQueryParameters.identifier);
@@ -839,8 +838,8 @@ function processBlobUrlBuilder(urlBuilder: URLBuilder, options: GetURLOptions, c
           if (sasQueryParameters.signature) {
             urlBuilder.setQueryParameter("sig", sasQueryParameters.signature);
           }
-          if (sasQueryParameters.startTime) {
-            urlBuilder.setQueryParameter("st", sasQueryParameters.startTime.toISOString());
+          if (sasQueryParameters.startsOn) {
+            urlBuilder.setQueryParameter("st", sasQueryParameters.startsOn.toISOString());
           }
           if (sasQueryParameters.version) {
             urlBuilder.setQueryParameter("sv", sasQueryParameters.version);
@@ -891,13 +890,16 @@ export function getStorageAccountName(storageAccountNameOrUrl: string): string {
 }
 
 export function constructBlobStorageCredentials(storageAccountUrl: string, credentials?: Credential | string): Credential {
-  if (!credentials) {
-    credentials = new AnonymousCredential();
-  } else if (typeof credentials === "string") {
-    const storageAccountName: string = getStorageAccountName(storageAccountUrl);
-    credentials = new SharedKeyCredential(storageAccountName, credentials);
+  if (credentials) {
+    if (typeof credentials === "string") {
+      const storageAccountName: string = getStorageAccountName(storageAccountUrl);
+      return new StorageSharedKeyCredential(storageAccountName, credentials);
+    } else {
+      return credentials;
+    }
+  } else {
+    return new AnonymousCredential();
   }
-  return credentials;
 }
 
 function bumpETag(etag: string): string {
@@ -1241,7 +1243,7 @@ const maximumAppendBlobUploadSize = 4 * 1024 * 1024;
  */
 export class AzureBlobStorage extends BlobStorage {
   private readonly url: string;
-  private readonly serviceUrl: ServiceURL;
+  private readonly serviceClient: BlobServiceClient;
   private readonly credentials: Credential;
 
   constructor(storageAccountNameOrUrl: string | URLBuilder, credentials?: Credential | string) {
@@ -1250,24 +1252,24 @@ export class AzureBlobStorage extends BlobStorage {
     this.url = constructBlobStorageURL(storageAccountNameOrUrl);
     this.credentials = constructBlobStorageCredentials(this.url, credentials);
 
-    const pipeline: Pipeline = StorageURL.newPipeline(this.credentials);
-    this.serviceUrl = new ServiceURL(this.url, pipeline);
+    const pipeline: Pipeline = newPipeline(this.credentials as any, {});
+    this.serviceClient = new BlobServiceClient(this.url, pipeline);
   }
 
-  private getAzureContainerURL(containerName: string): ContainerURL {
-    return ContainerURL.fromServiceURL(this.serviceUrl, containerName);
+  private getAzureContainerURL(containerName: string): ContainerClient {
+    return this.serviceClient.getContainerClient(containerName);
   }
 
-  private getBlockBlobURL(blockBlobPath: string | BlobPath): BlockBlobURL {
+  private getBlockBlobURL(blockBlobPath: string | BlobPath): BlockBlobClient {
     blockBlobPath = BlobPath.parse(blockBlobPath);
-    const containerUrl: ContainerURL = this.getAzureContainerURL(blockBlobPath.containerName);
-    return BlockBlobURL.fromContainerURL(containerUrl, blockBlobPath.blobName);
+    const containerUrl = this.getAzureContainerURL(blockBlobPath.containerName);
+    return containerUrl.getBlockBlobClient(blockBlobPath.blobName);
   }
 
-  private getAppendBlobURL(appendBlobPath: string | BlobPath): AppendBlobURL {
+  private getAppendBlobURL(appendBlobPath: string | BlobPath): AppendBlobClient {
     appendBlobPath = BlobPath.parse(appendBlobPath);
-    const containerUrl: ContainerURL = this.getAzureContainerURL(appendBlobPath.containerName);
-    return AppendBlobURL.fromContainerURL(containerUrl, appendBlobPath.blobName);
+    const containerUrl = this.getAzureContainerURL(appendBlobPath.containerName);
+    return containerUrl.getAppendBlobClient(appendBlobPath.blobName);
   }
 
   public getURL(options: GetURLOptions = {}): string {
@@ -1275,12 +1277,12 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public getContainerURL(containerName: string, options: GetURLOptions = {}): string {
-    const containerUrl: ContainerURL = this.getAzureContainerURL(containerName);
+    const containerUrl = this.getAzureContainerURL(containerName);
     return processBlobUrl(containerUrl.url, options, this.credentials);
   }
 
   public getBlobURL(blobPath: string | BlobPath, options: GetURLOptions = {}): string {
-    const blobUrl: BlockBlobURL = this.getBlockBlobURL(blobPath);
+    const blobUrl = this.getBlockBlobURL(blobPath);
     const urlBuilder: URLBuilder = URLBuilder.parse(blobUrl.url);
     const path: string | undefined = urlBuilder.getPath();
     if (path) {
@@ -1308,12 +1310,12 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public async getBlobProperties(blobPath: string | BlobPath): Promise<BlobPropertiesResult> {
-    const blockBlobUrl: BlockBlobURL = this.getBlockBlobURL(blobPath);
+    const blockBlobUrl = this.getBlockBlobURL(blobPath);
     let result: BlobPropertiesResult;
     try {
-      const getPropertiesResult: Models.BlobGetPropertiesResponse = await blockBlobUrl.getProperties(Aborter.none);
+      const getPropertiesResult = await blockBlobUrl.getProperties({ abortSignal: AbortSignal.none });
       result = {
-        etag: getPropertiesResult.eTag,
+        etag: getPropertiesResult.etag,
       };
     } catch (error) {
       if (error.statusCode === 404) {
@@ -1328,13 +1330,13 @@ export class AzureBlobStorage extends BlobStorage {
   public async getBlobContentsAsString(blobPath: string | BlobPath): Promise<BlobContentsResult> {
     await validateBlobName(blobPath);
 
-    const blockBlobUrl: BlockBlobURL = this.getBlockBlobURL(blobPath);
+    const blockBlobUrl = this.getBlockBlobURL(blobPath);
     let result: BlobContentsResult;
     try {
-      const blobDownloadResponse: Models.BlobDownloadResponse = await blockBlobUrl.download(Aborter.none, 0, undefined);
+      const blobDownloadResponse = await blockBlobUrl.download(0, undefined, { abortSignal: AbortSignal.none });
       result = {
         contents: (await readEntireString(blobDownloadResponse.readableStreamBody))!,
-        etag: blobDownloadResponse.eTag,
+        etag: blobDownloadResponse.etag,
       };
     } catch (error) {
       if (error.statusCode === 404) {
@@ -1347,35 +1349,33 @@ export class AzureBlobStorage extends BlobStorage {
   }
 
   public async setBlockBlobContentsFromString(blockBlobPath: string | BlobPath, blockBlobContents: string, options: BlobContentOptions = {}): Promise<ETagResult> {
-    const blockBlobUrl: BlockBlobURL = this.getBlockBlobURL(blockBlobPath);
-    const uploadResult = await blockBlobUrl.upload(Aborter.none, blockBlobContents, Buffer.byteLength(blockBlobContents, "utf-8"), {
+    const blockBlobUrl = this.getBlockBlobURL(blockBlobPath);
+    const uploadResult = await blockBlobUrl.upload(blockBlobContents, Buffer.byteLength(blockBlobContents, "utf-8"), {
+      abortSignal: AbortSignal.none,
       blobHTTPHeaders: {
         blobContentType: options.contentType
       },
-      accessConditions: {
-        modifiedAccessConditions: {
-          ifMatch: options.etag,
-        }
+      conditions: {
+        ifMatch: options.etag,
       }
     });
-    const result: ETagResult = { etag: uploadResult.eTag };
+    const result: ETagResult = { etag: uploadResult.etag };
     return result;
   }
 
   public async setBlockBlobContentsFromFile(blobPath: string | BlobPath, filePath: string, options: BlobContentOptions = {}): Promise<ETagResult> {
     const fileLengthInBytes: number = await getFileLengthInBytes(filePath);
-    const blockBlobUrl: BlockBlobURL = this.getBlockBlobURL(blobPath);
-    const uploadResult: BlockBlobUploadResponse = await blockBlobUrl.upload(Aborter.none, (() => fs.createReadStream(filePath)), fileLengthInBytes, {
+    const blockBlobUrl = this.getBlockBlobURL(blobPath);
+    const uploadResult = await blockBlobUrl.upload((() => fs.createReadStream(filePath)), fileLengthInBytes, {
+      abortSignal: AbortSignal.none,
       blobHTTPHeaders: {
         blobContentType: options.contentType,
       },
-      accessConditions: {
-        modifiedAccessConditions: {
-          ifMatch: options.etag,
-        }
+      conditions: {
+        ifMatch: options.etag,
       }
     });
-    const result: ETagResult = { etag: uploadResult.eTag };
+    const result: ETagResult = { etag: uploadResult.etag };
     return result;
   }
 
@@ -1383,21 +1383,20 @@ export class AzureBlobStorage extends BlobStorage {
     const bytesToUpload: number = Buffer.byteLength(blobContentsToAppend, defaultEncoding);
     const buffer: Buffer = Buffer.alloc(bytesToUpload, defaultEncoding);
     buffer.write(blobContentsToAppend);
-    const appendBlobUrl: AppendBlobURL = this.getAppendBlobURL(appendBlobPath);
+    const appendBlobUrl = this.getAppendBlobURL(appendBlobPath);
     let etag: string | undefined = options.etag;
     let bytesUploaded = 0;
     while (bytesUploaded < bytesToUpload) {
       const bytesToWrite: number = Math.min(maximumAppendBlobUploadSize, bytesToUpload - bytesUploaded);
       const bufferToWrite: Buffer = buffer.slice(bytesUploaded, bytesUploaded + bytesToWrite);
-      const appendBlockResult: AppendBlobAppendBlockResponse = await appendBlobUrl.appendBlock(Aborter.none, bufferToWrite, bytesToWrite, {
-        accessConditions: {
-          modifiedAccessConditions: {
-            ifMatch: options.etag && etag,
-          }
+      const appendBlockResult = await appendBlobUrl.appendBlock(bufferToWrite, bytesToWrite, {
+        abortSignal: AbortSignal.none,
+        conditions: {
+          ifMatch: options.etag && etag,
         }
       });
       bytesUploaded += bytesToWrite;
-      etag = appendBlockResult.eTag;
+      etag = appendBlockResult.etag;
     }
 
     const result: ETagResult = {
@@ -1410,8 +1409,8 @@ export class AzureBlobStorage extends BlobStorage {
     blobPath = BlobPath.parse(blobPath);
     const containerName: string = blobPath.containerName;
     return this.getBlockBlobURL(blobPath)
-      .getProperties(Aborter.none)
-      .then((properties: Models.BlobGetPropertiesResponse) => properties.contentType)
+      .getProperties({ abortSignal: AbortSignal.none })
+      .then((properties) => properties.contentType)
       .catch((error: Error) => {
         return (error as any).statusCode !== 404
           ? Promise.reject(error)
@@ -1427,41 +1426,42 @@ export class AzureBlobStorage extends BlobStorage {
     return validateBlobName(blobPath)
       .then(() => {
         return this.getBlockBlobURL(blobPath)
-          .setHTTPHeaders(Aborter.none, {
+          .setHTTPHeaders({
             blobContentType: contentType
+          }, {
+            abortSignal: AbortSignal.none
           });
       });
   }
 
   public containerExists(containerName: string): Promise<boolean> {
     return this.getAzureContainerURL(containerName)
-      .getProperties(Aborter.none)
+      .getProperties({ abortSignal: AbortSignal.none })
       .then(() => true)
       .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerNotFound", false));
   }
 
   public getContainerAccessPolicy(containerName: string): Promise<ContainerAccessPolicy> {
     return this.getAzureContainerURL(containerName)
-      .getAccessPolicy(Aborter.none)
+      .getAccessPolicy({ abortSignal: AbortSignal.none })
       .then((accessPolicy: ContainerGetAccessPolicyResponse) => accessPolicy.blobPublicAccess || "private");
   }
 
   public setContainerAccessPolicy(containerName: string, permissions: ContainerAccessPolicy): Promise<unknown> {
     return this.getAzureContainerURL(containerName)
-      .setAccessPolicy(Aborter.none, getAzureContainerAccessPermissions(permissions));
+      .setAccessPolicy(getAzureContainerAccessPermissions(permissions), undefined, { abortSignal: AbortSignal.none });
   }
 
   public async createBlockBlob(blockBlobPath: string | BlobPath, options: BlobContentOptions = {}): Promise<CreateBlobResult> {
     await validateBlobName(blockBlobPath);
 
     let result: CreateBlobResult;
-    const blockBlobUrl: BlockBlobURL = this.getBlockBlobURL(blockBlobPath);
+    const blockBlobUrl = this.getBlockBlobURL(blockBlobPath);
     try {
-      const uploadResponse: Models.BlockBlobUploadResponse = await blockBlobUrl.upload(Aborter.none, "", 0, {
-        accessConditions: {
-          modifiedAccessConditions: {
-            ifNoneMatch: "*"
-          }
+      const uploadResponse = await blockBlobUrl.upload("", 0, {
+        abortSignal: AbortSignal.none,
+        conditions: {
+          ifNoneMatch: "*"
         },
         blobHTTPHeaders: {
           blobContentType: options.contentType
@@ -1469,7 +1469,7 @@ export class AzureBlobStorage extends BlobStorage {
       });
       result = {
         created: true,
-        etag: uploadResponse.eTag!,
+        etag: uploadResponse.etag,
       };
     } catch (error) {
       if (error.message.includes("BlobAlreadyExists")) {
@@ -1486,13 +1486,12 @@ export class AzureBlobStorage extends BlobStorage {
     await validateBlobName(appendBlobPath);
 
     let result: CreateBlobResult;
-    const appendBlobURL: AppendBlobURL = this.getAppendBlobURL(appendBlobPath);
+    const appendBlobURL = this.getAppendBlobURL(appendBlobPath);
     try {
-      const response: Models.AppendBlobCreateResponse = await appendBlobURL.create(Aborter.none, {
-        accessConditions: {
-          modifiedAccessConditions: {
-            ifNoneMatch: "*"
-          }
+      const response = await appendBlobURL.create({
+        abortSignal: AbortSignal.none,
+        conditions: {
+          ifNoneMatch: "*"
         },
         blobHTTPHeaders: {
           blobContentType: options.contentType
@@ -1500,11 +1499,11 @@ export class AzureBlobStorage extends BlobStorage {
       });
       result = {
         created: true,
-        etag: response.eTag!,
+        etag: response.etag,
       };
     } catch (error) {
       if (error.message.includes("BlobAlreadyExists")) {
-        await appendBlobURL.delete(Aborter.none);
+        await appendBlobURL.delete({ abortSignal: AbortSignal.none });
         return this.createAppendBlob(appendBlobPath, options);
       } else {
         throw error;
@@ -1514,41 +1513,48 @@ export class AzureBlobStorage extends BlobStorage {
     return result;
   }
 
-  public deleteBlob(blobPath: string | BlobPath): Promise<boolean> {
-    return validateBlobName(blobPath)
-      .then(() => {
-        return this.getBlockBlobURL(blobPath)
-          .delete(Aborter.none)
-          .then(() => true)
-          .catch((error: Error) => resolveIfErrorMessageContains(error, "BlobNotFound", false));
-      });
+  public async deleteBlob(blobPath: string | BlobPath): Promise<boolean> {
+    await validateBlobName(blobPath);
+    try {
+      await this.getBlockBlobURL(blobPath)
+        .delete({ abortSignal: AbortSignal.none });
+      return true;
+    }
+    catch (error) {
+      return await resolveIfErrorMessageContains(error, "BlobNotFound", false);
+    }
   }
 
-  public createContainer(containerName: string, options?: CreateContainerOptions): Promise<boolean> {
-    return this.getAzureContainerURL(containerName)
-      .create(Aborter.none, {
-        access: getAzureContainerAccessPermissions(options && options.accessPolicy)
-      })
-      .then(() => true)
-      .catch((error: Error) => resolveIfErrorMessageContains(error, "ContainerAlreadyExists", false));
+  public async createContainer(containerName: string, options?: CreateContainerOptions): Promise<boolean> {
+    try {
+      await this.getAzureContainerURL(containerName)
+        .create({
+          abortSignal: AbortSignal.none,
+          access: getAzureContainerAccessPermissions(options && options.accessPolicy)
+        });
+      return true;
+    }
+    catch (error) {
+      return await resolveIfErrorMessageContains(error, "ContainerAlreadyExists", false);
+    }
   }
 
-  public deleteContainer(containerName: string): Promise<boolean> {
-    return this.getAzureContainerURL(containerName)
-      .delete(Aborter.none)
-      .then(() => true)
-      .catch((error: Error) => resolveIfErrorStatusCodeEquals(error, 404, false));
+  public async deleteContainer(containerName: string): Promise<boolean> {
+    try {
+      await this.getAzureContainerURL(containerName)
+        .delete({ abortSignal: AbortSignal.none });
+      return true;
+    }
+    catch (error) {
+      return await resolveIfErrorStatusCodeEquals(error, 404, false);
+    }
   }
 
   public async listContainers(): Promise<BlobStorageContainer[]> {
     const result: BlobStorageContainer[] = [];
 
-    let listContainersResponse: Models.ListContainersSegmentResponse = await this.serviceUrl.listContainersSegment(Aborter.none);
-    result.push(...map(listContainersResponse.containerItems, (containerItem: Models.ContainerItem) => new BlobStorageContainer(this, containerItem.name)));
-
-    while (listContainersResponse.nextMarker) {
-      listContainersResponse = await this.serviceUrl.listContainersSegment(Aborter.none, listContainersResponse.nextMarker);
-      result.push(...map(listContainersResponse.containerItems, (containerItem: Models.ContainerItem) => new BlobStorageContainer(this, containerItem.name)));
+    for await (const iter of this.serviceClient.listContainers({ abortSignal: AbortSignal.none })) {
+      result.push(new BlobStorageContainer(this, iter.name));
     }
 
     return result;

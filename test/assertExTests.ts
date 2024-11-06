@@ -63,9 +63,9 @@ describe("assertEx.ts", function () {
     it("with different errors", function () {
       assertEx.throws(() => assertEx.equalErrors(new Error("a"), new Error("b")), (error: AssertionError) => {
         assert(error.actual);
-        assert.strictEqual(error.actual.message, "a");
+        assert.strictEqual((error.actual as any).message, "a");
         assert(error.expected);
-        assert.strictEqual(error.expected.message, "b");
+        assert.strictEqual((error.expected as any).message, "b");
       });
     });
 
@@ -101,9 +101,9 @@ describe("assertEx.ts", function () {
     it("with different error message", function () {
       const error: AssertionError = assertEx.throws(() => assertEx.throws(() => { throw new Error("abc"); }, new Error("hello")));
       assert(error.actual);
-      assert.strictEqual(error.actual.message, "abc");
+      assert.strictEqual((error.actual as any).message, "abc");
       assert(error.expected);
-      assert.strictEqual(error.expected.message, "hello");
+      assert.strictEqual((error.expected as any).message, "hello");
     });
 
     it("with equal error", function () {

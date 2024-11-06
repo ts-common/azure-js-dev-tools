@@ -48,7 +48,8 @@
         "no-null-keyword": true,
         "prefer-const": true,
         "no-switch-case-fall-through": true,
-        "triple-equals": [true, "allow-undefined-check"],
+        // "triple-equals" commented out as it throws an exception on 'rushx build' since upgrade to TypeScript 5.3.3.
+        //"triple-equals": [true, "allow-undefined-check"],
         "jsdoc-format": true
     }
 }

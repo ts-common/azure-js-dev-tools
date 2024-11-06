@@ -3,13 +3,14 @@
     "module": "commonjs",
     "sourceMap": true,
     "newLine": "LF",
-    "target": "es5",
+    "target": "es6",
     "moduleResolution": "node",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "outDir": "dist",
     "strict": true,
+    "useUnknownInCatchVariables": false,
     "declaration": true,
     "declarationMap": true,
     "importHelpers": true,
@@ -25,7 +26,8 @@
       "esnext",
       "esnext.asynciterable",
       "es2015.iterable"
-    ]
+    ],
+    "skipLibCheck": false
   },
   "compileOnSave": true,
   "exclude": [

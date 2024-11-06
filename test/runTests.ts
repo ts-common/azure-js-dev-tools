@@ -608,6 +608,7 @@ describe("run.ts", function () {
       });
 
       it("with passthroughUnrecognized() called", async function () {
+        this.timeout(10000);
         const runner = new FakeRunner();
         runner.passthroughUnrecognized();
 

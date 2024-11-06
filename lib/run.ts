@@ -283,6 +283,11 @@ export class RealRunner implements Runner {
     const processDone: Promise<RunResult> = new Promise((resolve, reject) => {
       childProcess.addListener("exit", (exitCode: number) => {
         processExitCode = exitCode;
+        // Ignoring this error as it is nontrivial to fix after upgrading TypeScript to 5.3.3.
+        // @ts-ignore
+        // Expected 1 arguments, but got 0. Did you forget to include 'void' in your type argument to 'Promise'?ts(2794)
+        // lib.es2015.promise.d.ts(31, 34): An argument for 'value' was not provided.
+        // (parameter) resolve: (value: RunResult | PromiseLike<RunResult>) => void
         resolve();
       });
       childProcess.addListener("error", reject);

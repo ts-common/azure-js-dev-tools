@@ -1,4 +1,4 @@
-import { Credential, SharedKeyCredential } from "@azure/storage-blob";
+import { Credential, StorageSharedKeyCredential } from "@azure/storage-blob";
 import { assert } from "chai";
 import { assertEx } from "../lib/assertEx";
 import { AzureBlobStorage, BlobPath, BlobStorage, BlobStorageAppendBlob, BlobStorageBlob, BlobStorageBlockBlob, BlobStorageContainer, BlobStoragePrefix, CreateBlobResult, ETagResult, getFileLengthInBytes, InMemoryBlobStorage, BlobContentsResult } from "../lib/blobStorage";
@@ -387,7 +387,7 @@ describe("blobStorage.ts", function () {
         });
 
         it("with endTime and SharedKeyCredential", function () {
-          const blobStorage: BlobStorage = createBlobStorage(new SharedKeyCredential("fake-account-name", "fake-account-key"));
+          const blobStorage: BlobStorage = createBlobStorage(new StorageSharedKeyCredential("fake-account-name", "fake-account-key"));
           const blobStorageUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL());
           const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
           const containerSasUrl: string = container.getURL({
@@ -409,7 +409,7 @@ describe("blobStorage.ts", function () {
         });
 
         it("with startTime, endTime, and SharedKeyCredential", function () {
-          const blobStorage: BlobStorage = createBlobStorage(new SharedKeyCredential("fake-account-name", "fake-account-key"));
+          const blobStorage: BlobStorage = createBlobStorage(new StorageSharedKeyCredential("fake-account-name", "fake-account-key"));
           const blobStorageUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL());
           const container: BlobStorageContainer = getContainer(getContainerName(), blobStorage);
           const containerSasUrl: string = container.getURL({
@@ -1185,7 +1185,7 @@ describe("blobStorage.ts", function () {
         });
 
         it("with regular path and { sasToken: { endTime } } } options with SharedKeyCredential", function () {
-          const blobStorage: BlobStorage = createBlobStorage(new SharedKeyCredential("fake-account-name", "fake-account-key"));
+          const blobStorage: BlobStorage = createBlobStorage(new StorageSharedKeyCredential("fake-account-name", "fake-account-key"));
           const blob: BlobStorageBlob = getBlob(getBlobPath(), blobStorage);
           const blobStorageUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL());
           const blobSasUrl: URLBuilder = URLBuilder.parse(blob.getURL({
@@ -1206,7 +1206,7 @@ describe("blobStorage.ts", function () {
         });
 
         it("with regular path and { sasToken: { startTime, endTime } } } options with SharedKeyCredential", function () {
-          const blobStorage: BlobStorage = createBlobStorage(new SharedKeyCredential("fake-account-name", "fake-account-key"));
+          const blobStorage: BlobStorage = createBlobStorage(new StorageSharedKeyCredential("fake-account-name", "fake-account-key"));
           const blob: BlobStorageBlob = getBlob(getBlobPath(), blobStorage);
           const blobStorageUrl: URLBuilder = URLBuilder.parse(blobStorage.getURL());
           const blobSasUrl: URLBuilder = URLBuilder.parse(blob.getURL({

@@ -1,66 +1,68 @@
 trigger:
-- master
+  - master
 
 jobs:
-- job: Test
-  pool:
-    vmImage: 'Ubuntu 18.04'
-  strategy:
-    matrix:
-      Node12:
-        node.version: 12.x
-      Node13:
-        node.version: 13.x
-  steps:
-  - task: NodeTool@0
-    displayName: 'Install Node'
-    inputs:
-      versionSpec: $(node.version)
-  - task: Npm@1
-    displayName: 'npm install'
-    inputs:
-      command: custom
-      verbose: false
-      customCommand: install
-  - task: Npm@1
-    displayName: 'npm run build'
-    inputs:
-      command: custom
-      verbose: false
-      customCommand: run build
-  - task: Npm@1
-    displayName: 'npm test'
-    inputs:
-      command: custom
-      verbose: false
-      customCommand: test
-- job: Pack
-  pool:
-    vmImage: 'Ubuntu 18.04'
-  steps:
-  - task: Npm@1
-    displayName: 'npm install'
-    inputs:
-      command: custom
-      verbose: false
-      customCommand: install
-  - task: Npm@1
-    displayName: 'npm pack'
-    inputs:
-      command: custom
-      verbose: false
-      customCommand: pack
-  - task: Npm@1
-    displayName: 'npm run check:everything -- --azure-devops'
-    inputs:
-      command: custom
-      verbose: false
-      customCommand: run check:everything -- --azure-devops
-  - task: CopyFiles@2
-    displayName: 'Copy Files to: drop'
-    inputs:
-      Contents: '*.tgz'
-      TargetFolder: drop
-  - task: PublishBuildArtifacts@1
-    inputs:
-      pathtoPublish: $(Build.SourcesDirectory)/drop
+  - job: Test
+    pool:
+      name: AzurePipelines-EO
+      demands:
+      - ImageOverride -equals AzurePipelinesUbuntu20.04compliant
+    strategy:
+      matrix:
+        Node18:
+          node.version: 18.x
+    steps:
+      - task: NodeTool@0
+        displayName: "Install Node"
+        inputs:
+          versionSpec: $(node.version)
+      - task: Npm@1
+        displayName: "npm install"
+        inputs:
+          command: custom
+          verbose: false
+          customCommand: install
+      - task: Npm@1
+        displayName: "npm run build"
+        inputs:
+          command: custom
+          verbose: false
+          customCommand: run build
+      - task: Npm@1
+        displayName: "npm test"
+        inputs:
+          command: custom
+          verbose: false
+          customCommand: test
+  - job: Pack
+    pool:
+      name: AzurePipelines-EO
+      demands:
+      - ImageOverride -equals AzurePipelinesUbuntu20.04compliant
+    steps:
+      - task: Npm@1
+        displayName: "npm install"
+        inputs:
+          command: custom
+          verbose: false
+          customCommand: install
+      - task: Npm@1
+        displayName: "npm pack"
+        inputs:
+          command: custom
+          verbose: false
+          customCommand: pack
+      - task: Npm@1
+        displayName: "npm run check:everything -- --azure-devops"
+        inputs:
+          command: custom
+          verbose: false
+          customCommand: run check:everything -- --azure-devops
+      - task: CopyFiles@2
+        displayName: "Copy Files to: drop"
+        inputs:
+          Contents: "*.tgz"
+          TargetFolder: drop
+      - task: PublishBuildArtifacts@1
+        inputs:
+          pathtoPublish: $(Build.SourcesDirectory)/drop
